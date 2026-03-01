@@ -1,0 +1,50 @@
+import { Hono } from 'hono'
+import { ok, err, getPagination, paginate } from '../lib/response'
+import type { Bindings, Variables, Project } from '../types'
+
+export const projectRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
+
+// GET /api/projects — public, paginated
+// FIX: Single JOIN + GROUP BY instead of N+1 subqueries (one per project row)
+projectRoutes.get('/', async (c) => {
+  const { page, limit, offset } = getPagination(c.req.query())
+
+  const [rows, countRow] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT p.*,
+        COALESCE(SUM(us.quantity), 0) as sold_shares
+       FROM projects p
+       LEFT JOIN user_shares us ON us.project_id = p.id
+       WHERE p.status = 'active'
+       GROUP BY p.id
+       ORDER BY p.created_at DESC
+       LIMIT ? OFFSET ?`
+    ).bind(limit, offset).all<Project & { sold_shares: number }>(),
+    c.env.DB.prepare(
+      `SELECT COUNT(*) as total FROM projects WHERE status = 'active'`
+    ).first<{ total: number }>()
+  ])
+
+  return ok(c, paginate(rows.results, countRow?.total ?? 0, page, limit))
+})
+
+// GET /api/projects/:id — public
+projectRoutes.get('/:id', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর প্রজেক্ট আইডি')
+
+  const [project, soldRow] = await Promise.all([
+    c.env.DB.prepare('SELECT * FROM projects WHERE id = ?').bind(id).first<Project>(),
+    c.env.DB.prepare(
+      'SELECT COALESCE(SUM(quantity), 0) as sold FROM user_shares WHERE project_id = ?'
+    ).bind(id).first<{ sold: number }>()
+  ])
+
+  if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
+
+  return ok(c, {
+    ...project,
+    sold_shares: soldRow?.sold ?? 0,
+    available_shares: project.total_shares - (soldRow?.sold ?? 0)
+  })
+})

@@ -1,0 +1,56 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Manual trigger from GitHub UI
+
+jobs:
+  test-and-deploy:
+    name: Test → Build → Deploy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: buildbarguna-cloudflare
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Setup Node.js ─────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            buildbarguna-cloudflare/package-lock.json
+            buildbarguna-cloudflare/frontend/package-lock.json
+
+      # ── 3. Install backend dependencies ──────────────────────────────────
+      - name: Install backend dependencies
+        run: npm ci
+
+      # ── 4. Install frontend dependencies ─────────────────────────────────
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: buildbarguna-cloudflare/frontend
+
+      # ── 5. Run unit tests ─────────────────────────────────────────────────
+      - name: Run unit tests
+        run: npm run test:unit
+
+      # ── 6. Build frontend (React → dist/) ────────────────────────────────
+      - name: Build frontend
+        run: npm run build
+        # This runs: cd frontend && npm run build
+        # Output goes to frontend/dist/, wrangler.toml points to dist/
+
+      # ── 7. Deploy to Cloudflare Workers ──────────────────────────────────
+      - name: Deploy to Cloudflare Workers
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

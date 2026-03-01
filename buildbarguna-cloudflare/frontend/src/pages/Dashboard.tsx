@@ -1,0 +1,237 @@
+import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { authApi, earningsApi, sharesApi, withdrawalsApi, referralsApi } from '../lib/api'
+import { formatTaka, getUser } from '../lib/auth'
+import { TrendingUp, PieChart, Briefcase, CheckSquare, Copy, BarChart2, ArrowRight, ArrowDownCircle, Gift, Users } from 'lucide-react'
+import { useState } from 'react'
+import Onboarding, { useOnboarding } from '../components/Onboarding'
+
+export default function Dashboard() {
+  const user = getUser()
+  const [copied, setCopied] = useState(false)
+  const { show: showOnboarding, dismiss: dismissOnboarding } = useOnboarding()
+
+  const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => authApi.me() })
+  const { data: summary } = useQuery({ queryKey: ['earnings-summary'], queryFn: () => earningsApi.summary() })
+  const { data: shares } = useQuery({ queryKey: ['my-shares'], queryFn: () => sharesApi.my() })
+  const { data: portfolio } = useQuery({ queryKey: ['portfolio'], queryFn: () => earningsApi.portfolio(), staleTime: 60_000 })
+  const { data: withdrawalBalance } = useQuery({ queryKey: ['withdrawal-balance'], queryFn: () => withdrawalsApi.balance(), staleTime: 60_000 })
+  const { data: referralStats } = useQuery({ queryKey: ['referral-stats'], queryFn: () => referralsApi.stats(), staleTime: 60_000 })
+
+  const balance = me?.success ? me.data.balance_paisa : 0
+  const thisMonth = summary?.success ? summary.data.this_month_paisa : 0
+  const totalShares = shares?.success ? shares.data.items.reduce((s, i) => s + i.quantity, 0) : 0
+  const port = portfolio?.success ? portfolio.data : null
+  const wbal = withdrawalBalance?.success ? withdrawalBalance.data : null
+  const refStats = referralStats?.success ? referralStats.data : null
+
+  function copyReferral() {
+    navigator.clipboard.writeText(user?.referral_code ?? '')
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Onboarding modal for first-time users */}
+      {showOnboarding && <Onboarding onDismiss={dismissOnboarding} />}
+
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">স্বাগতম, {user?.name}! 👋</h1>
+          <p className="text-gray-500 text-sm mt-1">আপনার বিনিয়োগ পোর্টফোলিও</p>
+        </div>
+        {/* Re-open onboarding guide */}
+        <button
+          onClick={() => { localStorage.removeItem('bb_onboarding_done'); window.location.reload() }}
+          className="text-xs text-gray-400 hover:text-primary-600 transition-colors mt-1 flex items-center gap-1"
+          aria-label="গাইড আবার দেখুন"
+        >
+          ❓ গাইড
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="card">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="bg-green-100 p-2 rounded-lg"><TrendingUp size={20} className="text-green-600" /></div>
+            <span className="text-sm text-gray-500">মোট মুনাফা</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{formatTaka(balance)}</p>
+        </div>
+        <div className="card">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="bg-blue-100 p-2 rounded-lg"><TrendingUp size={20} className="text-blue-600" /></div>
+            <span className="text-sm text-gray-500">এই মাস</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{formatTaka(thisMonth)}</p>
+        </div>
+        <div className="card">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="bg-purple-100 p-2 rounded-lg"><PieChart size={20} className="text-purple-600" /></div>
+            <span className="text-sm text-gray-500">মোট শেয়ার</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{totalShares.toLocaleString('bn-BD')}</p>
+        </div>
+        <div className="card">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="bg-orange-100 p-2 rounded-lg"><Briefcase size={20} className="text-orange-600" /></div>
+            <span className="text-sm text-gray-500">প্রজেক্ট</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{shares?.success ? shares.data.items.length : 0}</p>
+        </div>
+      </div>
+
+      {/* Portfolio summary card */}
+      {port && port.projects_count > 0 && (
+        <div className="card bg-gradient-to-br from-indigo-50 to-blue-50 border-indigo-100">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-gray-900 flex items-center gap-2">
+              <BarChart2 size={18} className="text-indigo-500" /> পোর্টফোলিও সারসংক্ষেপ
+            </h2>
+            <Link to="/portfolio" className="text-xs text-indigo-600 font-medium flex items-center gap-1 hover:underline">
+              বিস্তারিত <ArrowRight size={12} />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-white rounded-xl p-3 border border-indigo-100 text-center">
+              <p className="text-xs text-gray-400 mb-1">মোট বিনিয়োগ</p>
+              <p className="font-bold text-indigo-700 text-sm">{formatTaka(port.total_invested_paisa)}</p>
+            </div>
+            <div className="bg-white rounded-xl p-3 border border-indigo-100 text-center">
+              <p className="text-xs text-gray-400 mb-1">মোট ROI</p>
+              <p className={`font-bold text-sm ${port.roi_percent > 0 ? 'text-green-600' : 'text-gray-500'}`}>
+                {port.roi_percent.toFixed(2)}%
+              </p>
+            </div>
+            <div className="bg-white rounded-xl p-3 border border-indigo-100 text-center">
+              <p className="text-xs text-gray-400 mb-1">বার্ষিক রিটার্ন</p>
+              <p className={`font-bold text-sm ${port.annualized_roi_percent > 0 ? 'text-green-600' : 'text-gray-500'}`}>
+                {port.annualized_roi_percent.toFixed(2)}%
+              </p>
+            </div>
+            <div className="bg-white rounded-xl p-3 border border-indigo-100 text-center">
+              <p className="text-xs text-gray-400 mb-1">প্রত্যাশিত এই মাস</p>
+              <p className="font-bold text-amber-600 text-sm">{formatTaka(port.expected_this_month_paisa)}</p>
+            </div>
+          </div>
+          {/* Mini distribution bar */}
+          {port.projects.length > 1 && (
+            <div className="mt-3">
+              <div className="flex rounded-full overflow-hidden h-2 gap-0.5">
+                {port.projects.map((item, i) => {
+                  const colors = ['bg-blue-500','bg-green-500','bg-purple-500','bg-amber-500','bg-rose-500','bg-teal-500']
+                  return (
+                    <div key={item.project_id} className={`${colors[i % colors.length]}`}
+                      style={{ width: `${item.weight_percent}%` }}
+                      title={`${item.project_title}: ${item.weight_percent.toFixed(1)}%`}
+                    />
+                  )
+                })}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">{port.projects_count}টি প্রজেক্টে বিনিয়োগ বিতরণ</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Withdrawal summary card */}
+      {wbal && wbal.available_paisa > 0 && (
+        <div className="card bg-gradient-to-br from-purple-50 to-violet-50 border-purple-100">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-gray-900 flex items-center gap-2">
+              <ArrowDownCircle size={18} className="text-purple-500" /> উত্তোলনযোগ্য মুনাফা
+            </h2>
+            <Link to="/withdraw" className="text-xs text-purple-600 font-medium flex items-center gap-1 hover:underline">
+              উত্তোলন করুন <ArrowRight size={12} />
+            </Link>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-xl p-3 border border-purple-100 text-center">
+              <p className="text-xs text-gray-400 mb-1">মোট মুনাফা</p>
+              <p className="font-bold text-gray-700 text-sm">{formatTaka(wbal.total_earned_paisa)}</p>
+            </div>
+            <div className="bg-white rounded-xl p-3 border border-purple-100 text-center">
+              <p className="text-xs text-gray-400 mb-1">উত্তোলিত</p>
+              <p className="font-bold text-gray-500 text-sm">{formatTaka(wbal.total_withdrawn_paisa)}</p>
+            </div>
+            <div className="bg-white rounded-xl p-3 border border-purple-100 text-center">
+              <p className="text-xs text-gray-400 mb-1">উপলব্ধ</p>
+              <p className="font-bold text-purple-700 text-sm">{formatTaka(wbal.available_paisa)}</p>
+            </div>
+          </div>
+          {wbal.pending_paisa > 0 && (
+            <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+              <ArrowDownCircle size={12} /> {formatTaka(wbal.pending_paisa)} অপেক্ষমাণ অনুরোধে রিজার্ভ আছে
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Quick actions */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        <Link to="/projects" className="card hover:shadow-md transition-shadow flex items-center gap-3 cursor-pointer">
+          <div className="bg-primary-100 p-2.5 rounded-xl"><Briefcase size={20} className="text-primary-600" /></div>
+          <div><p className="font-semibold text-sm">প্রজেক্ট</p><p className="text-xs text-gray-500">শেয়ার কিনুন</p></div>
+        </Link>
+        <Link to="/tasks" className="card hover:shadow-md transition-shadow flex items-center gap-3 cursor-pointer">
+          <div className="bg-green-100 p-2.5 rounded-xl"><CheckSquare size={20} className="text-green-600" /></div>
+          <div><p className="font-semibold text-sm">ডেইলি টাস্ক</p><p className="text-xs text-gray-500">আজকের কাজ</p></div>
+        </Link>
+        <Link to="/earnings" className="card hover:shadow-md transition-shadow flex items-center gap-3 cursor-pointer">
+          <div className="bg-yellow-100 p-2.5 rounded-xl"><TrendingUp size={20} className="text-yellow-600" /></div>
+          <div><p className="font-semibold text-sm">মুনাফা</p><p className="text-xs text-gray-500">ইতিহাস দেখুন</p></div>
+        </Link>
+        <Link to="/portfolio" className="card hover:shadow-md transition-shadow flex items-center gap-3 cursor-pointer">
+          <div className="bg-indigo-100 p-2.5 rounded-xl"><BarChart2 size={20} className="text-indigo-600" /></div>
+          <div><p className="font-semibold text-sm">পোর্টফোলিও</p><p className="text-xs text-gray-500">ROI দেখুন</p></div>
+        </Link>
+        <Link to="/withdraw" className="card hover:shadow-md transition-shadow flex items-center gap-3 cursor-pointer">
+          <div className="bg-purple-100 p-2.5 rounded-xl"><ArrowDownCircle size={20} className="text-purple-600" /></div>
+          <div><p className="font-semibold text-sm">উত্তোলন</p><p className="text-xs text-gray-500">মুনাফা নিন</p></div>
+        </Link>
+      </div>
+
+      {/* Referral Stats Card */}
+      <div className="card bg-gradient-to-r from-primary-50 to-blue-50 border-primary-100">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+            <Gift size={18} className="text-primary-600" /> রেফারেল প্রোগ্রাম
+          </h3>
+          <Link to="/referrals" className="text-xs text-primary-600 font-medium flex items-center gap-1 hover:underline">
+            বিস্তারিত <ArrowRight size={12} />
+          </Link>
+        </div>
+
+        {/* Code + copy */}
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-2xl font-mono font-bold text-primary-700 tracking-widest">{user?.referral_code}</span>
+          <button onClick={copyReferral} className="flex items-center gap-1 text-sm btn-secondary py-1.5 px-3">
+            <Copy size={14} />
+            {copied ? 'কপি হয়েছে!' : 'কপি করুন'}
+          </button>
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white rounded-xl p-3 border border-primary-100 text-center">
+            <p className="text-xs text-gray-400 mb-1 flex items-center justify-center gap-1"><Users size={10} /> রেফার করেছেন</p>
+            <p className="font-bold text-primary-700">{refStats?.total_referred ?? 0}</p>
+          </div>
+          <div className="bg-white rounded-xl p-3 border border-primary-100 text-center">
+            <p className="text-xs text-gray-400 mb-1">বোনাস পেয়েছেন</p>
+            <p className="font-bold text-green-600">{refStats?.bonuses_earned ?? 0}x</p>
+          </div>
+          <div className="bg-white rounded-xl p-3 border border-primary-100 text-center">
+            <p className="text-xs text-gray-400 mb-1">মোট বোনাস</p>
+            <p className="font-bold text-amber-600">{formatTaka(refStats?.total_bonus_paisa ?? 0)}</p>
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 mt-3 flex items-center gap-1">
+          <Gift size={11} /> বন্ধু প্রথম বিনিয়োগ করলে আপনি বোনাস পাবেন
+        </p>
+      </div>
+    </div>
+  )
+}

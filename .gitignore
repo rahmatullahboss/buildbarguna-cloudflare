@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+buildbarguna-cloudflare/node_modules/
+buildbarguna-cloudflare/frontend/node_modules/
+
+# Build output
+buildbarguna-cloudflare/dist/
+buildbarguna-cloudflare/frontend/dist/
+
+# Wrangler
+buildbarguna-cloudflare/.wrangler/
+
+# Environment variables (secrets)
+buildbarguna-cloudflare/.dev.vars
+
+# Playwright reports & test results
+buildbarguna-cloudflare/frontend/playwright-report/
+buildbarguna-cloudflare/frontend/playwright-report-prod/
+buildbarguna-cloudflare/frontend/test-results/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
