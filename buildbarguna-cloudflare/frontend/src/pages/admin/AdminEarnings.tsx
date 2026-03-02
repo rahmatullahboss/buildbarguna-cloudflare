@@ -59,9 +59,15 @@ export default function AdminEarnings() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">মুনাফা বিতরণ</h1>
-        <p className="text-gray-500 text-sm mt-1">প্রজেক্টের মুনাফার হার নির্ধারণ ও বিতরণ করুন</p>
+      <div className="bg-gradient-to-r from-green-700 via-emerald-600 to-teal-600 rounded-3xl p-5 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="bg-white/15 p-2.5 rounded-2xl text-2xl">💰</div>
+          <div>
+            <h1 className="text-2xl font-bold">মুনাফা বিতরণ</h1>
+            <p className="text-green-100 text-sm mt-0.5">প্রজেক্টের মুনাফার হার নির্ধারণ ও বিতরণ করুন</p>
+          </div>
+        </div>
       </div>
 
       {msg && (

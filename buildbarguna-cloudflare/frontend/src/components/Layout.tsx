@@ -55,12 +55,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Top bar — fixed height, never scrolls */}
-      <header className="bg-primary-700 text-white z-50 shadow-md flex-shrink-0">
+      <header className="bg-gradient-to-r from-primary-800 via-primary-700 to-teal-700 text-white z-50 shadow-lg flex-shrink-0">
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
-          <Link to="/dashboard" className="font-bold text-lg tracking-tight">🏗️ বিল্ড বরগুনা</Link>
+          <Link to="/dashboard" className="font-bold text-lg tracking-tight flex items-center gap-2">
+            <span className="bg-white/20 rounded-lg p-1 text-base">🏗️</span>
+            <span>বিল্ড বরগুনা</span>
+          </Link>
           <div className="flex items-center gap-3">
-            <span className="hidden sm:block text-sm opacity-80">{user?.name}</span>
-            <button onClick={() => setMenuOpen(!menuOpen)} className="p-1 rounded hover:bg-primary-600">
+            <span className="hidden sm:block text-sm opacity-90 bg-white/10 px-3 py-1 rounded-full">{user?.name}</span>
+            <button onClick={() => setMenuOpen(!menuOpen)} className="p-1.5 rounded-xl hover:bg-white/20 transition-colors">
               {menuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>
@@ -143,15 +146,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Main content — scrolls independently, pb-20 on mobile for bottom nav */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 lg:pb-6">
-          <div className="max-w-5xl mx-auto w-full">
+          <div key={location.pathname} className="max-w-5xl mx-auto w-full page-enter">
             {children}
           </div>
         </main>
       </div>
 
       {/* Mobile bottom navigation — hidden on lg+ */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-lg">
-        <div className="flex items-center justify-around h-16">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-2xl">
+        <div className="flex items-center justify-around h-16 px-2">
           {bottomNav.map(({ to, label, icon: Icon }) => {
             const active = location.pathname === to
             return (
@@ -159,12 +162,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 key={to}
                 to={to}
                 aria-label={label}
-                className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors min-w-0 flex-1
-                  ${active ? 'text-primary-600' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-2xl transition-all duration-200 min-w-0 flex-1 mx-0.5
+                  ${active
+                    ? 'text-primary-700 bg-primary-50'
+                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
               >
-                <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-                <span className="text-[10px] font-medium truncate">{label}</span>
-                {active && <span className="w-1 h-1 rounded-full bg-primary-500 mt-0.5" />}
+                <Icon size={21} strokeWidth={active ? 2.5 : 1.8} />
+                <span className={`text-[10px] font-semibold truncate ${active ? 'text-primary-700' : 'text-gray-400'}`}>{label}</span>
+                {active && <span className="w-4 h-0.5 rounded-full bg-primary-500" />}
               </Link>
             )
           })}

@@ -46,23 +46,34 @@ export default function Earnings() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">মুনাফা ইতিহাস</h1>
-        <p className="text-gray-500 text-sm mt-1">আপনার মাসিক মুনাফার বিবরণ</p>
+      {/* Hero banner */}
+      <div className="bg-gradient-to-r from-green-700 via-emerald-600 to-teal-600 rounded-3xl p-5 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-36 h-36 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-10 w-20 h-20 bg-white/10 rounded-full translate-y-1/2" />
+        <div className="relative z-10">
+          <h1 className="text-2xl font-bold">📈 মুনাফা ইতিহাস</h1>
+          <p className="text-green-100 text-sm mt-1">আপনার মাসিক মুনাফার বিবরণ</p>
+        </div>
       </div>
 
       <Disclaimer variant="halal" compact />
       <Disclaimer variant="investment-risk" compact />
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="card bg-gradient-to-br from-green-50 to-emerald-50 border-green-100">
-          <p className="text-sm text-gray-500 mb-1">মোট মুনাফা</p>
-          <p className="text-3xl font-bold text-green-700">{formatTaka(total)}</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-4 text-white shadow-md">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="bg-white/20 p-1.5 rounded-xl"><TrendingUp size={16} className="text-white" /></div>
+            <p className="text-green-100 text-xs">মোট মুনাফা</p>
+          </div>
+          <p className="text-2xl font-bold">{formatTaka(total)}</p>
         </div>
-        <div className="card bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
-          <p className="text-sm text-gray-500 mb-1">এই মাস</p>
-          <p className="text-3xl font-bold text-blue-700">{formatTaka(thisMonth)}</p>
+        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-4 text-white shadow-md">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="bg-white/20 p-1.5 rounded-xl"><TrendingUp size={16} className="text-white" /></div>
+            <p className="text-blue-100 text-xs">এই মাস</p>
+          </div>
+          <p className="text-2xl font-bold">{formatTaka(thisMonth)}</p>
         </div>
       </div>
 

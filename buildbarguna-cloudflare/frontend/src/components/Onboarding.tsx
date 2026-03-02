@@ -80,41 +80,43 @@ export default function Onboarding({ onDismiss }: OnboardingProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        {/* Progress bar */}
-        <div className="h-1 bg-gray-100">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+        {/* Gradient progress bar */}
+        <div className="h-1.5 bg-gray-100">
           <div
-            className="h-full bg-primary-500 transition-all duration-400"
+            className="h-full bg-gradient-to-r from-primary-500 to-teal-500 transition-all duration-500"
             style={{ width: `${((step + 1) / steps.length) * 100}%` }}
           />
         </div>
 
         {/* Content */}
         <div className="p-6 space-y-4">
-          {/* Close */}
+          {/* Close + step counter */}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-400">{step + 1} / {steps.length}</span>
+            <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">{step + 1} / {steps.length}</span>
             <button
               onClick={finish}
               aria-label="গাইড বন্ধ করুন"
-              className="text-gray-300 hover:text-gray-500 transition-colors"
+              className="text-gray-300 hover:text-gray-500 transition-colors p-1 hover:bg-gray-100 rounded-xl"
             >
               <X size={20} />
             </button>
           </div>
 
-          {/* Icon */}
+          {/* Icon with gradient bg */}
           <div className="flex justify-center py-2">
-            {current.icon}
+            <div className="w-20 h-20 bg-gradient-to-br from-primary-50 to-teal-50 border-2 border-primary-100 rounded-3xl flex items-center justify-center shadow-sm">
+              {current.icon}
+            </div>
           </div>
 
           {/* Text */}
           <div className="text-center space-y-2">
             <h2 className="text-xl font-bold text-gray-900">{current.title}</h2>
-            <p className="text-gray-600 text-sm leading-relaxed">{current.body}</p>
+            <p className="text-gray-500 text-sm leading-relaxed">{current.body}</p>
             {current.highlight && (
-              <div className="bg-primary-50 border border-primary-100 rounded-xl px-4 py-2.5 text-xs text-primary-700 font-medium">
+              <div className="bg-gradient-to-r from-primary-50 to-teal-50 border border-primary-100 rounded-2xl px-4 py-3 text-xs text-primary-800 font-semibold">
                 {current.highlight}
               </div>
             )}
@@ -125,7 +127,7 @@ export default function Onboarding({ onDismiss }: OnboardingProps) {
             {step > 0 && (
               <button
                 onClick={() => setStep(s => s - 1)}
-                className="btn-secondary flex items-center gap-1"
+                className="btn-secondary flex items-center gap-1 px-3"
                 aria-label="আগের ধাপ"
               >
                 <ChevronLeft size={16} /> আগে
@@ -136,14 +138,14 @@ export default function Onboarding({ onDismiss }: OnboardingProps) {
               <div className="flex-1 flex gap-2">
                 <button
                   onClick={() => isLast ? finish() : setStep(s => s + 1)}
-                  className="btn-secondary flex-1 flex items-center justify-center gap-1"
+                  className="btn-secondary flex-1 flex items-center justify-center gap-1 text-sm"
                 >
                   {isLast ? 'শেষ করুন' : 'পরে দেখব'} {!isLast && <ChevronRight size={16} />}
                 </button>
                 <Link
                   to={current.action.to}
                   onClick={finish}
-                  className="btn-primary flex-1 flex items-center justify-center gap-1 text-center"
+                  className="btn-primary flex-1 flex items-center justify-center gap-1 text-center text-sm"
                 >
                   {current.action.label} <ChevronRight size={16} />
                 </Link>
@@ -151,10 +153,10 @@ export default function Onboarding({ onDismiss }: OnboardingProps) {
             ) : (
               <button
                 onClick={() => isLast ? finish() : setStep(s => s + 1)}
-                className="btn-primary flex-1 flex items-center justify-center gap-1"
+                className="btn-primary flex-1 flex items-center justify-center gap-2 py-3"
                 aria-label={isLast ? 'শুরু করুন' : 'পরের ধাপ'}
               >
-                {isLast ? '🚀 শুরু করুন!' : 'পরের ধাপ'} {!isLast && <ChevronRight size={16} />}
+                {isLast ? '🚀 শুরু করুন!' : 'পরের ধাপ'} {!isLast && <ChevronRight size={18} />}
               </button>
             )}
           </div>
@@ -166,8 +168,8 @@ export default function Onboarding({ onDismiss }: OnboardingProps) {
                 key={i}
                 onClick={() => setStep(i)}
                 aria-label={`ধাপ ${i + 1}`}
-                className={`w-2 h-2 rounded-full transition-all ${
-                  i === step ? 'bg-primary-500 w-5' : 'bg-gray-200 hover:bg-gray-300'
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  i === step ? 'bg-primary-500 w-6' : 'w-2 bg-gray-200 hover:bg-gray-300'
                 }`}
               />
             ))}

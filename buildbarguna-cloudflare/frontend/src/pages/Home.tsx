@@ -68,36 +68,40 @@ export default function Home() {
       </nav>
 
       {/* Hero */}
-      <section className="bg-gradient-to-br from-primary-900 via-primary-700 to-primary-600 text-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-28 text-center">
-          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 text-sm mb-8">
+      <section className="bg-gradient-to-br from-primary-900 via-primary-700 to-primary-600 text-white relative overflow-hidden">
+        {/* Animated bg circles */}
+        <div className="absolute top-10 left-10 w-64 h-64 bg-white/5 rounded-full float-slow" />
+        <div className="absolute bottom-20 right-10 w-48 h-48 bg-white/5 rounded-full" style={{animation: 'floatSlow 8s ease-in-out infinite reverse'}} />
+
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-28 text-center relative z-10">
+          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 text-sm mb-8 slide-up">
             <Star size={14} className="text-yellow-400" />
             <span>বরগুনার সেরা গ্রুপ ইনভেস্টমেন্ট প্ল্যাটফর্ম</span>
           </div>
 
-          <h1 className="text-4xl sm:text-6xl font-bold leading-tight mb-6">
+          <h1 className="text-4xl sm:text-6xl font-bold leading-tight mb-6 slide-up stagger-1">
             একসাথে বিনিয়োগ করুন,
             <br />
             <span className="text-yellow-400">একসাথে লাভ করুন</span>
           </h1>
 
-          <p className="text-lg sm:text-xl text-white/80 max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-lg sm:text-xl text-white/80 max-w-2xl mx-auto mb-10 leading-relaxed slide-up stagger-2">
             বিল্ড বরগুনা হলো একটি গ্রুপ ইনভেস্টমেন্ট প্ল্যাটফর্ম যেখানে আপনি ছোট বিনিয়োগে বড় ব্যবসার শেয়ারহোল্ডার হতে পারেন এবং মাসিক মুনাফা উপভোগ করতে পারেন।
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center slide-up stagger-3">
             <Link to="/register"
-              className="inline-flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold py-3.5 px-8 rounded-xl transition-all duration-200 text-lg shadow-lg hover:shadow-xl">
+              className="inline-flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-gray-900 font-bold py-3.5 px-8 rounded-2xl transition-all duration-200 text-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5">
               এখনই শুরু করুন <ArrowRight size={20} />
             </Link>
             <Link to="/login"
-              className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-semibold py-3.5 px-8 rounded-xl transition-all duration-200 text-lg backdrop-blur-sm">
+              className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 active:scale-95 border border-white/30 text-white font-semibold py-3.5 px-8 rounded-2xl transition-all duration-200 text-lg backdrop-blur-sm">
               লগইন করুন
             </Link>
           </div>
 
           {/* Stats row */}
-          <div className="grid grid-cols-3 gap-6 mt-16 max-w-lg mx-auto">
+          <div className="grid grid-cols-3 gap-6 mt-16 max-w-lg mx-auto slide-up stagger-4">
             {stats.map(s => (
               <div key={s.label} className="text-center">
                 <p className="text-2xl sm:text-3xl font-bold text-yellow-400">{s.value}</p>
@@ -109,21 +113,22 @@ export default function Home() {
         </div>
 
         {/* Wave */}
-        <div className="h-16 bg-white" style={{ clipPath: 'ellipse(55% 100% at 50% 100%)' }} />
+        <div className="h-16 bg-white relative z-10" style={{ clipPath: 'ellipse(55% 100% at 50% 100%)' }} />
       </section>
 
       {/* Features */}
       <section className="py-20 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-14">
+            <span className="bg-primary-100 text-primary-700 text-sm font-semibold px-4 py-1.5 rounded-full inline-block mb-4">কেন আমরা?</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">কেন বিল্ড বরগুনা?</h2>
             <p className="text-gray-500 max-w-xl mx-auto">আমাদের প্ল্যাটফর্মে বিনিয়োগ করা সহজ, নিরাপদ এবং লাভজনক।</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map(f => (
-              <div key={f.title} className="card hover:shadow-md transition-shadow text-center">
-                <div className={`${f.color} w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4`}>
-                  <f.icon size={26} />
+              <div key={f.title} className="card hover:shadow-lg hover:-translate-y-1 transition-all duration-200 text-center group">
+                <div className={`${f.color} w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-200`}>
+                  <f.icon size={28} />
                 </div>
                 <h3 className="font-bold text-gray-900 text-lg mb-2">{f.title}</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">{f.desc}</p>
@@ -133,10 +138,25 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Halal trust section */}
+      <section className="py-16 bg-gradient-to-br from-emerald-50 to-teal-50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+          <div className="text-5xl mb-4">☪️</div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">সম্পূর্ণ হালাল বিনিয়োগ</h2>
+          <p className="text-gray-600 mb-6 max-w-xl mx-auto">আমাদের বিনিয়োগ পদ্ধতি ইসলামিক মুশারাকা নীতি মেনে চলে। কোনো সুদ নেই, কোনো হারাম উপার্জন নেই।</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {['✅ সুদমুক্ত', '✅ মুশারাকা নীতি', '✅ লাভ-লোকসান ভাগাভাগি', '✅ সম্পূর্ণ স্বচ্ছ'].map(badge => (
+              <span key={badge} className="bg-white border border-emerald-200 text-emerald-800 text-sm font-semibold px-4 py-2 rounded-full shadow-sm">{badge}</span>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* How it works */}
       <section className="py-20 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-14">
+            <span className="bg-primary-100 text-primary-700 text-sm font-semibold px-4 py-1.5 rounded-full inline-block mb-4">সহজ প্রক্রিয়া</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">কীভাবে কাজ করে?</h2>
             <p className="text-gray-500">মাত্র ৪টি সহজ ধাপে বিনিয়োগ শুরু করুন</p>
           </div>
@@ -144,15 +164,14 @@ export default function Home() {
             {steps.map((s, i) => (
               <div key={s.num} className="relative">
                 {i < steps.length - 1 && (
-                  <div className="hidden lg:block absolute top-8 left-full w-full h-0.5 bg-primary-100 z-0" style={{ width: 'calc(100% - 4rem)', left: '4rem' }} />
+                  <div className="hidden lg:block absolute top-8 left-full w-full h-0.5 bg-gradient-to-r from-primary-200 to-primary-100 z-0" style={{ width: 'calc(100% - 4rem)', left: '4rem' }} />
                 )}
-                <div className="card text-center relative z-10">
-                  <div className="text-3xl font-bold text-primary-100 mb-3">{s.num}</div>
-                  <div className="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-white font-bold text-sm">{i + 1}</span>
+                <div className="card text-center relative z-10 hover:shadow-md hover:-translate-y-0.5 transition-all">
+                  <div className="w-14 h-14 bg-gradient-to-br from-primary-600 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
+                    <span className="text-white font-bold text-xl">{i + 1}</span>
                   </div>
                   <h3 className="font-bold text-gray-900 mb-2">{s.title}</h3>
-                  <p className="text-gray-500 text-sm">{s.desc}</p>
+                  <p className="text-gray-500 text-sm leading-relaxed">{s.desc}</p>
                 </div>
               </div>
             ))}
@@ -161,32 +180,45 @@ export default function Home() {
       </section>
 
       {/* CTA */}
-      <section className="py-20 bg-gradient-to-r from-primary-700 to-primary-600 text-white">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
+      <section className="py-20 bg-gradient-to-br from-primary-800 via-primary-700 to-teal-600 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center relative z-10">
+          <div className="text-5xl mb-6">🚀</div>
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">আজই শুরু করুন</h2>
           <p className="text-white/80 mb-8 text-lg">বরগুনার শত শত উদ্যোক্তার সাথে যোগ দিন এবং আপনার বিনিয়োগ শুরু করুন।</p>
-          <Link to="/register"
-            className="inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold py-4 px-10 rounded-xl text-lg transition-all duration-200 shadow-lg">
-            বিনামূল্যে অ্যাকাউন্ট খুলুন <ArrowRight size={20} />
-          </Link>
-          <p className="text-white/60 text-sm mt-4">রেজিস্ট্রেশন সম্পূর্ণ বিনামূল্যে • কোনো লুকানো চার্জ নেই</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link to="/register"
+              className="inline-flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold py-4 px-10 rounded-2xl text-lg transition-all duration-200 shadow-xl hover:shadow-yellow-400/20 hover:-translate-y-0.5">
+              বিনামূল্যে অ্যাকাউন্ট খুলুন <ArrowRight size={20} />
+            </Link>
+            <Link to="/login"
+              className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-semibold py-4 px-8 rounded-2xl text-lg transition-all duration-200">
+              লগইন করুন
+            </Link>
+          </div>
+          <p className="text-white/50 text-sm mt-5">রেজিস্ট্রেশন সম্পূর্ণ বিনামূল্যে • কোনো লুকানো চার্জ নেই</p>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-10">
+      <footer className="bg-gray-900 text-gray-400 py-12">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <span className="text-2xl">🏗️</span>
-            <span className="font-bold text-white text-lg">বিল্ড বরগুনা</span>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-teal-500 rounded-xl flex items-center justify-center">
+              <span className="text-xl">🏗️</span>
+            </div>
+            <span className="font-bold text-white text-xl">বিল্ড বরগুনা</span>
           </div>
-          <p className="text-sm mb-4">বরগুনার মানুষের জন্য, বরগুনার উন্নয়নে</p>
+          <p className="text-sm mb-6 text-gray-500">বরগুনার মানুষের জন্য, বরগুনার উন্নয়নে</p>
           <div className="flex justify-center gap-6 text-sm mb-6">
             <Link to="/login" className="hover:text-white transition-colors">লগইন</Link>
             <Link to="/register" className="hover:text-white transition-colors">রেজিস্ট্রেশন</Link>
             <Link to="/projects" className="hover:text-white transition-colors">প্রজেক্টসমূহ</Link>
           </div>
-          <p className="text-xs text-gray-600">© ২০২৬ বিল্ড বরগুনা। সর্বস্বত্ব সংরক্ষিত।</p>
+          <div className="border-t border-gray-800 pt-6">
+            <p className="text-xs text-gray-600">© ২০২৬ বিল্ড বরগুনা। সর্বস্বত্ব সংরক্ষিত। | সম্পূর্ণ হালাল বিনিয়োগ প্ল্যাটফর্ম</p>
+          </div>
         </div>
       </footer>
     </div>

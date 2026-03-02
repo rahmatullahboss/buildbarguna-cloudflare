@@ -30,18 +30,24 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-900 to-primary-700 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+    <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-teal-700 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Decorative background circles */}
+      <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative z-10">
         {/* Logo + title */}
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🏗️</div>
-          <h1 className="text-2xl font-bold text-gray-900">বিল্ড বরগুনা</h1>
-          <p className="text-gray-500 text-sm mt-1">হালাল গ্রুপ ইনভেস্টমেন্ট প্ল্যাটফর্ম</p>
+          <div className="w-20 h-20 bg-gradient-to-br from-primary-500 to-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <span className="text-4xl">🏗️</span>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900">বিল্ড বরগুনা</h1>
+          <p className="text-gray-500 text-sm mt-2">হালাল গ্রুপ ইনভেস্টমেন্ট প্ল্যাটফর্ম</p>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm flex items-start gap-2">
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3 mb-4 text-sm flex items-start gap-2">
             <span className="flex-shrink-0 mt-0.5">⚠️</span>
             {error}
           </div>
@@ -50,7 +56,7 @@ export default function Login() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Phone */}
           <div>
-            <label className="label" htmlFor="phone">মোবাইল নম্বর</label>
+            <label className="label" htmlFor="phone">📱 মোবাইল নম্বর</label>
             <input
               id="phone"
               className="input"
@@ -66,7 +72,7 @@ export default function Login() {
 
           {/* Password with show/hide */}
           <div>
-            <label className="label" htmlFor="password">পাসওয়ার্ড</label>
+            <label className="label" htmlFor="password">🔒 পাসওয়ার্ড</label>
             <div className="relative">
               <input
                 id="password"
@@ -91,7 +97,7 @@ export default function Login() {
 
           <button
             type="submit"
-            className="btn-primary w-full py-3 text-base"
+            className="btn-primary w-full py-3.5 text-base mt-2"
             disabled={loading}
             aria-label="লগইন করুন"
           >
@@ -100,18 +106,24 @@ export default function Login() {
                   <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                   লগইন হচ্ছে...
                 </span>
-              : 'লগইন করুন'}
+              : '🔐 লগইন করুন'}
           </button>
         </form>
 
-        {/* Trust badge */}
-        <div className="mt-5 bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center">
-          <p className="text-xs text-emerald-700">✅ সম্পূর্ণ হালাল বিনিয়োগ প্ল্যাটফর্ম — সুদমুক্ত, মুশারাকা নীতি</p>
+        {/* Trust badges */}
+        <div className="mt-5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-4">
+          <div className="flex items-center gap-2 justify-center">
+            <span className="text-lg">✅</span>
+            <div className="text-center">
+              <p className="text-xs font-semibold text-emerald-800">সম্পূর্ণ হালাল বিনিয়োগ</p>
+              <p className="text-xs text-emerald-600">সুদমুক্ত • মুশারাকা নীতি • শরিয়াহ সম্মত</p>
+            </div>
+          </div>
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-5">
           অ্যাকাউন্ট নেই?{' '}
-          <Link to="/register" className="text-primary-600 font-medium hover:underline">রেজিস্ট্রেশন করুন</Link>
+          <Link to="/register" className="text-primary-600 font-semibold hover:underline">রেজিস্ট্রেশন করুন →</Link>
         </p>
       </div>
     </div>

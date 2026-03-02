@@ -29,14 +29,19 @@ const AdminTasks      = lazy(() => import('./pages/admin/AdminTasks'))
 const AdminUsers      = lazy(() => import('./pages/admin/AdminUsers'))
 const AdminReferrals  = lazy(() => import('./pages/admin/AdminReferrals'))
 
-// Minimal full-page loading fallback
+// Minimal full-page loading fallback with shimmer cards
 function PageLoader() {
   return (
-    <div className="flex items-center justify-center h-full min-h-[60vh]">
-      <div className="flex flex-col items-center gap-3">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600" />
-        <p className="text-sm text-gray-400">লোড হচ্ছে...</p>
+    <div className="space-y-4 p-4 max-w-5xl mx-auto w-full">
+      {/* Hero shimmer */}
+      <div className="shimmer rounded-3xl h-28 w-full" />
+      {/* Stat cards shimmer */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[1,2,3,4].map(i => <div key={i} className="shimmer rounded-2xl h-24" />)}
       </div>
+      {/* Content shimmer */}
+      <div className="shimmer rounded-2xl h-16 w-full" />
+      <div className="shimmer rounded-2xl h-32 w-full" />
     </div>
   )
 }

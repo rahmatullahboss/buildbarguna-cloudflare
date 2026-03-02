@@ -39,11 +39,20 @@ export default function AdminTasks() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">টাস্ক ব্যবস্থাপনা</h1>
-        <button onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2">
-          <Plus size={16} /> নতুন টাস্ক
-        </button>
+      <div className="bg-gradient-to-r from-sky-700 via-blue-600 to-indigo-600 rounded-3xl p-5 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="relative z-10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/15 p-2.5 rounded-2xl text-2xl">✅</div>
+            <div>
+              <h1 className="text-2xl font-bold">টাস্ক ব্যবস্থাপনা</h1>
+              <p className="text-sky-100 text-sm mt-0.5">ডেইলি টাস্ক তৈরি ও পরিচালনা করুন</p>
+            </div>
+          </div>
+          <button onClick={() => setShowForm(!showForm)} className="bg-white text-blue-700 font-bold text-sm px-4 py-2 rounded-xl hover:bg-blue-50 transition-colors shadow-sm flex items-center gap-1.5">
+            <Plus size={15} /> নতুন টাস্ক
+          </button>
+        </div>
       </div>
 
       {msg && <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">{msg}</div>}

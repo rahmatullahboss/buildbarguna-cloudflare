@@ -136,9 +136,13 @@ export default function Withdraw() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">মুনাফা উত্তোলন</h1>
-        <p className="text-gray-500 text-sm mt-1">আপনার অর্জিত মুনাফা bKash এ উত্তোলন করুন</p>
+      {/* Hero banner */}
+      <div className="bg-gradient-to-r from-purple-700 via-violet-600 to-purple-600 rounded-3xl p-5 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-36 h-36 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="relative z-10">
+          <h1 className="text-2xl font-bold">💸 মুনাফা উত্তোলন</h1>
+          <p className="text-purple-100 text-sm mt-1">আপনার অর্জিত মুনাফা bKash এ উত্তোলন করুন</p>
+        </div>
       </div>
 
       <Disclaimer variant="withdrawal" compact />

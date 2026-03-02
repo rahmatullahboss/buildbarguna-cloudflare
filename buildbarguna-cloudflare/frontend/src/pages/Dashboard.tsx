@@ -36,50 +36,55 @@ export default function Dashboard() {
       {/* Onboarding modal for first-time users */}
       {showOnboarding && <Onboarding onDismiss={dismissOnboarding} />}
 
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">স্বাগতম, {user?.name}! 👋</h1>
-          <p className="text-gray-500 text-sm mt-1">আপনার বিনিয়োগ পোর্টফোলিও</p>
+      {/* Hero Welcome Banner */}
+      <div className="bg-gradient-to-r from-primary-700 via-primary-600 to-teal-600 rounded-3xl p-5 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-20 w-24 h-24 bg-white/10 rounded-full translate-y-1/2" />
+        <div className="relative z-10 flex items-start justify-between">
+          <div>
+            <p className="text-primary-100 text-sm mb-1">স্বাগতম 👋</p>
+            <h1 className="text-2xl font-bold">{user?.name}</h1>
+            <p className="text-primary-200 text-sm mt-1">আপনার বিনিয়োগ পোর্টফোলিও</p>
+          </div>
+          <button
+            onClick={() => { localStorage.removeItem('bb_onboarding_done'); window.location.reload() }}
+            className="text-xs text-white/70 hover:text-white transition-colors flex items-center gap-1 bg-white/10 px-2 py-1 rounded-xl"
+            aria-label="গাইড আবার দেখুন"
+          >
+            ❓ গাইড
+          </button>
         </div>
-        {/* Re-open onboarding guide */}
-        <button
-          onClick={() => { localStorage.removeItem('bb_onboarding_done'); window.location.reload() }}
-          className="text-xs text-gray-400 hover:text-primary-600 transition-colors mt-1 flex items-center gap-1"
-          aria-label="গাইড আবার দেখুন"
-        >
-          ❓ গাইড
-        </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-green-100 p-2 rounded-lg"><TrendingUp size={20} className="text-green-600" /></div>
-            <span className="text-sm text-gray-500">মোট মুনাফা</span>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-4 text-white shadow-md slide-up stagger-1">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-white/20 p-1.5 rounded-xl"><TrendingUp size={18} className="text-white" /></div>
+            <span className="text-sm text-green-100">মোট মুনাফা</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{formatTaka(balance)}</p>
+          <p className="text-2xl font-bold" style={{animation: 'countUp 0.4s ease-out 0.1s both'}}>{formatTaka(balance)}</p>
         </div>
-        <div className="card">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-blue-100 p-2 rounded-lg"><TrendingUp size={20} className="text-blue-600" /></div>
-            <span className="text-sm text-gray-500">এই মাস</span>
+        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-4 text-white shadow-md slide-up stagger-2">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-white/20 p-1.5 rounded-xl"><BarChart2 size={18} className="text-white" /></div>
+            <span className="text-sm text-blue-100">এই মাস</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{formatTaka(thisMonth)}</p>
+          <p className="text-2xl font-bold" style={{animation: 'countUp 0.4s ease-out 0.2s both'}}>{formatTaka(thisMonth)}</p>
         </div>
-        <div className="card">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-purple-100 p-2 rounded-lg"><PieChart size={20} className="text-purple-600" /></div>
-            <span className="text-sm text-gray-500">মোট শেয়ার</span>
+        <div className="bg-gradient-to-br from-purple-500 to-violet-600 rounded-2xl p-4 text-white shadow-md slide-up stagger-3">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-white/20 p-1.5 rounded-xl"><PieChart size={18} className="text-white" /></div>
+            <span className="text-sm text-purple-100">মোট শেয়ার</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{totalShares.toLocaleString('bn-BD')}</p>
+          <p className="text-2xl font-bold" style={{animation: 'countUp 0.4s ease-out 0.3s both'}}>{totalShares.toLocaleString('bn-BD')}</p>
         </div>
-        <div className="card">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-orange-100 p-2 rounded-lg"><Briefcase size={20} className="text-orange-600" /></div>
-            <span className="text-sm text-gray-500">প্রজেক্ট</span>
+        <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl p-4 text-white shadow-md slide-up stagger-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-white/20 p-1.5 rounded-xl"><Briefcase size={18} className="text-white" /></div>
+            <span className="text-sm text-orange-100">প্রজেক্ট</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{shares?.success ? shares.data.items.length : 0}</p>
+          <p className="text-2xl font-bold" style={{animation: 'countUp 0.4s ease-out 0.4s both'}}>{shares?.success ? shares.data.items.length : 0}</p>
         </div>
       </div>
 
@@ -170,26 +175,26 @@ export default function Dashboard() {
       )}
 
       {/* Quick actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        <Link to="/projects" className="card hover:shadow-md transition-shadow flex items-center gap-3 cursor-pointer">
-          <div className="bg-primary-100 p-2.5 rounded-xl"><Briefcase size={20} className="text-primary-600" /></div>
-          <div><p className="font-semibold text-sm">প্রজেক্ট</p><p className="text-xs text-gray-500">শেয়ার কিনুন</p></div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <Link to="/projects" className="card hover:shadow-md transition-all hover:-translate-y-0.5 flex items-center gap-3 cursor-pointer group">
+          <div className="bg-primary-100 group-hover:bg-primary-200 p-2.5 rounded-xl transition-colors"><Briefcase size={20} className="text-primary-700" /></div>
+          <div><p className="font-semibold text-sm">প্রজেক্ট</p><p className="text-xs text-gray-400">শেয়ার কিনুন</p></div>
         </Link>
-        <Link to="/tasks" className="card hover:shadow-md transition-shadow flex items-center gap-3 cursor-pointer">
-          <div className="bg-green-100 p-2.5 rounded-xl"><CheckSquare size={20} className="text-green-600" /></div>
-          <div><p className="font-semibold text-sm">ডেইলি টাস্ক</p><p className="text-xs text-gray-500">আজকের কাজ</p></div>
+        <Link to="/tasks" className="card hover:shadow-md transition-all hover:-translate-y-0.5 flex items-center gap-3 cursor-pointer group">
+          <div className="bg-green-100 group-hover:bg-green-200 p-2.5 rounded-xl transition-colors"><CheckSquare size={20} className="text-green-700" /></div>
+          <div><p className="font-semibold text-sm">ডেইলি টাস্ক</p><p className="text-xs text-gray-400">আজকের কাজ</p></div>
         </Link>
-        <Link to="/earnings" className="card hover:shadow-md transition-shadow flex items-center gap-3 cursor-pointer">
-          <div className="bg-yellow-100 p-2.5 rounded-xl"><TrendingUp size={20} className="text-yellow-600" /></div>
-          <div><p className="font-semibold text-sm">মুনাফা</p><p className="text-xs text-gray-500">ইতিহাস দেখুন</p></div>
+        <Link to="/earnings" className="card hover:shadow-md transition-all hover:-translate-y-0.5 flex items-center gap-3 cursor-pointer group">
+          <div className="bg-yellow-100 group-hover:bg-yellow-200 p-2.5 rounded-xl transition-colors"><TrendingUp size={20} className="text-yellow-700" /></div>
+          <div><p className="font-semibold text-sm">মুনাফা</p><p className="text-xs text-gray-400">ইতিহাস দেখুন</p></div>
         </Link>
-        <Link to="/portfolio" className="card hover:shadow-md transition-shadow flex items-center gap-3 cursor-pointer">
-          <div className="bg-indigo-100 p-2.5 rounded-xl"><BarChart2 size={20} className="text-indigo-600" /></div>
-          <div><p className="font-semibold text-sm">পোর্টফোলিও</p><p className="text-xs text-gray-500">ROI দেখুন</p></div>
+        <Link to="/portfolio" className="card hover:shadow-md transition-all hover:-translate-y-0.5 flex items-center gap-3 cursor-pointer group">
+          <div className="bg-indigo-100 group-hover:bg-indigo-200 p-2.5 rounded-xl transition-colors"><BarChart2 size={20} className="text-indigo-700" /></div>
+          <div><p className="font-semibold text-sm">পোর্টফোলিও</p><p className="text-xs text-gray-400">ROI দেখুন</p></div>
         </Link>
-        <Link to="/withdraw" className="card hover:shadow-md transition-shadow flex items-center gap-3 cursor-pointer">
-          <div className="bg-purple-100 p-2.5 rounded-xl"><ArrowDownCircle size={20} className="text-purple-600" /></div>
-          <div><p className="font-semibold text-sm">উত্তোলন</p><p className="text-xs text-gray-500">মুনাফা নিন</p></div>
+        <Link to="/withdraw" className="card hover:shadow-md transition-all hover:-translate-y-0.5 flex items-center gap-3 cursor-pointer group">
+          <div className="bg-purple-100 group-hover:bg-purple-200 p-2.5 rounded-xl transition-colors"><ArrowDownCircle size={20} className="text-purple-700" /></div>
+          <div><p className="font-semibold text-sm">উত্তোলন</p><p className="text-xs text-gray-400">মুনাফা নিন</p></div>
         </Link>
       </div>
 

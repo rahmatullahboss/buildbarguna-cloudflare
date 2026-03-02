@@ -1,47 +1,141 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-900: #1e3a8a;
+  /* Primary = Teal/Green — Halal investment brand colors */
+  --color-primary-50: #f0fdf4;
+  --color-primary-100: #dcfce7;
+  --color-primary-200: #bbf7d0;
+  --color-primary-300: #86efac;
+  --color-primary-400: #4ade80;
+  --color-primary-500: #22c55e;
+  --color-primary-600: #16a34a;
+  --color-primary-700: #15803d;
+  --color-primary-800: #166534;
+  --color-primary-900: #14532d;
   --color-danger-500: #ef4444;
   --color-danger-600: #dc2626;
   --color-success-500: #22c55e;
   --color-success-600: #16a34a;
   --color-warning-500: #f59e0b;
-  --font-family-bangla: 'Noto Sans Bengali', 'SolaimanLipi', sans-serif;
+  --font-family-bangla: 'Hind Siliguri', 'Noto Sans Bengali', 'SolaimanLipi', sans-serif;
 }
 
 @layer base {
-  * { font-family: 'Noto Sans Bengali', sans-serif; }
+  * { font-family: 'Hind Siliguri', 'Noto Sans Bengali', sans-serif; }
   body { @apply bg-gray-50 text-gray-900 antialiased; }
+  h1, h2, h3 { @apply tracking-tight; }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-primary-600 hover:bg-primary-700 active:scale-95 active:bg-primary-800 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md;
   }
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-gray-700 font-semibold py-2 px-4 rounded-lg border border-gray-300 transition-colors duration-200;
+    @apply bg-white hover:bg-gray-50 active:scale-95 active:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm;
   }
   .btn-danger {
-    @apply bg-danger-600 hover:bg-danger-500 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-danger-600 hover:bg-danger-500 active:scale-95 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-200 shadow-sm;
+  }
+  .btn-ghost {
+    @apply text-gray-600 hover:text-gray-900 hover:bg-gray-100 active:scale-95 font-medium py-2 px-3 rounded-xl transition-all duration-200;
   }
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+    @apply bg-white rounded-2xl shadow-sm border border-gray-100 p-5;
+  }
+  .card-elevated {
+    @apply bg-white rounded-2xl shadow-md border border-gray-100 p-5;
   }
   .input {
-    @apply w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all;
+    @apply w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent transition-all bg-gray-50 focus:bg-white placeholder:text-gray-400;
   }
   .label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply block text-sm font-semibold text-gray-700 mb-1.5;
   }
-  .badge-pending  { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800; }
-  .badge-approved { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800; }
-  .badge-rejected { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800; }
-  .badge-active   { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800; }
-  .badge-closed   { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800; }
+  .badge-pending  { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-200; }
+  .badge-approved { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200; }
+  .badge-rejected { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-200; }
+  .badge-active   { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200; }
+  .badge-closed   { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200; }
+  
+  /* Gradient stat card */
+  .stat-card {
+    @apply rounded-2xl p-4 flex flex-col gap-2;
+  }
+
+  /* Section header */
+  .section-header {
+    @apply font-bold text-gray-900 flex items-center gap-2 text-base;
+  }
+
+  /* Page header */
+  .page-header {
+    @apply text-2xl font-bold text-gray-900;
+  }
+  .page-subheader {
+    @apply text-gray-500 text-sm mt-1;
+  }
+
+  /* Page fade-in animation */
+  .page-enter {
+    animation: pageEnter 0.25s ease-out both;
+  }
+
+  /* Shimmer loading skeleton */
+  .skeleton {
+    @apply bg-gray-200 rounded-xl animate-pulse;
+  }
+  .skeleton-text {
+    @apply h-4 bg-gray-200 rounded-lg animate-pulse;
+  }
+
+  /* Floating animation for hero elements */
+  .float-slow {
+    animation: floatSlow 6s ease-in-out infinite;
+  }
+
+  /* Slide up animation for cards */
+  .slide-up {
+    animation: slideUp 0.3s ease-out both;
+  }
+
+  /* Stagger children */
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.10s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.20s; }
+}
+
+@layer utilities {
+  /* Keyframe animations */
+  @keyframes pageEnter {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes floatSlow {
+    0%, 100% { transform: translateY(0px); }
+    50%       { transform: translateY(-8px); }
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  @keyframes countUp {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Shimmer effect for loading */
+  .shimmer {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
 }

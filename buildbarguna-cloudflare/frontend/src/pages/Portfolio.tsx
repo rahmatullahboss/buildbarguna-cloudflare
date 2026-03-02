@@ -189,9 +189,13 @@ export default function Portfolio() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">আমার পোর্টফোলিও</h1>
-        <p className="text-gray-500 text-sm mt-1">বিনিয়োগ, মুনাফা ও রিটার্নের সম্পূর্ণ হিসাব</p>
+      <div className="bg-gradient-to-r from-indigo-700 via-purple-600 to-violet-600 rounded-3xl p-5 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-36 h-36 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-10 w-20 h-20 bg-white/10 rounded-full translate-y-1/2" />
+        <div className="relative z-10">
+          <h1 className="text-2xl font-bold">📊 আমার পোর্টফোলিও</h1>
+          <p className="text-indigo-100 text-sm mt-1">বিনিয়োগ, মুনাফা ও রিটার্নের সম্পূর্ণ হিসাব</p>
+        </div>
       </div>
 
       {!hasInvestments ? (

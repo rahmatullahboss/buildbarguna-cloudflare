@@ -56,9 +56,20 @@ export default function AdminProjects() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">প্রজেক্ট ব্যবস্থাপনা</h1>
-        <button onClick={() => setShowForm(!showForm)} className="btn-primary">+ নতুন প্রজেক্ট</button>
+      <div className="bg-gradient-to-r from-teal-700 via-primary-600 to-emerald-600 rounded-3xl p-5 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="relative z-10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/15 p-2.5 rounded-2xl text-2xl">🏗️</div>
+            <div>
+              <h1 className="text-2xl font-bold">প্রজেক্ট ব্যবস্থাপনা</h1>
+              <p className="text-teal-100 text-sm mt-0.5">প্রজেক্ট তৈরি ও পরিচালনা করুন</p>
+            </div>
+          </div>
+          <button onClick={() => setShowForm(!showForm)} className="bg-white text-primary-700 font-bold text-sm px-4 py-2 rounded-xl hover:bg-primary-50 transition-colors shadow-sm">
+            + নতুন প্রজেক্ট
+          </button>
+        </div>
       </div>
 
       {msg && <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">{msg}</div>}

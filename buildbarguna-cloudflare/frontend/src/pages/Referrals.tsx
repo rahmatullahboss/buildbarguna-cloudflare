@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { referralsApi } from '../lib/api'
 import { formatTaka } from '../lib/auth'
-import { Copy, Gift, Users, CheckCircle, Clock } from 'lucide-react'
+import { Copy, Gift, Users, CheckCircle, Clock, Share2 } from 'lucide-react'
 import Disclaimer from '../components/Disclaimer'
 
 export default function Referrals() {
@@ -83,73 +83,82 @@ export default function Referrals() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Gift size={24} className="text-primary-600" /> রেফারেল প্রোগ্রাম
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">বন্ধুকে রেফার করুন, প্রথম বিনিয়োগে বোনাস পান</p>
+      {/* Hero Banner */}
+      <div className="bg-gradient-to-br from-primary-700 via-primary-600 to-emerald-600 rounded-3xl p-6 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-10 w-24 h-24 bg-white/10 rounded-full translate-y-1/2" />
+        <div className="relative z-10">
+          <div className="text-4xl mb-3">🎁</div>
+          <h1 className="text-2xl font-bold">রেফারেল প্রোগ্রাম</h1>
+          <p className="text-primary-100 text-sm mt-1">বন্ধুকে রেফার করুন, প্রথম বিনিয়োগে বোনাস পান</p>
+        </div>
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="card text-center">
-          <div className="bg-blue-100 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
+      <div className="grid grid-cols-3 gap-3">
+        <div className="card text-center p-4">
+          <div className="bg-blue-100 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-2">
             <Users size={20} className="text-blue-600" />
           </div>
           <p className="text-2xl font-bold text-gray-900">{stats?.total_referred ?? 0}</p>
           <p className="text-xs text-gray-500 mt-1">রেফার করেছেন</p>
         </div>
-        <div className="card text-center">
-          <div className="bg-green-100 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
+        <div className="card text-center p-4">
+          <div className="bg-green-100 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-2">
             <CheckCircle size={20} className="text-green-600" />
           </div>
           <p className="text-2xl font-bold text-gray-900">{stats?.bonuses_earned ?? 0}</p>
           <p className="text-xs text-gray-500 mt-1">বোনাস পেয়েছেন</p>
         </div>
-        <div className="card text-center">
-          <div className="bg-amber-100 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2">
+        <div className="card text-center p-4">
+          <div className="bg-amber-100 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-2">
             <Gift size={20} className="text-amber-600" />
           </div>
-          <p className="text-2xl font-bold text-amber-600">{formatTaka(stats?.total_bonus_paisa ?? 0)}</p>
+          <p className="text-xl font-bold text-amber-600">{formatTaka(stats?.total_bonus_paisa ?? 0)}</p>
           <p className="text-xs text-gray-500 mt-1">মোট বোনাস</p>
         </div>
       </div>
 
       {/* Share card */}
-      <div className="card bg-gradient-to-br from-primary-50 to-blue-50 border-primary-100 space-y-4">
-        <h2 className="font-semibold text-gray-800">আপনার রেফারেল কোড শেয়ার করুন</h2>
+      <div className="card bg-gradient-to-br from-primary-50 to-emerald-50 border-primary-100 space-y-4">
+        <h2 className="font-bold text-gray-800 flex items-center gap-2"><Share2 size={16} className="text-primary-600" /> আপনার রেফারেল কোড শেয়ার করুন</h2>
 
         {/* Code */}
         <div>
-          <p className="text-xs text-gray-500 mb-1">রেফারেল কোড</p>
-          <div className="flex items-center gap-3">
-            <span className="text-3xl font-mono font-bold text-primary-700 tracking-widest">
+          <p className="text-xs text-gray-500 mb-2">রেফারেল কোড</p>
+          <div className="flex items-center gap-3 bg-white rounded-2xl p-3 border border-primary-100">
+            <span className="text-2xl font-mono font-bold text-primary-700 tracking-widest flex-1">
               {stats?.referral_code ?? '—'}
             </span>
-            <button onClick={copyCode} className="flex items-center gap-1 btn-secondary text-sm py-1.5 px-3">
+            <button onClick={copyCode} className="flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm py-2 px-3 rounded-xl transition-colors">
               <Copy size={14} />
-              {copied ? '✓ কপি হয়েছে' : 'কোড কপি করুন'}
+              {copied ? '✓ কপি!' : 'কপি করুন'}
             </button>
           </div>
         </div>
 
-        {/* Share link */}
+        {/* Share buttons */}
         <div>
-          <p className="text-xs text-gray-500 mb-1">শেয়ার লিংক</p>
-          <div className="flex items-center gap-2">
-            <input
-              readOnly
-              value={stats?.share_link ?? ''}
-              className="input text-xs flex-1 bg-white"
-            />
-            <button onClick={copyLink} className="btn-secondary text-sm py-2 px-3 whitespace-nowrap flex items-center gap-1">
+          <p className="text-xs text-gray-500 mb-2">সরাসরি শেয়ার করুন</p>
+          <div className="flex gap-2 flex-wrap">
+            {/* WhatsApp */}
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(`বিল্ড বরগুনায় বিনিয়োগ করুন! আমার রেফারেল কোড: ${stats?.referral_code ?? ''} — ${stats?.share_link ?? ''}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-4 rounded-xl transition-colors shadow-sm"
+            >
+              <span>📱</span> WhatsApp
+            </a>
+            {/* Copy link */}
+            <button onClick={copyLink} className="flex items-center gap-1.5 btn-secondary text-sm py-2 px-4">
               <Copy size={14} />
-              {linkCopied ? '✓ কপি' : 'লিংক কপি'}
+              {linkCopied ? '✓ লিংক কপি!' : 'লিংক কপি'}
             </button>
           </div>
         </div>
 
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-500 bg-white/60 rounded-xl p-2.5">
           🎁 আপনার বন্ধু এই লিংকে রেজিস্ট্রেশন করে প্রথম শেয়ার কিনলে আপনি বোনাস পাবেন
         </p>
       </div>

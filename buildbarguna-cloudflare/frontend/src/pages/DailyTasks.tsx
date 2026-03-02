@@ -47,33 +47,39 @@ export default function DailyTasks() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">ডেইলি টাস্ক</h1>
-        <p className="text-gray-500 text-sm mt-1">আমাদের সোশ্যাল মিডিয়া পেজ ফলো করুন</p>
+      {/* Hero banner */}
+      <div className={`rounded-3xl p-5 text-white relative overflow-hidden transition-all ${allDone
+        ? 'bg-gradient-to-r from-green-600 to-emerald-500'
+        : 'bg-gradient-to-r from-sky-700 via-blue-600 to-indigo-600'}`}>
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="relative z-10">
+          <h1 className="text-2xl font-bold">{allDone ? '🎉 ডেইলি টাস্ক' : '✅ ডেইলি টাস্ক'}</h1>
+          <p className="text-blue-100 text-sm mt-1">আমাদের সোশ্যাল মিডিয়া পেজ ফলো করুন</p>
+        </div>
       </div>
 
       {/* Progress card */}
-      <div className={`card transition-colors ${allDone ? 'bg-green-50 border-green-100' : ''}`}>
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium text-gray-700">আজকের অগ্রগতি</span>
-          <span className={`text-sm font-bold ${allDone ? 'text-green-600' : 'text-primary-600'}`}>
+      <div className={`card transition-all ${allDone ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200' : ''}`}>
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-sm font-semibold text-gray-700">আজকের অগ্রগতি</span>
+          <span className={`text-sm font-bold px-3 py-0.5 rounded-full ${allDone ? 'bg-green-100 text-green-700' : 'bg-primary-100 text-primary-700'}`}>
             {completed}/{tasks.length}
           </span>
         </div>
         <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
           <div
-            className={`h-3 rounded-full transition-all duration-500 ${allDone ? 'bg-green-500' : 'bg-primary-500'}`}
+            className={`h-3 rounded-full transition-all duration-700 ${allDone ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-gradient-to-r from-primary-400 to-teal-500'}`}
             style={{ width: tasks.length ? `${(completed / tasks.length) * 100}%` : '0%' }}
           />
         </div>
         {allDone && (
-          <p className="text-sm text-green-600 font-medium mt-2 flex items-center gap-1">
+          <p className="text-sm text-green-700 font-semibold mt-3 flex items-center gap-1.5 bg-green-100 rounded-xl px-3 py-2">
             <CheckCircle size={16} /> 🎉 আজকের সব টাস্ক সম্পন্ন! ধন্যবাদ।
           </p>
         )}
         {!allDone && tasks.length > 0 && (
-          <p className="text-xs text-gray-400 mt-2">
-            লিংকে ক্লিক করলে স্বয়ংক্রিয়ভাবে সম্পন্ন হবে
+          <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+            <ExternalLink size={11} /> লিংকে ক্লিক করলে স্বয়ংক্রিয়ভাবে সম্পন্ন হবে
           </p>
         )}
       </div>
