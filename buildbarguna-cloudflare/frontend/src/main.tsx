@@ -11,6 +11,25 @@ import { restoreTokenFromSession } from './lib/apiToken'
 // If token is expired or corrupted, it is silently cleared.
 restoreTokenFromSession()
 
+// Initialize Capacitor plugins for native app
+async function initCapacitor() {
+  try {
+    const { StatusBar, Style } = await import('@capacitor/status-bar')
+    const { SplashScreen } = await import('@capacitor/splash-screen')
+
+    // Match status bar color to app header
+    await StatusBar.setStyle({ style: Style.Dark })
+    await StatusBar.setBackgroundColor({ color: '#15803d' }) // primary-700 green
+
+    // Hide splash screen after app is ready
+    await SplashScreen.hide()
+  } catch {
+    // Not running in Capacitor (web browser) — ignore silently
+  }
+}
+
+initCapacitor()
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

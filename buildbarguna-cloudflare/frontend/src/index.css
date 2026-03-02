@@ -24,6 +24,24 @@
   * { font-family: 'Hind Siliguri', 'Noto Sans Bengali', sans-serif; }
   body { @apply bg-gray-50 text-gray-900 antialiased; }
   h1, h2, h3 { @apply tracking-tight; }
+
+  /* Capacitor / PWA safe area insets — prevents overlap with phone status bar
+     env(safe-area-inset-top) is 0 on web, ~24-48px on Android/iOS notch devices */
+  :root {
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+  }
+
+  /* Apply safe area padding to the app root */
+  #root {
+    padding-top: var(--sat);
+    padding-bottom: var(--sab);
+    padding-left: var(--sal);
+    padding-right: var(--sar);
+    min-height: 100dvh;
+  }
 }
 
 @layer components {
