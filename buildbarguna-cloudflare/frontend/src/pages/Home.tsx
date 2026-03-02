@@ -1,6 +1,10 @@
 import { Link } from 'react-router-dom'
-import { TrendingUp, Users, Shield, CheckCircle, ArrowRight, Star } from 'lucide-react'
+import { TrendingUp, Users, Shield, CheckCircle, ArrowRight, Star, Download, Bell, BarChart2, Zap, Lock } from 'lucide-react'
 import { isLoggedIn } from '../lib/auth'
+
+// APK public URL — update this if R2 public URL changes
+// Get from: Cloudflare Dashboard → R2 → buildbarguna → Settings → Public Access
+const APK_URL = `${import.meta.env.VITE_R2_PUBLIC_URL ?? 'https://pub-b0b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3.r2.dev'}/builds/android/buildbarguna-latest-debug.apk`
 
 const features = [
   {
@@ -175,6 +179,90 @@ export default function Home() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* App Download Section */}
+      <section className="py-16 bg-gray-950">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <div className="relative bg-gradient-to-br from-gray-900 to-slate-900 rounded-3xl overflow-hidden border border-gray-800 shadow-2xl p-8 sm:p-12">
+            {/* Green glow effects */}
+            <div className="absolute top-0 left-0 w-64 h-64 bg-primary-500/10 rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl" />
+            <div className="absolute bottom-0 right-0 w-64 h-64 bg-teal-500/10 rounded-full translate-x-1/2 translate-y-1/2 blur-3xl" />
+
+            <div className="relative z-10 flex flex-col lg:flex-row items-center gap-10">
+              {/* Phone mockup */}
+              <div className="shrink-0">
+                <div className="w-36 h-64 bg-gray-800 rounded-3xl border-2 border-gray-700 flex flex-col items-center justify-center shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-6 bg-gray-700 rounded-t-3xl flex items-center justify-center">
+                    <div className="w-12 h-1.5 bg-gray-600 rounded-full" />
+                  </div>
+                  <div className="mt-4 w-full px-3 space-y-2">
+                    <div className="h-8 bg-primary-600/40 rounded-xl flex items-center px-2 gap-1.5">
+                      <div className="w-3 h-3 bg-primary-400 rounded-full" />
+                      <div className="h-1.5 bg-primary-400/60 rounded flex-1" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {['bg-green-500/30', 'bg-blue-500/30', 'bg-purple-500/30', 'bg-orange-500/30'].map((c, i) => (
+                        <div key={i} className={`h-12 ${c} rounded-xl flex items-center justify-center`}>
+                          <div className="w-4 h-4 bg-white/20 rounded-lg" />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="h-16 bg-gray-700/50 rounded-xl" />
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 h-8 bg-gray-800 border-t border-gray-700 flex items-center justify-around px-3">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className={`w-4 h-4 rounded-full ${i === 0 ? 'bg-primary-500' : 'bg-gray-600'}`} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 text-center lg:text-left">
+                <div className="inline-flex items-center gap-2 bg-primary-500/20 border border-primary-500/30 text-primary-400 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
+                  <Download size={12} /> Android App
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
+                  📱 আমাদের Android App<br />ডাউনলোড করুন
+                </h2>
+                <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                  সবসময় আপনার বিনিয়োগ নজর রাখুন — যেকোনো জায়গা থেকে। Native app অভিজ্ঞতা উপভোগ করুন।
+                </p>
+
+                {/* Feature pills */}
+                <div className="flex flex-wrap gap-2 justify-center lg:justify-start mb-7">
+                  {[
+                    { icon: Bell, label: 'নোটিফিকেশন' },
+                    { icon: BarChart2, label: 'রিয়েল-টাইম ডেটা' },
+                    { icon: Zap, label: 'দ্রুত লোড' },
+                  ].map(({ icon: Icon, label }) => (
+                    <span key={label} className="inline-flex items-center gap-1.5 bg-gray-800 border border-gray-700 text-gray-300 text-xs font-medium px-3 py-1.5 rounded-full">
+                      <Icon size={11} className="text-primary-400" /> {label}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Download button */}
+                <a
+                  href={APK_URL}
+                  download
+                  className="inline-flex items-center justify-center gap-3 w-full sm:w-auto bg-gradient-to-r from-primary-600 to-teal-600 hover:from-primary-500 hover:to-teal-500 active:scale-95 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-200 shadow-lg hover:shadow-primary-500/25 hover:-translate-y-0.5 text-base"
+                >
+                  <Download size={20} />
+                  Android APK ডাউনলোড করুন
+                </a>
+                <p className="text-gray-600 text-xs mt-3">v1.0.0 • ~25MB • Android 7.0+</p>
+
+                {/* Security note */}
+                <div className="flex items-center gap-2 mt-4 justify-center lg:justify-start">
+                  <Lock size={12} className="text-primary-400 shrink-0" />
+                  <p className="text-gray-500 text-xs">সরাসরি আমাদের সার্ভার থেকে ডাউনলোড — সম্পূর্ণ নিরাপদ</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

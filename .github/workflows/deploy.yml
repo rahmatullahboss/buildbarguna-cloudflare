@@ -43,6 +43,8 @@ jobs:
       - name: Build frontend
         run: npm run build
         working-directory: buildbarguna-cloudflare/frontend
+        env:
+          VITE_R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
 
       - name: Deploy to Cloudflare Workers
         run: npx wrangler deploy
