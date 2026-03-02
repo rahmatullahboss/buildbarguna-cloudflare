@@ -2,11 +2,17 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import Layout from './components/Layout'
+import { isLoggedIn } from './lib/auth'
 
 // Eagerly loaded — needed immediately on any route
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
+
+// Smart root route: redirect logged-in users to dashboard
+function RootRoute() {
+  return isLoggedIn() ? <Navigate to="/dashboard" replace /> : <Home />
+}
 
 // Lazy loaded — code split per page
 const Dashboard       = lazy(() => import('./pages/Dashboard'))
@@ -50,8 +56,8 @@ export default function App() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        {/* Public */}
-        <Route path="/" element={<Home />} />
+        {/* Public — logged in users go directly to dashboard */}
+        <Route path="/" element={<RootRoute />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
