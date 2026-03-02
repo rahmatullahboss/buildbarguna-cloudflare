@@ -62,19 +62,23 @@ jobs:
           SHORT_SHA=${GITHUB_SHA::7}
           BUCKET="${{ secrets.R2_BUCKET_NAME }}"
           ENDPOINT="https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          # dist/ is output of wrangler build — lives at buildbarguna-cloudflare/dist/
+          DIST_DIR="dist"
 
           # Upload versioned snapshot
-          aws s3 sync dist/ "s3://${BUCKET}/builds/web/${BUILD_DATE}-${SHORT_SHA}/" \
+          aws s3 sync "$DIST_DIR/" "s3://${BUCKET}/builds/web/${BUILD_DATE}-${SHORT_SHA}/" \
             --endpoint-url "$ENDPOINT" \
             --no-progress
 
-          # Upload latest/ snapshot
-          aws s3 sync dist/ "s3://${BUCKET}/builds/web/latest/" \
+          # Upload latest/ snapshot — delete old files so stale files don't remain
+          aws s3 sync "$DIST_DIR/" "s3://${BUCKET}/builds/web/latest/" \
             --endpoint-url "$ENDPOINT" \
             --delete \
             --no-progress
 
           echo "✅ Web build uploaded to R2: builds/web/${BUILD_DATE}-${SHORT_SHA}/"
+          echo "Files in dist/:"
+          ls -lh "$DIST_DIR/"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -175,13 +179,19 @@ jobs:
             --content-type "application/vnd.android.package-archive" \
             --no-progress
 
-          # Upload as latest
+          # Delete old latest first (clean overwrite — no stale cache)
+          aws s3 rm "s3://${BUCKET}/builds/android/buildbarguna-latest-debug.apk" \
+            --endpoint-url "$ENDPOINT" 2>/dev/null || true
+
+          # Upload as latest (always current)
           aws s3 cp "$APK_NAME" "s3://${BUCKET}/builds/android/buildbarguna-latest-debug.apk" \
             --endpoint-url "$ENDPOINT" \
             --content-type "application/vnd.android.package-archive" \
             --no-progress
 
-          echo "✅ APK uploaded to R2: builds/android/${APK_NAME}"
+          echo "✅ APK uploaded:"
+          echo "  Versioned: builds/android/${APK_NAME}"
+          echo "  Latest:    builds/android/buildbarguna-latest-debug.apk"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
