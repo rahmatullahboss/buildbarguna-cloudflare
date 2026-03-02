@@ -74,7 +74,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 min-h-0">
         {/* Sidebar — scrolls independently, never affects page */}
         <aside className={`
-          fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-xl transform transition-transform duration-200 pt-14
+          fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-xl transform transition-transform duration-200 pt-[calc(3.5rem+var(--sat))]
           flex flex-col
           ${menuOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:static lg:translate-x-0 lg:shadow-none lg:border-r lg:border-gray-200
@@ -154,7 +154,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom navigation — hidden on lg+ */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-2xl">
-        <div className="flex items-center justify-around h-16 px-2">
+        <div className="flex items-center justify-around h-16 px-2 pb-[var(--sab)]">
           {bottomNav.map(({ to, label, icon: Icon }) => {
             const active = location.pathname === to
             return (

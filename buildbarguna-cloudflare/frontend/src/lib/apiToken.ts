@@ -2,23 +2,43 @@
  * Token Storage Strategy — Security Notes:
  *
  * PRIMARY:   In-memory variable (_token) — XSS cannot steal it via JS
- * SECONDARY: sessionStorage with base64 obfuscation — restores token on
- *            page refresh within the same tab session. Cleared on tab close.
+ * SECONDARY: sessionStorage (web) or localStorage (Capacitor native) with
+ *            base64 obfuscation — restores token on page refresh / app resume.
  *
- * Why NOT localStorage? Persists across sessions — XSS scripts can exfiltrate.
+ * Why sessionStorage on web? Cleared on tab close — session-scoped, more
+ *   secure. XSS cannot persist the token across sessions.
+ * Why localStorage on native? Capacitor Android clears sessionStorage when
+ *   the app is backgrounded/killed, forcing re-login every time. localStorage
+ *   persists across app restarts. Native apps don't share storage cross-tab
+ *   and the WebView origin is isolated, so the XSS cross-session risk is
+ *   greatly reduced compared to a public browser.
  * Why NOT httpOnly cookie? Requires server-side session management — complex
  *   with Cloudflare Workers stateless model.
- * Why sessionStorage + base64? Not true encryption, but:
- *   - sessionStorage is same-origin only (no cross-tab leakage)
- *   - Cleared on tab close (session-scoped, not permanent)
- *   - base64 prevents casual shoulder-surfing in DevTools
- *   - Real security is JWT signature verification on the server
+ * Why base64 obfuscation? Not true encryption, but prevents casual
+ *   shoulder-surfing in DevTools. Real security is JWT signature verification
+ *   on the server.
  *
- * TRADEOFF: If user opens a new tab, they must log in again (acceptable for
- *   a financial platform — each tab is an independent session).
+ * TRADEOFF (web): If user opens a new tab, they must log in again (acceptable
+ *   for a financial platform — each tab is an independent session).
  */
 
 const SESSION_KEY = 'bb_tok'
+
+/**
+ * Detect Capacitor native platform (Android/iOS).
+ * On native, the WebView uses capacitor: or file: protocol, or exposes the
+ * Capacitor global. Falls back to false in SSR / non-browser environments.
+ */
+const isNative: boolean =
+  typeof window !== 'undefined' &&
+  (window.location.protocol === 'capacitor:' ||
+    window.location.protocol === 'file:' ||
+    (window as any)?.Capacitor?.isNativePlatform?.() === true)
+
+/** Returns localStorage on native, sessionStorage on web. */
+function getStorage(): Storage {
+  return isNative ? localStorage : sessionStorage
+}
 
 // In-memory primary store
 let _token: string | null = null
@@ -63,9 +83,9 @@ export function getToken(): string | null {
 export function setMemoryToken(t: string | null) {
   _token = t
   if (t) {
-    try { sessionStorage.setItem(SESSION_KEY, obfuscate(t)) } catch { /* storage full/blocked */ }
+    try { getStorage().setItem(SESSION_KEY, obfuscate(t)) } catch { /* storage full/blocked */ }
   } else {
-    try { sessionStorage.removeItem(SESSION_KEY) } catch { /* ignore */ }
+    try { getStorage().removeItem(SESSION_KEY) } catch { /* ignore */ }
   }
 }
 
@@ -77,27 +97,28 @@ export function setMemoryToken(t: string | null) {
 export function restoreTokenFromSession(): boolean {
   if (_token) return true  // already in memory
   try {
-    const stored = sessionStorage.getItem(SESSION_KEY)
+    const storage = getStorage()
+    const stored = storage.getItem(SESSION_KEY)
     if (!stored) return false
     const token = deobfuscate(stored)
     if (!token) {
-      sessionStorage.removeItem(SESSION_KEY)
+      storage.removeItem(SESSION_KEY)
       return false
     }
     // Validate token is not expired before restoring
     // JWT payload is the middle base64 segment
     const parts = token.split('.')
     if (parts.length !== 3) {
-      sessionStorage.removeItem(SESSION_KEY)
+      storage.removeItem(SESSION_KEY)
       return false
     }
     const payload = JSON.parse(atob(parts[1]))
     const now = Math.floor(Date.now() / 1000)
     if (payload.exp && payload.exp < now) {
       // Token expired — clear and don't restore
-      sessionStorage.removeItem(SESSION_KEY)
-      sessionStorage.removeItem('bb_logged_in')
-      sessionStorage.removeItem('bb_user')
+      storage.removeItem(SESSION_KEY)
+      storage.removeItem('bb_logged_in')
+      storage.removeItem('bb_user')
       return false
     }
     // Token still valid — restore to memory
@@ -105,7 +126,7 @@ export function restoreTokenFromSession(): boolean {
     return true
   } catch {
     // Any parse error — clear corrupted storage
-    sessionStorage.removeItem(SESSION_KEY)
+    getStorage().removeItem(SESSION_KEY)
     return false
   }
 }
