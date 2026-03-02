@@ -21,10 +21,10 @@ database_id = "d6cd3372-559c-4653-ac2d-87510b29130d"
 binding = "SESSIONS"
 id = "0e5da409471743769c5e0fe9d2752bd8"
 
-# R2 Bucket (project images) — Enable R2 in Cloudflare Dashboard first
-# [[r2_buckets]]
-# binding = "FILES"
-# bucket_name = "buildbarguna-files"
+# R2 Bucket (project images + APK builds)
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "buildbarguna-files"
 
 # Cron: 1st of every month at BD midnight (UTC 18:00)
 [triggers]
