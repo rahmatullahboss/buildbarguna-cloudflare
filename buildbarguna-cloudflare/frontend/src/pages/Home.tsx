@@ -2,9 +2,8 @@ import { Link } from 'react-router-dom'
 import { TrendingUp, Users, Shield, CheckCircle, ArrowRight, Star, Download, Bell, BarChart2, Zap, Lock } from 'lucide-react'
 import { isLoggedIn } from '../lib/auth'
 
-// APK download via Worker API — uses R2_PUBLIC_URL secret at runtime
-// No hardcoded URLs needed — always correct
-const APK_URL = '/api/download/app'
+// Direct R2 public URL — permanent link, no redirect needed
+const APK_URL = 'https://pub-ab7b08208848418f9562358e8b65ad06.r2.dev/builds/android/buildbarguna-latest-debug.apk'
 
 const features = [
   {
@@ -248,8 +247,7 @@ export default function Home() {
                 {/* Download button */}
                 <a
                   href={APK_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  download="buildbarguna.apk"
                   className="inline-flex items-center justify-center gap-3 w-full sm:w-auto bg-gradient-to-r from-primary-600 to-teal-600 hover:from-primary-500 hover:to-teal-500 active:scale-95 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-200 shadow-lg hover:shadow-primary-500/25 hover:-translate-y-0.5 text-base"
                 >
                   <Download size={20} />
