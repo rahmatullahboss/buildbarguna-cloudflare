@@ -19,17 +19,30 @@ const BASE = isNativeApp ? `${WORKER_URL}/api` : '/api'
  */
 import { getToken as _getToken, setMemoryToken } from './apiToken'
 
+// Same native detection as apiToken.ts — must stay in sync
+const _isNative: boolean =
+  typeof window !== 'undefined' &&
+  (window.location.protocol === 'capacitor:' ||
+    window.location.protocol === 'file:' ||
+    (window as any)?.Capacitor?.isNativePlatform?.() === true)
+
+// localStorage on native (persists across restarts), sessionStorage on web
+const _storage: Storage =
+  typeof window !== 'undefined'
+    ? (_isNative ? localStorage : sessionStorage)
+    : sessionStorage
+
 export function getToken(): string | null { return _getToken() }
 
 export function setToken(token: string) {
   setMemoryToken(token)
-  sessionStorage.setItem('bb_logged_in', '1')
+  _storage.setItem('bb_logged_in', '1')
 }
 
 export function clearToken() {
   setMemoryToken(null)
-  sessionStorage.removeItem('bb_logged_in')
-  sessionStorage.removeItem('bb_user')
+  _storage.removeItem('bb_logged_in')
+  _storage.removeItem('bb_user')
 }
 
 export function isTokenInMemory(): boolean {
