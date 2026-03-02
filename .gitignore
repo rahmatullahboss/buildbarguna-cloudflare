@@ -6,6 +6,14 @@ buildbarguna-cloudflare/frontend/node_modules/
 # Build output
 buildbarguna-cloudflare/dist/
 buildbarguna-cloudflare/frontend/dist/
+buildbarguna-cloudflare/frontend/dist-app/
+
+# Capacitor Android (generated — do not commit build artifacts)
+buildbarguna-cloudflare/frontend/android/.gradle/
+buildbarguna-cloudflare/frontend/android/app/build/
+buildbarguna-cloudflare/frontend/android/build/
+buildbarguna-cloudflare/frontend/android/local.properties
+buildbarguna-cloudflare/frontend/android/release.keystore
 
 # Wrangler
 buildbarguna-cloudflare/.wrangler/

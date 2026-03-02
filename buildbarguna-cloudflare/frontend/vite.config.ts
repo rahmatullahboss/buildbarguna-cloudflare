@@ -2,13 +2,16 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+const isApp = process.env.BUILD_TARGET === 'app'
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') }
   },
   build: {
-    outDir: '../dist',
+    // 'dist-app' for Capacitor Android/iOS, '../dist' for Cloudflare deployment
+    outDir: isApp ? 'dist-app' : '../dist',
     emptyOutDir: true,
     chunkSizeWarningLimit: 500,
     rollupOptions: {
