@@ -63,7 +63,7 @@ jobs:
       # ── 8. Create R2 bucket if not exists ────────────────────────────────
       - name: Ensure R2 bucket exists
         run: |
-          npx wrangler r2 bucket create buildbarguna-files 2>/dev/null || echo "Bucket already exists"
+          npx wrangler r2 bucket create buildbarguna 2>/dev/null || echo "Bucket already exists"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -77,14 +77,14 @@ jobs:
           # Upload all dist files to R2 under builds/web/
           find dist -type f | while read file; do
             key="builds/web/${BUILD_DATE}-${SHORT_SHA}/${file#dist/}"
-            echo "Uploading $file → r2://buildbarguna-files/$key"
-            npx wrangler r2 object put "buildbarguna-files/$key" --file "$file" 2>/dev/null || true
+            echo "Uploading $file → r2://buildbarguna/$key"
+            npx wrangler r2 object put "buildbarguna/$key" --file "$file" 2>/dev/null || true
           done
           
           # Also upload latest/ snapshot (always up to date)
           find dist -type f | while read file; do
             key="builds/web/latest/${file#dist/}"
-            npx wrangler r2 object put "buildbarguna-files/$key" --file "$file" 2>/dev/null || true
+            npx wrangler r2 object put "buildbarguna/$key" --file "$file" 2>/dev/null || true
           done
           
           echo "✅ Frontend build uploaded to R2: builds/web/${BUILD_DATE}-${SHORT_SHA}/"
@@ -191,12 +191,12 @@ jobs:
           SHORT_SHA="${{ steps.apk-info.outputs.short-sha }}"
           
           # Upload versioned APK
-          npx wrangler r2 object put "buildbarguna-files/builds/android/${APK_NAME}" \
+          npx wrangler r2 object put "buildbarguna/builds/android/${APK_NAME}" \
             --file "$APK_NAME" \
             --content-type "application/vnd.android.package-archive"
           
           # Also upload as latest
-          npx wrangler r2 object put "buildbarguna-files/builds/android/buildbarguna-latest-debug.apk" \
+          npx wrangler r2 object put "buildbarguna/builds/android/buildbarguna-latest-debug.apk" \
             --file "$APK_NAME" \
             --content-type "application/vnd.android.package-archive"
           
