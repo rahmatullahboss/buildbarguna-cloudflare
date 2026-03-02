@@ -81,6 +81,17 @@ app.get('/api/health', (c) => c.json({
   time: new Date().toISOString()
 }))
 
+// App download redirect — uses R2_PUBLIC_URL secret at runtime
+// No VITE env var needed — always points to correct URL
+app.get('/api/download/app', (c) => {
+  const publicUrl = c.env.R2_PUBLIC_URL
+  if (!publicUrl) {
+    return c.json({ success: false, error: 'Download not available' }, 503)
+  }
+  const apkUrl = `${publicUrl}/builds/android/buildbarguna-latest-debug.apk`
+  return c.redirect(apkUrl, 302)
+})
+
 // Favicon — return empty 204 to prevent 500 from static asset handler
 app.get('/favicon.ico', (c) => new Response(null, { status: 204 }))
 

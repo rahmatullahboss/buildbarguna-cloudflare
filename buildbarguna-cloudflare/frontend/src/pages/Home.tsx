@@ -2,9 +2,9 @@ import { Link } from 'react-router-dom'
 import { TrendingUp, Users, Shield, CheckCircle, ArrowRight, Star, Download, Bell, BarChart2, Zap, Lock } from 'lucide-react'
 import { isLoggedIn } from '../lib/auth'
 
-// APK public URL — update this if R2 public URL changes
-// Get from: Cloudflare Dashboard → R2 → buildbarguna → Settings → Public Access
-const APK_URL = `${import.meta.env.VITE_R2_PUBLIC_URL ?? 'https://pub-b0b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3.r2.dev'}/builds/android/buildbarguna-latest-debug.apk`
+// APK download via Worker API — uses R2_PUBLIC_URL secret at runtime
+// No hardcoded URLs needed — always correct
+const APK_URL = '/api/download/app'
 
 const features = [
   {
