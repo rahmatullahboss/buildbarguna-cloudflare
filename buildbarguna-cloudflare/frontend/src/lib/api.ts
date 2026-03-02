@@ -1,4 +1,13 @@
-const BASE = '/api'
+// In Capacitor app, window.location is file:// — relative URLs won't work
+// Use absolute Worker URL for native app, relative for web
+const isNativeApp = typeof window !== 'undefined' &&
+  (window.location.protocol === 'capacitor:' ||
+   window.location.protocol === 'file:' ||
+   window.location.hostname === 'localhost' && (window as any).Capacitor?.isNativePlatform?.())
+
+const WORKER_URL = import.meta.env.VITE_WORKER_URL ?? 'https://buildbarguna-worker.rahmatullahzisan01.workers.dev'
+
+const BASE = isNativeApp ? `${WORKER_URL}/api` : '/api'
 
 /**
  * Token stored in memory only — NOT localStorage.

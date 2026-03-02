@@ -5,10 +5,9 @@ const config: CapacitorConfig = {
   appName: 'বিল্ড বরগুনা',
   webDir: 'dist-app',
   server: {
-    // For development — point to your live Cloudflare Worker URL
-    // Remove this block for production APK build (uses bundled files)
-    // url: 'https://buildbarguna.your-domain.workers.dev',
-    // cleartext: true,
+    // androidScheme: 'https' ensures cookies and APIs work correctly
+    // without this, app runs on capacitor:// scheme
+    androidScheme: 'https',
   },
   android: {
     allowMixedContent: true,
