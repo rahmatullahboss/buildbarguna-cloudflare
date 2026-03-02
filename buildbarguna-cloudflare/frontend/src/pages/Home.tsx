@@ -248,7 +248,8 @@ export default function Home() {
                 {/* Download button */}
                 <a
                   href={APK_URL}
-                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center justify-center gap-3 w-full sm:w-auto bg-gradient-to-r from-primary-600 to-teal-600 hover:from-primary-500 hover:to-teal-500 active:scale-95 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-200 shadow-lg hover:shadow-primary-500/25 hover:-translate-y-0.5 text-base"
                 >
                   <Download size={20} />
