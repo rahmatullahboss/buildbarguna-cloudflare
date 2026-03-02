@@ -140,6 +140,31 @@ jobs:
         run: chmod +x gradlew
         working-directory: buildbarguna-cloudflare/frontend/android
 
+      # Auto-update versionCode + versionName from package.json — single source of truth
+      # No manual build.gradle edits needed — no merge conflicts!
+      - name: Update Android version from package.json
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          # versionCode = major*10000 + minor*100 + patch (e.g. 1.2.3 → 10203)
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+          VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+
+          echo "📦 Version: $VERSION (code: $VERSION_CODE)"
+
+          # Update build.gradle
+          sed -i "s/versionCode [0-9]*/versionCode $VERSION_CODE/" android/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"$VERSION\"/" android/app/build.gradle
+
+          # Verify
+          grep "versionCode\|versionName" android/app/build.gradle
+
+          # Save for later steps
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+        working-directory: buildbarguna-cloudflare/frontend
+
       - name: Build Android Debug APK
         run: ./gradlew assembleDebug --no-daemon
         working-directory: buildbarguna-cloudflare/frontend/android
@@ -149,11 +174,14 @@ jobs:
         run: |
           SHORT_SHA=${GITHUB_SHA::7}
           BUILD_DATE=$(date +'%Y%m%d')
+          VERSION="${{ env.APP_VERSION }}"
           APK_SRC="buildbarguna-cloudflare/frontend/android/app/build/outputs/apk/debug/app-debug.apk"
-          APK_NAME="buildbarguna-${BUILD_DATE}-${SHORT_SHA}-debug.apk"
+          # Filename includes version — e.g. buildbarguna-v1.0.0-20260302-abc1234-debug.apk
+          APK_NAME="buildbarguna-v${VERSION}-${BUILD_DATE}-${SHORT_SHA}-debug.apk"
           cp "$APK_SRC" "$APK_NAME"
           echo "apk-name=$APK_NAME" >> $GITHUB_OUTPUT
           echo "short-sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "app-version=$VERSION" >> $GITHUB_OUTPUT
           ls -lh "$APK_NAME"
 
       - name: Upload APK as GitHub Artifact
@@ -201,13 +229,17 @@ jobs:
         run: |
           APK_NAME="${{ steps.apk-info.outputs.apk-name }}"
           SHORT_SHA="${{ steps.apk-info.outputs.short-sha }}"
+          APP_VERSION="${{ steps.apk-info.outputs.app-version }}"
           APK_SIZE=$(ls -lh "$APK_NAME" | awk '{print $5}')
           R2_PUBLIC_URL="${{ secrets.R2_PUBLIC_URL }}"
           echo "## 📱 Android APK Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "| | |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
           echo "| **Status** | ✅ Built & Uploaded to R2 |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Version** | \`v${APP_VERSION}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **APK name** | \`${APK_NAME}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **APK size** | ${APK_SIZE} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Commit** | \`${SHORT_SHA}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Latest APK** | [Download](${R2_PUBLIC_URL}/builds/android/buildbarguna-latest-debug.apk) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Latest APK** | [⬇️ Download](${R2_PUBLIC_URL}/builds/android/buildbarguna-latest-debug.apk) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> 💡 To release new version: bump version in \`frontend/package.json\` and push" >> $GITHUB_STEP_SUMMARY
