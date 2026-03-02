@@ -29,8 +29,17 @@ app.use('/api/*', cors({
       'http://localhost:8787',
       'http://127.0.0.1:5173',
       'http://127.0.0.1:8787',
+      // Capacitor Android app origins
+      // androidScheme: 'https' → uses capacitor://localhost
+      'capacitor://localhost',
+      'https://localhost',
+      // Capacitor fallback schemes
+      'http://localhost',
+      'ionic://localhost',
     ]
-    return allowed.includes(origin ?? '') ? origin : null
+    // Allow requests with no origin (e.g. native app direct requests)
+    if (!origin) return '*'
+    return allowed.includes(origin) ? origin : null
   },
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
