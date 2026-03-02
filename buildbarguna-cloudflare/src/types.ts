@@ -1,9 +1,13 @@
 export type Bindings = {
   DB: D1Database
   SESSIONS: KVNamespace
-  FILES: R2Bucket         // Native R2 binding — no S3 credentials needed
+  FILES?: R2Bucket        // Optional — not used in current setup
   JWT_SECRET: string
-  R2_PUBLIC_URL: string   // Public R2 bucket URL e.g. https://pub-xxxx.r2.dev or custom domain
+  R2_PUBLIC_URL: string   // Public R2 bucket URL e.g. https://pub-xxxx.r2.dev
+  R2_ACCOUNT_ID: string   // Cloudflare Account ID for R2 S3 API
+  R2_ACCESS_KEY_ID: string
+  R2_SECRET_ACCESS_KEY: string
+  R2_BUCKET_NAME: string
 }
 
 export type Variables = {

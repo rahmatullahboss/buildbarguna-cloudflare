@@ -5,11 +5,10 @@ compatibility_flags = ["nodejs_compat"]
 minify = true
 
 # ── Observability: Worker Logs & Traces ──────────────────────────────────────
-# Enables real-time logs + tail workers in Cloudflare Dashboard
-# View at: https://dash.cloudflare.com → Workers → buildbarguna-worker → Logs
+# View at: Cloudflare Dashboard → Workers → buildbarguna-worker → Logs
 [observability]
 enabled = true
-head_sampling_rate = 1  # 100% of requests traced (reduce to 0.1 in high traffic)
+head_sampling_rate = 1
 
 # ── Static assets — React SPA build output ───────────────────────────────────
 [assets]
@@ -28,16 +27,14 @@ database_id = "d6cd3372-559c-4653-ac2d-87510b29130d"
 binding = "SESSIONS"
 id = "0e5da409471743769c5e0fe9d2752bd8"
 
-# ── R2 Bucket (project images + APK builds) ──────────────────────────────────
-# Native binding — no S3 API credentials needed
-[[r2_buckets]]
-binding = "FILES"
-bucket_name = "buildbarguna"
-
 # ── Cron: 1st of every month at BD midnight (UTC 18:00) ──────────────────────
 [triggers]
 crons = ["0 18 1 * *"]
 
 # ── Secrets (set via: wrangler secret put SECRET_NAME) ───────────────────────
-# JWT_SECRET     — JWT signing secret
-# R2_PUBLIC_URL  — Public R2 bucket URL e.g. https://pub-xxxx.r2.dev
+# JWT_SECRET        — JWT signing secret
+# R2_ACCOUNT_ID     — Cloudflare Account ID for R2 S3 API (separate account)
+# R2_ACCESS_KEY_ID  — R2 API token access key
+# R2_SECRET_ACCESS_KEY — R2 API token secret
+# R2_BUCKET_NAME    — R2 bucket name
+# R2_PUBLIC_URL     — Public R2 bucket URL
