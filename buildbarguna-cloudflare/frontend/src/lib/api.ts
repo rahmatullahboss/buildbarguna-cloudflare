@@ -409,7 +409,135 @@ export const financeApi = {
   }
 }
 
-// ─── Profit Distribution API ──────────────────────────────────────────────────────
+// ─── Company Expenses Types ────────────────────────────────────────────────────────────
+
+export type CompanyExpenseCategory = {
+  id: number
+  name: string
+  description: string | null
+  is_active: number
+}
+
+export type CompanyExpense = {
+  id: number
+  amount: number
+  category_id: number | null
+  category_name: string
+  description: string | null
+  expense_date: string
+  allocation_method: 'by_project_value' | 'by_revenue' | 'equal' | 'company_only'
+  is_allocated: number
+  notes: string | null
+  created_by: number
+  created_at: string
+  created_by_name?: string
+}
+
+export type ExpenseAllocation = {
+  id: number
+  expense_id: number
+  project_id: number
+  amount: number
+  project_value_pct: number
+  created_at: string
+  project_title?: string
+  project_value?: number
+}
+
+export type CompanyExpenseWithAllocations = CompanyExpense & {
+  allocations: ExpenseAllocation[]
+}
+
+export type CompanyExpenseSummary = {
+  total_expenses: number
+  total_allocated: number
+  pending_allocation: number
+  expenses_count: number
+  by_category: {
+    category_name: string
+    total_amount: number
+    count: number
+  }[]
+}
+
+export type ProjectExpenseSummary = {
+  project_id: number
+  project_name: string
+  direct_expenses: number
+  company_expense_allocation: number
+  total_expenses: number
+  project_value: number
+  allocation_percentage: number
+}
+
+// ─── Company Expenses API ────────────────────────────────────────────────────────────
+
+export const companyExpensesApi = {
+  // Add company expense
+  add: (body: {
+    amount: number
+    category_id?: number
+    category_name: string
+    description?: string
+    expense_date?: string
+    allocation_method?: 'by_project_value' | 'by_revenue' | 'equal' | 'company_only'
+    notes?: string
+  }) => request<{
+    message: string
+    expense_id: number
+    allocation_pending: boolean
+  }>('/company-expenses/admin/add', { method: 'POST', body: JSON.stringify(body) }),
+
+  // Allocate expense to projects
+  allocate: (body: {
+    expense_id: number
+    project_ids: number[]
+  }) => request<{
+    message: string
+    expense_id: number
+    allocations: {
+      project_id: number
+      project_title: string
+      amount: number
+      project_value_pct: number
+    }[]
+    remainder: number
+  }>('/company-expenses/admin/allocate', { method: 'POST', body: JSON.stringify(body) }),
+
+  // List company expenses
+  list: (params?: { allocated?: boolean; page?: number; limit?: number }) => {
+    const query = new URLSearchParams()
+    if (params?.allocated !== undefined) query.set('allocated', String(params.allocated))
+    if (params?.page) query.set('page', String(params.page))
+    if (params?.limit) query.set('limit', String(params.limit))
+    return request<Paginated<CompanyExpense>>(`/company-expenses/admin/list?${query}`)
+  },
+
+  // Get expense details
+  get: (id: number) => request<CompanyExpenseWithAllocations>(`/company-expenses/admin/${id}`),
+
+  // Delete expense
+  delete: (id: number) => request<{ message: string }>(`/company-expenses/admin/${id}`, { method: 'DELETE' }),
+
+  // Get categories
+  categories: () => request<CompanyExpenseCategory[]>('/company-expenses/categories'),
+
+  // Get summary
+  summary: (period?: 'month' | 'year' | 'all') => {
+    const query = period ? `?period=${period}` : ''
+    return request<CompanyExpenseSummary>(`/company-expenses/admin/summary${query}`)
+  },
+
+  // Get project expense summary
+  projectSummary: (projectId: number) => request<ProjectExpenseSummary>(`/company-expenses/project-summary/${projectId}`),
+
+  // Recalculate allocations
+  recalculate: () => request<{
+    message: string
+    processed: number
+    errors?: string[]
+  }>('/company-expenses/admin/recalculate', { method: 'POST' })
+}
 
 export const profitApi = {
   // Preview profit distribution
@@ -419,7 +547,10 @@ export const profitApi = {
       summary: {
         total_revenue: number
         total_expense: number
+        direct_expense: number
+        company_expense_allocation: number
         net_profit: number
+        adjusted_net_profit: number
         previously_distributed: number
         available_profit: number
         company_share_pct: number

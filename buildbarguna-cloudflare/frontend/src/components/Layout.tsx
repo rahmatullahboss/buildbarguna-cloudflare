@@ -3,7 +3,7 @@ import { authApi, clearToken } from '../lib/api'
 import { getUser, isAdmin } from '../lib/auth'
 import {
   Home, Briefcase, PieChart, TrendingUp, CheckSquare,
-  LogOut, Settings, Menu, X, ChevronRight, BarChart2, ArrowDownCircle, Gift
+  LogOut, Settings, Menu, X, ChevronRight, BarChart2, ArrowDownCircle, Gift, Building2
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -36,6 +36,7 @@ const adminNav = [
   { to: '/admin/tasks', label: 'টাস্ক ব্যবস্থাপনা', icon: CheckSquare },
   { to: '/admin/users', label: 'মেম্বার তালিকা', icon: Home },
   { to: '/admin/referrals', label: 'রেফারেল ব্যবস্থাপনা', icon: Gift },
+  { to: '/admin/company-expenses', label: 'কোম্পানি খরচ', icon: Building2 },
 ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {

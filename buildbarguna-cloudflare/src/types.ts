@@ -283,6 +283,8 @@ export type ProfitPreview = {
     total_revenue: number
     total_expense: number
     net_profit: number
+    company_expense_allocation: number  // NEW: company expenses allocated to this project
+    adjusted_net_profit: number         // net_profit - company_expense_allocation
     previously_distributed: number
     available_profit: number
     company_share_pct: number
@@ -301,4 +303,71 @@ export type ProfitPreview = {
     ownership_percentage: number
     profit_amount: number
   }[]
+}
+
+// ─── Company Expenses Types ─────────────────────────────────────────────────────
+
+/** Company expense category */
+export type CompanyExpenseCategory = {
+  id: number
+  name: string
+  description: string | null
+  is_active: number
+}
+
+/** Company expense record */
+export type CompanyExpense = {
+  id: number
+  amount: number                    // paisa
+  category_id: number | null
+  category_name: string
+  description: string | null
+  expense_date: string
+  allocation_method: 'by_project_value' | 'by_revenue' | 'equal' | 'company_only'
+  is_allocated: number              // 0 = not yet distributed to projects, 1 = allocated
+  notes: string | null
+  created_by: number
+  created_at: string
+}
+
+/** Expense allocation to a specific project */
+export type ExpenseAllocation = {
+  id: number
+  expense_id: number
+  project_id: number
+  amount: number                    // paisa (pro-rated)
+  project_value_pct: number        // basis points
+  created_at: string
+}
+
+/** Company expense with allocations (for detail view) */
+export type CompanyExpenseWithAllocations = CompanyExpense & {
+  allocations: (ExpenseAllocation & {
+    project_title: string
+    project_value: number
+  })[]
+}
+
+/** Company expense summary for dashboard */
+export type CompanyExpenseSummary = {
+  total_expenses: number           // paisa (this month)
+  total_allocated: number          // paisa
+  pending_allocation: number      // paisa
+  expenses_count: number
+  by_category: {
+    category_name: string
+    total_amount: number
+    count: number
+  }[]
+}
+
+/** Project expense summary (includes direct + allocated company expenses) */
+export type ProjectExpenseSummary = {
+  project_id: number
+  project_name: string
+  direct_expenses: number         // paisa (from project_transactions)
+  company_expense_allocation: number  // paisa (from expense_allocations)
+  total_expenses: number          // direct + allocated
+  project_value: number           // total_capital
+  allocation_percentage: number   // basis points
 }

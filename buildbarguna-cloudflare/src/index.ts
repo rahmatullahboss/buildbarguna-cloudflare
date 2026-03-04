@@ -12,6 +12,7 @@ import { uploadRoutes } from './routes/upload'
 import { referralRoutes, adminReferralRoutes } from './routes/referrals'
 import { financeRoutes } from './routes/project-finance'
 import { profitRoutes } from './routes/profit-distribution'
+import { companyExpenseRoutes } from './routes/company-expenses'
 import { distributeMonthlyEarnings, cleanupTokenBlacklist } from './cron/earnings'
 import type { Bindings, Variables } from './types'
 
@@ -88,6 +89,7 @@ app.route('/api/admin/referrals', adminReferralRoutes)
 // Project Finance & Profit Distribution Routes
 app.route('/api/finance', financeRoutes)
 app.route('/api/profit', profitRoutes)
+app.route('/api/company-expenses', companyExpenseRoutes)
 
 // Health check
 app.get('/api/health', (c) => c.json({

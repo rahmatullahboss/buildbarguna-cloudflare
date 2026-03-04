@@ -31,7 +31,7 @@ profitRoutes.get('/preview/:projectId', async (c) => {
 
   if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
 
-  // Get financials
+  // Get financials (direct project expenses)
   const financials = await c.env.DB.prepare(
     `SELECT 
       COALESCE(SUM(CASE WHEN transaction_type = 'revenue' THEN amount ELSE 0 END), 0) as total_revenue,
@@ -41,8 +41,19 @@ profitRoutes.get('/preview/:projectId', async (c) => {
   ).bind(projectId).first<{ total_revenue: number; total_expense: number }>()
 
   const totalRevenue = financials?.total_revenue ?? 0
-  const totalExpense = financials?.total_expense ?? 0
+  const directExpense = financials?.total_expense ?? 0
+
+  // Get company expense allocation for this project
+  const companyAllocationResult = await c.env.DB.prepare(
+    `SELECT COALESCE(SUM(amount), 0) as total_allocated
+     FROM expense_allocations 
+     WHERE project_id = ?`
+  ).bind(projectId).first<{ total_allocated: number }>()
+
+  const companyExpenseAllocation = companyAllocationResult?.total_allocated ?? 0
+  const totalExpense = directExpense + companyExpenseAllocation
   const netProfit = totalRevenue - totalExpense
+  const adjustedNetProfit = totalRevenue - totalExpense // includes company expenses
 
   // Get previously distributed
   const distributed = await c.env.DB.prepare(
@@ -59,7 +70,10 @@ profitRoutes.get('/preview/:projectId', async (c) => {
       summary: {
         total_revenue: totalRevenue,
         total_expense: totalExpense,
+        direct_expense: directExpense,
+        company_expense_allocation: companyExpenseAllocation,
         net_profit: netProfit,
+        adjusted_net_profit: adjustedNetProfit,
         previously_distributed: previouslyDistributed,
         available_profit: 0,
         company_share_pct: companySharePct,
@@ -97,7 +111,10 @@ profitRoutes.get('/preview/:projectId', async (c) => {
       summary: {
         total_revenue: totalRevenue,
         total_expense: totalExpense,
+        direct_expense: directExpense,
+        company_expense_allocation: companyExpenseAllocation,
         net_profit: netProfit,
+        adjusted_net_profit: adjustedNetProfit,
         previously_distributed: previouslyDistributed,
         available_profit: availableProfit,
         company_share_pct: companySharePct,
@@ -134,7 +151,10 @@ profitRoutes.get('/preview/:projectId', async (c) => {
     summary: {
       total_revenue: totalRevenue,
       total_expense: totalExpense,
+      direct_expense: directExpense,
+      company_expense_allocation: companyExpenseAllocation,
       net_profit: netProfit,
+      adjusted_net_profit: adjustedNetProfit,
       previously_distributed: previouslyDistributed,
       available_profit: availableProfit,
       company_share_pct: companySharePct,
@@ -175,7 +195,7 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
 
   if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
 
-  // Get financials
+  // Get financials (direct project expenses)
   const financials = await c.env.DB.prepare(
     `SELECT 
       COALESCE(SUM(CASE WHEN transaction_type = 'revenue' THEN amount ELSE 0 END), 0) as total_revenue,
@@ -185,7 +205,17 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
   ).bind(projectId).first<{ total_revenue: number; total_expense: number }>()
 
   const totalRevenue = financials?.total_revenue ?? 0
-  const totalExpense = financials?.total_expense ?? 0
+  const directExpense = financials?.total_expense ?? 0
+
+  // Get company expense allocation for this project
+  const companyAllocationResult = await c.env.DB.prepare(
+    `SELECT COALESCE(SUM(amount), 0) as total_allocated
+     FROM expense_allocations 
+     WHERE project_id = ?`
+  ).bind(projectId).first<{ total_allocated: number }>()
+
+  const companyExpenseAllocation = companyAllocationResult?.total_allocated ?? 0
+  const totalExpense = directExpense + companyExpenseAllocation
   const netProfit = totalRevenue - totalExpense
 
   // Get previously distributed

@@ -234,6 +234,65 @@ INSERT OR IGNORE INTO transaction_categories (name, type) VALUES
     ('সার্ভিস চার্জ', 'revenue'),
     ('অন্যান্য আয়', 'revenue');
 
+-- ============================================
+-- COMPANY EXPENSES SYSTEM
+-- ============================================
+
+-- কোম্পানি খরচ ক্যাটাগরি
+CREATE TABLE IF NOT EXISTS company_expense_categories (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL,
+    description TEXT,
+    is_active   INTEGER NOT NULL DEFAULT 1
+);
+
+-- কোম্পানি খরচ মূল টেবিল
+CREATE TABLE IF NOT EXISTS company_expenses (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    amount           INTEGER NOT NULL CHECK(amount > 0),  -- paisa
+    category_id      INTEGER REFERENCES company_expense_categories(id),
+    category_name    TEXT NOT NULL,  -- denormalized for easier querying
+    description      TEXT,
+    expense_date     TEXT NOT NULL DEFAULT (date('now')),
+    allocation_method TEXT NOT NULL DEFAULT 'by_project_value'
+        CHECK(allocation_method IN ('by_project_value', 'by_revenue', 'equal', 'company_only')),
+    is_allocated     INTEGER NOT NULL DEFAULT 0,  -- 1 = distributed to projects
+    notes            TEXT,
+    created_by       INTEGER NOT NULL REFERENCES users(id),
+    created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- প্রজেক্ট অ্যালোকেশন (কোম্পানি খরচ কীভাবে ভাগ করা হয়েছে)
+CREATE TABLE IF NOT EXISTS expense_allocations (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    expense_id          INTEGER NOT NULL REFERENCES company_expenses(id),
+    project_id          INTEGER NOT NULL REFERENCES projects(id),
+    amount              INTEGER NOT NULL CHECK(amount >= 0),  -- paisa (pro-rated)
+    project_value_pct   INTEGER NOT NULL,  -- basis points (how much % of project value was used)
+    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(expense_id, project_id)
+);
+
+-- ডিফল্ট কোম্পানি খরচ ক্যাটাগরি
+INSERT OR IGNORE INTO company_expense_categories (name, description) VALUES
+    ('অফিস ভাড়া', 'অফিস স্পেসের মাসিক ভাড়া'),
+    ('কর্মচারী বেতন', 'স্টাফ এবং ম্যানেজমেন্টের বেতন'),
+    ('ইউটিলিটি', 'বিদ্যুৎ, গ্যাস, পানি, ইন্টারনেট বিল'),
+    ('মার্কেটিং', 'বিজ্ঞাপন ও প্রচারণা খরচ'),
+    ('অফিস সরঞ্জাম', 'কম্পিউটার, প্রিন্টার, ফার্নিচার'),
+    ('ভ্রমণ', 'ব্যবসায়িক ভ্রমণ ও যাতায়াত'),
+    ('লিগ্যাল ফি', 'আইনি পরামর্শ ও ফি'),
+    ('ব্যাংক চার্জ', 'ব্যাংক ট্রান্সফার ও সার্ভিস চার্জ'),
+    ('সফটওয়্যার ও সাবস্ক্রিপশন', 'টুল ও সার্ভিস সাবস্ক্রিপশন'),
+    ('অন্যান্য', 'বিভিন্ন সাধারণ খরচ');
+
+-- ইনডেক্স
+CREATE INDEX IF NOT EXISTS idx_company_expenses_date       ON company_expenses(expense_date);
+CREATE INDEX IF NOT EXISTS idx_company_expenses_allocated   ON company_expenses(is_allocated);
+CREATE INDEX IF NOT EXISTS idx_company_expenses_creator     ON company_expenses(created_by);
+CREATE INDEX IF NOT EXISTS idx_expense_allocations_expense  ON expense_allocations(expense_id);
+CREATE INDEX IF NOT EXISTS idx_expense_allocations_project  ON expense_allocations(project_id);
+
 -- ইনডেক্স
 CREATE INDEX IF NOT EXISTS idx_project_transactions_project   ON project_transactions(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_transactions_type      ON project_transactions(transaction_type);
