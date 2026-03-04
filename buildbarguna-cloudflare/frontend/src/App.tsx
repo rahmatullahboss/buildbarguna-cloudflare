@@ -8,6 +8,7 @@ import { isLoggedIn } from './lib/auth'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import Tutorial from './pages/Tutorial'
 
 // Smart root route: redirect logged-in users to dashboard
 function RootRoute() {
@@ -37,6 +38,7 @@ const AdminReferrals  = lazy(() => import('./pages/admin/AdminReferrals'))
 const ProjectFinance  = lazy(() => import('./pages/admin/ProjectFinance'))
 const ProfitDistribution = lazy(() => import('./pages/admin/ProfitDistribution'))
 const CompanyExpenses = lazy(() => import('./pages/admin/CompanyExpenses'))
+const AdminTutorial   = lazy(() => import('./pages/admin/AdminTutorial'))
 
 // Minimal full-page loading fallback with shimmer cards
 function PageLoader() {
@@ -63,6 +65,7 @@ export default function App() {
         <Route path="/" element={<RootRoute />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/tutorial" element={<Layout><Tutorial /></Layout>} />
 
         {/* Protected member routes */}
         <Route path="/dashboard"      element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
@@ -87,6 +90,7 @@ export default function App() {
         <Route path="/admin/tasks"          element={<AdminRoute><Layout><AdminTasks /></Layout></AdminRoute>} />
         <Route path="/admin/users"          element={<AdminRoute><Layout><AdminUsers /></Layout></AdminRoute>} />
         <Route path="/admin/referrals"      element={<AdminRoute><Layout><AdminReferrals /></Layout></AdminRoute>} />
+        <Route path="/admin/tutorial"       element={<AdminRoute><Layout><AdminTutorial /></Layout></AdminRoute>} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />

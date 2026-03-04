@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { TrendingUp, Users, Shield, CheckCircle, ArrowRight, Star, Download, Bell, BarChart2, Zap, Lock } from 'lucide-react'
+import { TrendingUp, Users, Shield, CheckCircle, ArrowRight, Star, Download, Bell, BarChart2, Zap, Lock, BookOpen } from 'lucide-react'
 import { isLoggedIn } from '../lib/auth'
 
 // Direct R2 public URL — permanent link, no redirect needed
@@ -62,6 +62,9 @@ export default function Home() {
               <Link to="/" className="btn-primary py-2 px-5 text-sm">ড্যাশবোর্ড →</Link>
             ) : (
               <>
+                <Link to="/tutorial" className="btn-secondary py-2 px-4 text-sm flex items-center gap-1">
+                  <BookOpen size={16} /> গাইড
+                </Link>
                 <Link to="/login" className="btn-secondary py-2 px-4 text-sm">লগইন</Link>
                 <Link to="/register" className="btn-primary py-2 px-4 text-sm">যোগ দিন</Link>
               </>

@@ -3,7 +3,7 @@ import { authApi, clearToken } from '../lib/api'
 import { getUser, isAdmin } from '../lib/auth'
 import {
   Home, Briefcase, PieChart, TrendingUp, CheckSquare,
-  LogOut, Settings, Menu, X, ChevronRight, BarChart2, ArrowDownCircle, Gift, Building2
+  LogOut, Settings, Menu, X, ChevronRight, BarChart2, ArrowDownCircle, Gift, Building2, BookOpen
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -13,7 +13,7 @@ const bottomNav = [
   { to: '/projects', label: 'প্রজেক্ট', icon: Briefcase },
   { to: '/earnings', label: 'মুনাফা', icon: TrendingUp },
   { to: '/withdraw', label: 'উত্তোলন', icon: ArrowDownCircle },
-  { to: '/referrals', label: 'রেফারেল', icon: Gift },
+  { to: '/tutorial', label: 'গাইড', icon: BookOpen },
 ]
 
 const memberNav = [
@@ -25,6 +25,7 @@ const memberNav = [
   { to: '/portfolio', label: 'পোর্টফোলিও', icon: BarChart2 },
   { to: '/withdraw', label: 'উত্তোলন', icon: ArrowDownCircle },
   { to: '/referrals', label: 'রেফারেল', icon: Gift },
+  { to: '/tutorial', label: 'গাইড', icon: BookOpen },
 ]
 
 const adminNav = [
@@ -37,6 +38,7 @@ const adminNav = [
   { to: '/admin/users', label: 'মেম্বার তালিকা', icon: Home },
   { to: '/admin/referrals', label: 'রেফারেল ব্যবস্থাপনা', icon: Gift },
   { to: '/admin/company-expenses', label: 'কোম্পানি খরচ', icon: Building2 },
+  { to: '/admin/tutorial', label: 'গাইড', icon: BookOpen },
 ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {
