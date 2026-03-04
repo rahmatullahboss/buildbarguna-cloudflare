@@ -232,8 +232,8 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
     totalExpense,
     netProfit,
     investorPool,
-    data.company_share_percentage * 100, // convert to basis points
-    (100 - data.company_share_percentage) * 100,
+    data.company_share_percentage * 100, // convert percentage to basis points (e.g., 30% = 3000 bps)
+    (100 - data.company_share_percentage) * 100, // convert percentage to basis points
     data.period_start ?? null,
     data.period_end ?? null,
     userId
@@ -267,7 +267,14 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
       ).run()
 
       // Add to earnings table (for withdrawal capability)
+      // We store the actual profit distributed to each shareholder
+      // The "rate" field represents the return rate in basis points on their investment
+      // rate = (profit_amount / investment_value) * 10000
+      // investment_value = shares_held * share_price (but we don't have share_price here)
+      // So we'll store the investor percentage as reference instead
       const currentMonth = new Date().toISOString().slice(0, 7)
+      const investorRateBps = (100 - data.company_share_percentage) * 100 // e.g., 70% = 7000 bps
+      
       await c.env.DB.prepare(
         `INSERT INTO earnings (user_id, project_id, month, shares, rate, amount)
          VALUES (?, ?, ?, ?, ?, ?)
@@ -277,7 +284,7 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
         projectId,
         currentMonth,
         sh.shares_held,
-        Math.floor(data.company_share_percentage * 100), // use company % as rate
+        investorRateBps, // Store investor share percentage as basis points
         profitAmount
       ).run()
     })

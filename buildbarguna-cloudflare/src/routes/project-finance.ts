@@ -28,8 +28,11 @@ const updateTransactionSchema = z.object({
   amount: z.number().int().positive().optional(),
   category: z.string().min(1).optional(),
   description: z.string().optional(),
-  transaction_date: z.string().optional()
+  transaction_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'তারিখ YYYY-MM-DD ফরম্যাটে হতে হবে').optional()
 })
+
+// Whitelist allowed fields - never interpolate arbitrary keys into SQL
+const ALLOWED_TRANSACTION_FIELDS = ['amount', 'category', 'description', 'transaction_date'] as const
 
 // ──────────────────────────────────────────────────────────────
 // 1. ADD TRANSACTION (Expense/Revenue Entry)
@@ -104,11 +107,17 @@ financeRoutes.get('/transactions/:projectId', async (c) => {
   query += ` ORDER BY t.transaction_date DESC, t.created_at DESC LIMIT ? OFFSET ?`
   params.push(limit, offset)
 
+  // Build count query separately with parameterized type filter
+  let countQuery = 'SELECT COUNT(*) as total FROM project_transactions WHERE project_id = ?'
+  const countParams: (string | number)[] = [projectId]
+  if (type) {
+    countQuery += ' AND transaction_type = ?'
+    countParams.push(type)
+  }
+
   const [rows, countRow] = await Promise.all([
     c.env.DB.prepare(query).bind(...params).all<ProjectTransaction & { created_by_name: string }>(),
-    c.env.DB.prepare(
-      `SELECT COUNT(*) as total FROM project_transactions WHERE project_id = ?${type ? ` AND transaction_type = '${type}'` : ''}`
-    ).bind(projectId).first<{ total: number }>()
+    c.env.DB.prepare(countQuery).bind(...countParams).first<{ total: number }>()
   ])
 
   return ok(c, paginate(rows.results, countRow?.total ?? 0, page, limit))
@@ -132,14 +141,15 @@ financeRoutes.put('/transactions/:id', zValidator('json', updateTransactionSchem
 
   if (!existing) return err(c, 'ট্রানজেকশন পাওয়া যায়নি', 404)
 
-  const fields = Object.keys(data).filter(k => data[k as keyof typeof data] !== undefined)
+  // Use whitelist approach - only allow specific fields
+  const fields = Object.keys(data).filter(k => 
+    (ALLOWED_TRANSACTION_FIELDS as readonly string[]).includes(k) && 
+    data[k as keyof typeof data] !== undefined
+  )
   if (fields.length === 0) return err(c, 'কোনো পরিবর্তন নেই')
 
   const setClauses = fields.map(k => `${k} = ?`).join(', ')
-  const values = fields.map(k => {
-    const v = data[k as keyof typeof data]
-    return k === 'amount' ? v : (v ?? null)
-  })
+  const values = fields.map(k => data[k as keyof typeof data])
 
   await c.env.DB.prepare(
     `UPDATE project_transactions SET ${setClauses}, updated_at = datetime('now') WHERE id = ?`
@@ -322,6 +332,9 @@ const categorySchema = z.object({
   is_active: z.number().int().min(0).max(1).optional()
 })
 
+// Whitelist allowed fields for category updates
+const ALLOWED_CATEGORY_FIELDS = ['name', 'type', 'is_active'] as const
+
 financeRoutes.post('/categories', zValidator('json', categorySchema), async (c) => {
   const data = c.req.valid('json')
 
@@ -341,9 +354,15 @@ financeRoutes.put('/categories/:id', zValidator('json', categorySchema.partial()
   const data = c.req.valid('json')
   if (Object.keys(data).length === 0) return err(c, 'কোনো পরিবর্তন নেই')
 
-  const fields = Object.keys(data).filter(k => data[k as keyof typeof data] !== undefined)
-  const setClauses = fields.map(k => `${k} = ?`).join(', ')
-  const values = fields.map(k => data[k as keyof typeof data])
+  // Use whitelist approach - only allow specific fields
+  const validFields = Object.keys(data).filter(k => 
+    (ALLOWED_CATEGORY_FIELDS as readonly string[]).includes(k) && 
+    data[k as keyof typeof data] !== undefined
+  )
+  if (validFields.length === 0) return err(c, 'কোনো বৈধ পরিবর্তন নেই')
+
+  const setClauses = validFields.map(k => `${k} = ?`).join(', ')
+  const values = validFields.map(k => data[k as keyof typeof data])
 
   await c.env.DB.prepare(
     `UPDATE transaction_categories SET ${setClauses} WHERE id = ?`
