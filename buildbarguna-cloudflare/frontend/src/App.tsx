@@ -34,6 +34,8 @@ const AdminEarnings   = lazy(() => import('./pages/admin/AdminEarnings'))
 const AdminTasks      = lazy(() => import('./pages/admin/AdminTasks'))
 const AdminUsers      = lazy(() => import('./pages/admin/AdminUsers'))
 const AdminReferrals  = lazy(() => import('./pages/admin/AdminReferrals'))
+const ProjectFinance  = lazy(() => import('./pages/admin/ProjectFinance'))
+const ProfitDistribution = lazy(() => import('./pages/admin/ProfitDistribution'))
 
 // Minimal full-page loading fallback with shimmer cards
 function PageLoader() {
@@ -76,6 +78,8 @@ export default function App() {
         <Route path="/admin"                element={<AdminRoute><Layout><AdminDashboard /></Layout></AdminRoute>} />
         <Route path="/admin/withdrawals"    element={<AdminRoute><Layout><AdminWithdrawals /></Layout></AdminRoute>} />
         <Route path="/admin/projects"       element={<AdminRoute><Layout><AdminProjects /></Layout></AdminRoute>} />
+        <Route path="/admin/projects/:projectId/finance" element={<AdminRoute><Layout><ProjectFinance /></Layout></AdminRoute>} />
+        <Route path="/admin/projects/:projectId/distribute-profit" element={<AdminRoute><Layout><ProfitDistribution /></Layout></AdminRoute>} />
         <Route path="/admin/shares"         element={<AdminRoute><Layout><AdminShares /></Layout></AdminRoute>} />
         <Route path="/admin/earnings"       element={<AdminRoute><Layout><AdminEarnings /></Layout></AdminRoute>} />
         <Route path="/admin/tasks"          element={<AdminRoute><Layout><AdminTasks /></Layout></AdminRoute>} />

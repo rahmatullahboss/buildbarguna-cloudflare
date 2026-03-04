@@ -158,3 +158,87 @@ CREATE INDEX IF NOT EXISTS idx_user_shares_user           ON user_shares(user_id
 CREATE INDEX IF NOT EXISTS idx_withdrawals_user           ON withdrawals(user_id);
 CREATE INDEX IF NOT EXISTS idx_withdrawals_status         ON withdrawals(status);
 CREATE INDEX IF NOT EXISTS idx_withdrawals_user_requested ON withdrawals(user_id, requested_at);
+
+-- ============================================
+-- PROJECT FINANCE & PROFIT DISTRIBUTION TABLES
+-- ============================================
+
+-- ১. প্রজেক্ট ফাইনান্সিয়াল ট্রানজেকশন (খরচ ও আয়)
+CREATE TABLE IF NOT EXISTS project_transactions (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id       INTEGER NOT NULL REFERENCES projects(id),
+    transaction_type TEXT NOT NULL CHECK(transaction_type IN ('expense', 'revenue')),
+    amount           INTEGER NOT NULL CHECK(amount > 0),  -- paisa
+    category         TEXT NOT NULL,
+    description      TEXT,
+    transaction_date TEXT NOT NULL DEFAULT (date('now')),
+    created_by       INTEGER NOT NULL REFERENCES users(id),
+    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ২. ক্যাটাগরি টেবিল (খরচ/আয়ের ধরন)
+CREATE TABLE IF NOT EXISTS transaction_categories (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL,
+    type        TEXT NOT NULL CHECK(type IN ('expense', 'revenue')),
+    is_active   INTEGER NOT NULL DEFAULT 1
+);
+
+-- ৩. প্রফিট ডিস্ট্রিবিউশন ব্যাচ
+CREATE TABLE IF NOT EXISTS profit_distributions (
+    id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id               INTEGER NOT NULL REFERENCES projects(id),
+    total_revenue            INTEGER NOT NULL DEFAULT 0,    -- paisa
+    total_expense            INTEGER NOT NULL DEFAULT 0,    -- paisa
+    net_profit               INTEGER NOT NULL DEFAULT 0,    -- paisa
+    distributable_amount     INTEGER NOT NULL DEFAULT 0,    -- paisa
+    company_share_percentage  INTEGER NOT NULL DEFAULT 30,   -- basis points (30% = 3000)
+    investor_share_percentage INTEGER NOT NULL DEFAULT 70,   -- basis points (70% = 7000)
+    period_start             TEXT,
+    period_end               TEXT,
+    status                   TEXT NOT NULL DEFAULT 'pending' 
+        CHECK(status IN ('pending', 'approved', 'distributed', 'cancelled')),
+    distributed_at           TEXT,
+    created_by               INTEGER NOT NULL REFERENCES users(id),
+    created_at               TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ৪. শেয়ারহোল্ডার প্রফিট রেকর্ড
+CREATE TABLE IF NOT EXISTS shareholder_profits (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    distribution_id       INTEGER NOT NULL REFERENCES profit_distributions(id),
+    project_id            INTEGER NOT NULL REFERENCES projects(id),
+    user_id               INTEGER NOT NULL REFERENCES users(id),
+    shares_held           INTEGER NOT NULL,
+    total_shares          INTEGER NOT NULL,
+    ownership_percentage  INTEGER NOT NULL DEFAULT 0,  -- basis points
+    profit_amount         INTEGER NOT NULL DEFAULT 0,  -- paisa
+    status                TEXT NOT NULL DEFAULT 'pending'
+        CHECK(status IN ('pending', 'credited', 'withdrawn')),
+    credited_at           TEXT,
+    created_at            TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ডিফল্ট ক্যাটাগরি
+INSERT OR IGNORE INTO transaction_categories (name, type) VALUES
+    ('নির্মাণ সামগ্রী', 'expense'),
+    ('শ্রমিক বেতন', 'expense'),
+    ('পরিবহন', 'expense'),
+    ('ইউটিলিটি বিল', 'expense'),
+    ('সরকারি ফি/ট্যাক্স', 'expense'),
+    ('ম্যানেজমেন্ট ফি', 'expense'),
+    ('অন্যান্য খরচ', 'expense'),
+    ('ইউনিট বিক্রি', 'revenue'),
+    ('ভাড়া আয়', 'revenue'),
+    ('সার্ভিস চার্জ', 'revenue'),
+    ('অন্যান্য আয়', 'revenue');
+
+-- ইনডেক্স
+CREATE INDEX IF NOT EXISTS idx_project_transactions_project   ON project_transactions(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_transactions_type      ON project_transactions(transaction_type);
+CREATE INDEX IF NOT EXISTS idx_project_transactions_date       ON project_transactions(transaction_date);
+CREATE INDEX IF NOT EXISTS idx_profit_distributions_project    ON profit_distributions(project_id);
+CREATE INDEX IF NOT EXISTS idx_profit_distributions_status     ON profit_distributions(status);
+CREATE INDEX IF NOT EXISTS idx_shareholder_profits_user        ON shareholder_profits(user_id);
+CREATE INDEX IF NOT EXISTS idx_shareholder_profits_distribution ON shareholder_profits(distribution_id);

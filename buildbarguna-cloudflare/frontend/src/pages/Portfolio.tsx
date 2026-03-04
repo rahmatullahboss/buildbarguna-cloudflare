@@ -280,10 +280,12 @@ export default function Portfolio() {
 
               {/* Health metrics */}
               <div className="flex-1 space-y-3 w-full">
-                <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                  <span className="text-sm text-gray-500">বৈচিত্র্য ঝুঁকি</span>
-                  <ConcentrationRiskBadge risk={portfolio.concentration_risk_percent} />
-                </div>
+                {portfolio.projects_count > 1 && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-50">
+                    <span className="text-sm text-gray-500">বৈচিত্র্য ঝুঁকি</span>
+                    <ConcentrationRiskBadge risk={portfolio.concentration_risk_percent} />
+                  </div>
+                )}
                 <div className="flex justify-between items-center py-2 border-b border-gray-50">
                   <span className="text-sm text-gray-500">মোট ROI</span>
                   <RoiBadge roi={portfolio.roi_percent} />

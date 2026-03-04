@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { adminApi, type CreateProjectBody } from '../../lib/api'
 import { formatTaka } from '../../lib/auth'
 import ImageUpload from '../../components/ImageUpload'
+import { Wallet, TrendingUp } from 'lucide-react'
 
 const statusLabel: Record<string, string> = { draft: 'খসড়া', active: 'সক্রিয়', closed: 'বন্ধ' }
 const statusBadge: Record<string, string> = { draft: 'badge-pending', active: 'badge-active', closed: 'badge-closed' }
@@ -142,6 +144,12 @@ export default function AdminProjects() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 shrink-0">
+                  <Link
+                    to={`/admin/projects/${p.id}/finance`}
+                    className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1 justify-center"
+                  >
+                    <Wallet size={14} /> ফাইনান্স
+                  </Link>
                   {p.status === 'draft' && (
                     <button onClick={() => statusMutation.mutate({ id: p.id, status: 'active' })} className="btn-primary text-xs py-1.5 px-3">সক্রিয় করুন</button>
                   )}

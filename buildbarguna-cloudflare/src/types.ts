@@ -205,3 +205,100 @@ export type PortfolioProjectRow = {
   months_active: number
   latest_rate_bps: number | null
 }
+
+// ─── Project Finance & Profit Distribution Types ─────────────────────────────────
+
+/** Project transaction (expense/revenue entry) */
+export type ProjectTransaction = {
+  id: number
+  project_id: number
+  transaction_type: 'expense' | 'revenue'
+  amount: number           // paisa
+  category: string
+  description: string | null
+  transaction_date: string
+  created_by: number
+  created_at: string
+  updated_at: string
+}
+
+/** Transaction category */
+export type TransactionCategory = {
+  id: number
+  name: string
+  type: 'expense' | 'revenue'
+  is_active: number
+}
+
+/** Profit distribution batch */
+export type ProfitDistribution = {
+  id: number
+  project_id: number
+  total_revenue: number        // paisa
+  total_expense: number        // paisa
+  net_profit: number          // paisa
+  distributable_amount: number  // paisa (investor pool)
+  company_share_percentage: number  // basis points (e.g. 3000 = 30%)
+  investor_share_percentage: number // basis points (e.g. 7000 = 70%)
+  period_start: string | null
+  period_end: string | null
+  status: 'pending' | 'approved' | 'distributed' | 'cancelled'
+  distributed_at: string | null
+  created_by: number
+  created_at: string
+}
+
+/** Individual shareholder's profit from a distribution */
+export type ShareholderProfit = {
+  id: number
+  distribution_id: number
+  project_id: number
+  user_id: number
+  shares_held: number
+  total_shares: number
+  ownership_percentage: number  // basis points
+  profit_amount: number         // paisa
+  status: 'pending' | 'credited' | 'withdrawn'
+  credited_at: string | null
+  created_at: string
+}
+
+/** Financial summary for a project */
+export type ProjectFinancialSummary = {
+  project_id: number
+  project_name: string
+  total_revenue: number      // paisa
+  total_expense: number      // paisa
+  net_profit: number        // paisa
+  profit_margin_percent: number
+  total_distributed: number  // paisa
+  undistributed_profit: number // paisa
+  revenue_count: number
+  expense_count: number
+}
+
+/** Profit preview before distribution */
+export type ProfitPreview = {
+  summary: {
+    total_revenue: number
+    total_expense: number
+    net_profit: number
+    previously_distributed: number
+    available_profit: number
+    company_share_pct: number
+    company_share_amount: number
+    investor_share_pct: number
+    investor_pool: number
+    total_shareholders: number
+    total_shares_sold: number
+  }
+  shareholders: {
+    user_id: number
+    user_name: string
+    phone: string
+    shares_held: number
+    total_shares: number
+    ownership_percentage: number
+    profit_amount: number
+  }[]
+}

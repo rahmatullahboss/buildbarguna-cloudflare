@@ -289,3 +289,191 @@ export type PortfolioSummary = {
   concentration_risk_percent: number
   projects: ProjectPortfolioItem[]
 }
+
+// ─── Project Finance & Profit Distribution Types ─────────────────────────────────
+
+export type ProjectTransaction = {
+  id: number
+  project_id: number
+  transaction_type: 'expense' | 'revenue'
+  amount: number
+  category: string
+  description: string | null
+  transaction_date: string
+  created_by: number
+  created_at: string
+  updated_at: string
+  created_by_name?: string
+}
+
+export type TransactionCategory = {
+  id: number
+  name: string
+  type: 'expense' | 'revenue'
+  is_active: number
+}
+
+export type ProjectFinancialSummary = {
+  project_id: number
+  project_name: string
+  total_revenue: number
+  total_expense: number
+  net_profit: number
+  profit_margin_percent: number
+  total_distributed: number
+  undistributed_profit: number
+  revenue_count: number
+  expense_count: number
+}
+
+export type ProfitDistribution = {
+  id: number
+  project_id: number
+  total_revenue: number
+  total_expense: number
+  net_profit: number
+  distributable_amount: number
+  company_share_percentage: number
+  investor_share_percentage: number
+  period_start: string | null
+  period_end: string | null
+  status: 'pending' | 'approved' | 'distributed' | 'cancelled'
+  distributed_at: string | null
+  created_by: number
+  created_at: string
+  distributed_by_name?: string
+  shareholders_count?: number
+}
+
+export type ShareholderProfit = {
+  id: number
+  distribution_id: number
+  project_id: number
+  user_id: number
+  shares_held: number
+  total_shares: number
+  ownership_percentage: number
+  profit_amount: number
+  status: 'pending' | 'credited' | 'withdrawn'
+  credited_at: string | null
+  created_at: string
+  user_name?: string
+  phone?: string
+}
+
+// ─── Finance API ──────────────────────────────────────────────────────────────────
+
+export const financeApi = {
+  // Add transaction (expense/revenue)
+  addTransaction: (body: {
+    project_id: number
+    transaction_type: 'expense' | 'revenue'
+    amount: number
+    category: string
+    description?: string
+    transaction_date?: string
+  }) => request('/finance/transactions', { method: 'POST', body: JSON.stringify(body) }),
+
+  // Get project transactions
+  getTransactions: (projectId: number, params?: { type?: 'expense' | 'revenue'; page?: number; limit?: number }) => {
+    const query = new URLSearchParams()
+    if (params?.type) query.set('type', params.type)
+    if (params?.page) query.set('page', String(params.page))
+    if (params?.limit) query.set('limit', String(params.limit))
+    return request<Paginated<ProjectTransaction>>(`/finance/transactions/${projectId}?${query}`)
+  },
+
+  // Update transaction
+  updateTransaction: (id: number, body: Partial<{
+    amount: number
+    category: string
+    description: string
+    transaction_date: string
+  }>) => request(`/finance/transactions/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+
+  // Delete transaction
+  deleteTransaction: (id: number) => request(`/finance/transactions/${id}`, { method: 'DELETE' }),
+
+  // Get financial summary
+  getSummary: (projectId: number) => request<{
+    project: { id: number; title: string; status: string; share_price: number; total_shares: number; shares_sold: number; shareholders_count: number }
+    financials: ProjectFinancialSummary
+    category_breakdown: { transaction_type: string; category: string; total_amount: number; transaction_count: number }[]
+    monthly_trend: { month: string; revenue: number; expense: number; profit: number }[]
+  }>(`/finance/summary/${projectId}`),
+
+  // Get categories
+  getCategories: (type?: 'expense' | 'revenue') => {
+    const query = type ? `?type=${type}` : ''
+    return request<TransactionCategory[]>(`/finance/categories${query}`)
+  }
+}
+
+// ─── Profit Distribution API ──────────────────────────────────────────────────────
+
+export const profitApi = {
+  // Preview profit distribution
+  preview: (projectId: number, companyPct?: number) => {
+    const query = companyPct ? `?company_pct=${companyPct}` : ''
+    return request<{
+      summary: {
+        total_revenue: number
+        total_expense: number
+        net_profit: number
+        previously_distributed: number
+        available_profit: number
+        company_share_pct: number
+        company_share_amount: number
+        investor_share_pct: number
+        investor_pool: number
+        total_shareholders: number
+        total_shares_sold: number
+      }
+      shareholders: {
+        user_id: number
+        user_name: string
+        phone: string
+        shares_held: number
+        total_shares: number
+        ownership_percentage: number
+        profit_amount: number
+      }[]
+      has_available_profit: boolean
+      message?: string
+    }>(`/profit/preview/${projectId}${query}`)
+  },
+
+  // Distribute profit
+  distribute: (projectId: number, body: {
+    company_share_percentage?: number
+    period_start?: string
+    period_end?: string
+  }) => request<{
+    message: string
+    distribution_id: number
+    total_distributed: number
+    shareholders_count: number
+    company_share: number
+    failed_count: number
+  }>(`/profit/distribute/${projectId}`, { method: 'POST', body: JSON.stringify(body) }),
+
+  // Get distribution history
+  getHistory: (projectId: number, page = 1, limit = 20) =>
+    request<Paginated<ProfitDistribution>>(`/profit/history/${projectId}?page=${page}&limit=${limit}`),
+
+  // Get distribution details
+  getDistribution: (id: number) => request<{
+    distribution: ProfitDistribution & { project_title: string }
+    shareholders: ShareholderProfit[]
+  }>(`/profit/distribution/${id}`),
+
+  // Get my profits (user's profit history)
+  myProfits: () => request<{
+    profits: (ShareholderProfit & { project_title: string; distributed_at: string })[]
+    summary: {
+      total_distributions: number
+      total_profit_earned: number
+      projects_count: number
+    }
+  }>('/profit/my-profits')
+}
