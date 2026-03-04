@@ -63,10 +63,13 @@ shareRoutes.post('/buy', zValidator('json', buySchema), async (c) => {
     return err(c, 'আপনার ৩টি অনুরোধ এখনো অপেক্ষমাণ আছে। অনুমোদনের পরে নতুন অনুরোধ দিন।', 429)
   }
 
+  // For manual payments, use dummy txid since column has NOT NULL constraint
+  const finalTxid = payment_method === 'manual' ? 'MANUAL' : (bkash_txid ?? '')
+
   const result = await c.env.DB.prepare(
     `INSERT INTO share_purchases (user_id, project_id, quantity, total_amount, bkash_txid, payment_method)
      VALUES (?, ?, ?, ?, ?, ?)`
-  ).bind(userId, project_id, quantity, total_amount, bkash_txid ?? null, payment_method).run()
+  ).bind(userId, project_id, quantity, total_amount, finalTxid, payment_method).run()
 
   if (!result.success) return err(c, 'অনুরোধ জমা দিতে ব্যর্থ হয়েছে', 500)
 
