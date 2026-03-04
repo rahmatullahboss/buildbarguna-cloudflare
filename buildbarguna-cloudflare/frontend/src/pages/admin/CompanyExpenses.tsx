@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { companyExpensesApi, companyExpensesApi as api, type CompanyExpense, type CompanyExpenseCategory, type CompanyExpenseSummary } from '../../lib/api'
+import { companyExpensesApi as api, type CompanyExpense, type CompanyExpenseCategory, type CompanyExpenseSummary } from '../../lib/api'
 import { formatTaka, formatDate } from '../../lib/auth'
 import { Plus, RefreshCw, Trash2, Eye, Building2, Calendar, DollarSign, PieChart, AlertCircle, CheckCircle, Clock } from 'lucide-react'
 
@@ -94,13 +94,15 @@ export default function CompanyExpenses() {
 
   const handleCategoryChange = (id: number) => {
     setCategoryId(id)
-    const cat = categoriesData?.data?.find((c: CompanyExpenseCategory) => c.id === id)
+    const cat = categoriesData && 'data' in categoriesData && categoriesData.data
+      ? categoriesData.data.find((c: CompanyExpenseCategory) => c.id === id)
+      : undefined
     if (cat) setCategoryName(cat.name)
   }
 
-  const summary: CompanyExpenseSummary | null = summaryData?.success ? summaryData.data : null
-  const expenses: CompanyExpense[] = expensesData?.success ? (expensesData.data as any).items : []
-  const categories: CompanyExpenseCategory[] = categoriesData?.success ? categoriesData.data : []
+  const summary: CompanyExpenseSummary | null = summaryData && 'data' in summaryData ? summaryData.data : null
+  const expenses: CompanyExpense[] = expensesData && 'data' in expensesData ? (expensesData.data as any).items : []
+  const categories: CompanyExpenseCategory[] = categoriesData && 'data' in categoriesData ? categoriesData.data : []
 
   const allocationMethodLabels = {
     'by_project_value': 'প্রজেক্ট মূল্য অনুযায়ী',
