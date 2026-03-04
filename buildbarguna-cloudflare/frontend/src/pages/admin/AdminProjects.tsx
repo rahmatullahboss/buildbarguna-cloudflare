@@ -156,6 +156,9 @@ export default function AdminProjects() {
                   {p.status === 'active' && (
                     <button onClick={() => statusMutation.mutate({ id: p.id, status: 'closed' })} className="btn-secondary text-xs py-1.5 px-3">বন্ধ করুন</button>
                   )}
+                  {p.status === 'closed' && (
+                    <button onClick={() => statusMutation.mutate({ id: p.id, status: 'active' })} className="btn-primary text-xs py-1.5 px-3">আবার চালু করুন</button>
+                  )}
                 </div>
               </div>
             </div>
