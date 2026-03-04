@@ -4,9 +4,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { projectsApi, sharesApi } from '../lib/api'
 import { formatTaka } from '../lib/auth'
 import Disclaimer from '../components/Disclaimer'
-import { HelpCircle, X, AlertTriangle, CheckSquare, Plus, Minus, Wallet, Phone } from 'lucide-react'
+import { HelpCircle, X, AlertTriangle, CheckSquare, Plus, Minus, Wallet, Phone, CheckCircle, ArrowRight, FileText, PartyPopper } from 'lucide-react'
 
 type PaymentMethod = 'bkash' | 'manual'
+
+// Success purchase data
+type PurchaseSuccess = {
+  purchase_id: number
+  total_amount_paisa: number
+  payment_method: PaymentMethod
+  quantity: number
+  project_title: string
+}
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>()
@@ -20,6 +29,7 @@ export default function ProjectDetail() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [txidHelp, setTxidHelp] = useState(false)
   const [acknowledged, setAcknowledged] = useState(false)
+  const [purchaseSuccess, setPurchaseSuccess] = useState<PurchaseSuccess | null>(null)
 
   // Auto-dismiss success message after 5s
   useEffect(() => {
@@ -41,23 +51,30 @@ export default function ProjectDetail() {
   })
 
   const buyMutation = useMutation({
-    mutationFn: () => sharesApi.buy({
-      project_id: Number(id),
-      quantity: qty,
-      payment_method: paymentMethod,
-      bkash_txid: paymentMethod === 'bkash' ? txid : undefined
-    }),
+    mutationFn: async () => {
+      const res = await sharesApi.buy({
+        project_id: Number(id),
+        quantity: qty,
+        payment_method: paymentMethod,
+        bkash_txid: paymentMethod === 'bkash' ? txid : undefined
+      })
+      return res as { success: boolean; data?: { purchase_id: number; total_amount_paisa: number; payment_method: string }; error?: string }
+    },
     onSuccess: (res) => {
       setShowConfirm(false)
-      if (res.success) {
-        const paymentMsg = paymentMethod === 'bkash'
-          ? 'bKash পেমেন্ট যাচাই করে অনুমোদন করা হবে।'
-          : 'ম্যানুয়াল পেমেন্টের জন্য অ্যাডমিন আপনার সাথে যোগাযোগ করবে।'
-        setMsg(`শেয়ার কেনার অনুরোধ জমা হয়েছে! ${paymentMsg}`)
-        setTxid(''); setQty(1); setAcknowledged(false)
+      if (res.success && res.data) {
+        // Set success data for success screen
+        setPurchaseSuccess({
+          purchase_id: res.data.purchase_id,
+          total_amount_paisa: res.data.total_amount_paisa,
+          payment_method: res.data.payment_method as PaymentMethod,
+          quantity: qty,
+          project_title: p.title
+        })
+        setTxid(''); setAcknowledged(false)
         qc.invalidateQueries({ queryKey: ['projects'] })
       } else {
-        setError((res as { error: string }).error)
+        setError(res.error || 'কিছু সমস্যা হয়েছে')
       }
     }
   })
@@ -436,6 +453,100 @@ export default function ProjectDetail() {
           </div>
         )}
       </div>
+
+      {/* Success Screen */}
+      {purchaseSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 space-y-5 text-center">
+            {/* Success Animation */}
+            <div className="relative">
+              <div className="w-20 h-20 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                <CheckCircle size={40} className="text-white" />
+              </div>
+              <div className="absolute -top-2 -right-2 animate-pulse">
+                <PartyPopper size={24} className="text-amber-500" />
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">🎉 অভিনন্দন!</h2>
+              <p className="text-gray-500">আপনার শেয়ার কেনার অনুরোধ সফলভাবে জমা হয়েছে</p>
+            </div>
+
+            {/* Order Details Card */}
+            <div className="bg-gradient-to-r from-primary-50 to-teal-50 rounded-2xl p-4 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 text-sm">প্রজেক্ট</span>
+                <span className="font-semibold text-gray-900">{purchaseSuccess.project_title}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 text-sm">শেয়ার</span>
+                <span className="font-semibold text-gray-900">{purchaseSuccess.quantity}টি</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 text-sm">মোট পরিমাণ</span>
+                <span className="font-bold text-xl text-primary-600">{formatTaka(purchaseSuccess.total_amount_paisa)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 text-sm">পেমেন্ট</span>
+                <span className={`font-medium px-3 py-1 rounded-full text-sm ${
+                  purchaseSuccess.payment_method === 'bkash' 
+                    ? 'bg-purple-100 text-purple-700' 
+                    : 'bg-amber-100 text-amber-700'
+                }`}>
+                  {purchaseSuccess.payment_method === 'bkash' ? '📱 bKash' : '💵 ম্যানুয়াল'}
+                </span>
+              </div>
+            </div>
+
+            {/* Next Steps */}
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-left">
+              <p className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                <FileText size={16} />
+                পরবর্তী পদক্ষেপ
+              </p>
+              <ul className="text-sm text-blue-700 space-y-1.5">
+                {purchaseSuccess.payment_method === 'bkash' ? (
+                  <>
+                    <li>✓ অপেক্ষা করুন, অ্যাডমিন আপনার bKash পেমেন্ট যাচাই করবে</li>
+                    <li>✓ অনুমোদনের পর আপনার পোর্টফোলিওতে শেয়ার যোগ হবে</li>
+                  </>
+                ) : (
+                  <>
+                    <li>✓ অ্যাডমিন শীঘ্রই আপনার সাথে যোগাযোগ করবে</li>
+                    <li>✓ টাকা পেমেন্ট করার পর শেয়ার অনুমোদন হবে</li>
+                  </>
+                )}
+              </ul>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setPurchaseSuccess(null)
+                  setQty(1)
+                  navigate('/projects')
+                }}
+                className="flex-1 btn-secondary py-3"
+              >
+                প্রজেক্ট দেখুন
+              </button>
+              <button
+                onClick={() => {
+                  setPurchaseSuccess(null)
+                  setQty(1)
+                  navigate('/my-investments')
+                }}
+                className="flex-1 btn-primary py-3 flex items-center justify-center gap-2"
+              >
+                আমার বিনিয়োগ
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
