@@ -47,7 +47,8 @@ export type SharePurchase = {
   project_id: number
   quantity: number
   total_amount: number   // paisa
-  bkash_txid: string
+  bkash_txid: string | null
+  payment_method: 'bkash' | 'manual'
   status: 'pending' | 'approved' | 'rejected'
   admin_note: string | null
   created_at: string

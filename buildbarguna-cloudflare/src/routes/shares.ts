@@ -13,14 +13,21 @@ shareRoutes.use('*', authMiddleware)
 const buySchema = z.object({
   project_id: z.number().int().positive(),
   quantity: z.number().int().min(1).max(10_000, 'একসাথে সর্বোচ্চ ১০,০০০ শেয়ার কেনা যাবে'),
-  // bKash TxID: 8-12 alphanumeric characters
-  bkash_txid: z.string().regex(/^[A-Z0-9]{8,12}$/, 'বৈধ bKash TxID দিন (৮-১২ অক্ষর, বড় হাতে)')
+  payment_method: z.enum(['bkash', 'manual'], {
+    errorMap: () => ({ message: 'বৈধ পেমেন্ট মেথড সিলেক্ট করুন' })
+  }),
+  bkash_txid: z.string().regex(/^[A-Z0-9]{8,12}$/, 'বৈধ bKash TxID দিন (৮-১২ অক্ষর, বড় হাতে)').optional()
 })
 
 // POST /api/shares/buy
 shareRoutes.post('/buy', zValidator('json', buySchema), async (c) => {
-  const { project_id, quantity, bkash_txid } = c.req.valid('json')
+  const { project_id, quantity, payment_method, bkash_txid } = c.req.valid('json')
   const userId = c.get('userId')
+
+  // Validate bkash_txid is required for bkash payment
+  if (payment_method === 'bkash' && !bkash_txid) {
+    return err(c, 'bKash পেমেন্টের জন্য TxID প্রয়োজন')
+  }
 
   // Check project exists and is active
   const project = await c.env.DB.prepare(
@@ -40,11 +47,13 @@ shareRoutes.post('/buy', zValidator('json', buySchema), async (c) => {
   const total_amount = safeMultiply(quantity, project.share_price)
   if (total_amount === null) return err(c, 'পরিমাণ অকার্যকর', 400)
 
-  // Check duplicate TxID
-  const dupTx = await c.env.DB.prepare(
-    'SELECT id FROM share_purchases WHERE bkash_txid = ?'
-  ).bind(bkash_txid).first()
-  if (dupTx) return err(c, 'এই bKash TxID ইতিমধ্যে ব্যবহার করা হয়েছে', 409)
+  // For bKash: check duplicate TxID
+  if (payment_method === 'bkash' && bkash_txid) {
+    const dupTx = await c.env.DB.prepare(
+      'SELECT id FROM share_purchases WHERE bkash_txid = ?'
+    ).bind(bkash_txid).first()
+    if (dupTx) return err(c, 'এই bKash TxID ইতিমধ্যে ব্যবহার করা হয়েছে', 409)
+  }
 
   // Flood protection: max 3 pending purchases per user at a time
   const pendingCount = await c.env.DB.prepare(
@@ -55,16 +64,21 @@ shareRoutes.post('/buy', zValidator('json', buySchema), async (c) => {
   }
 
   const result = await c.env.DB.prepare(
-    `INSERT INTO share_purchases (user_id, project_id, quantity, total_amount, bkash_txid)
-     VALUES (?, ?, ?, ?, ?)`
-  ).bind(userId, project_id, quantity, total_amount, bkash_txid).run()
+    `INSERT INTO share_purchases (user_id, project_id, quantity, total_amount, bkash_txid, payment_method)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(userId, project_id, quantity, total_amount, bkash_txid ?? null, payment_method).run()
 
   if (!result.success) return err(c, 'অনুরোধ জমা দিতে ব্যর্থ হয়েছে', 500)
 
+  const paymentMsg = payment_method === 'bkash' 
+    ? 'bKash পেমেন্ট যাচাই করে অনুমোদন করা হবে।'
+    : 'ম্যানুয়াল পেমেন্টের জন্য অ্যাডমিন আপনার সাথে যোগাযোগ করবে।'
+
   return ok(c, {
-    message: 'শেয়ার কেনার অনুরোধ জমা হয়েছে। অ্যাডমিন অনুমোদনের পরে শেয়ার যোগ হবে।',
+    message: `শেয়ার কেনার অনুরোধ জমা হয়েছে। ${paymentMsg}`,
     purchase_id: result.meta.last_row_id,
-    total_amount_paisa: total_amount
+    total_amount_paisa: total_amount,
+    payment_method
   }, 201)
 })
 

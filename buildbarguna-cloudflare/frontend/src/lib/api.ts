@@ -83,7 +83,7 @@ export const projectsApi = {
 
 // Shares
 export const sharesApi = {
-  buy: (body: { project_id: number; quantity: number; bkash_txid: string }) =>
+  buy: (body: { project_id: number; quantity: number; payment_method: 'bkash' | 'manual'; bkash_txid?: string }) =>
     request('/shares/buy', { method: 'POST', body: JSON.stringify(body) }),
   my: (page = 1) => request<Paginated<MyShare>>(`/shares/my?page=${page}`),
   requests: (page = 1) => request<Paginated<ShareRequest>>(`/shares/requests?page=${page}`)
@@ -242,7 +242,7 @@ export type UserProfile = { id: number; name: string; phone: string; role: 'memb
 export type ProjectItem = { id: number; title: string; description: string; image_url: string; total_capital: number; total_shares: number; share_price: number; sold_shares: number; status: string; created_at: string }
 export type ProjectDetail = ProjectItem & { available_shares: number }
 export type MyShare = { user_id: number; project_id: number; quantity: number; title: string; share_price: number; status: string }
-export type ShareRequest = { id: number; project_id: number; project_title: string; quantity: number; total_amount: number; bkash_txid: string; status: string; admin_note: string | null; created_at: string }
+export type ShareRequest = { id: number; project_id: number; project_title: string; quantity: number; total_amount: number; bkash_txid: string | null; payment_method: 'bkash' | 'manual'; status: string; admin_note: string | null; created_at: string }
 export type EarningItem = { id: number; project_id: number; project_title: string; month: string; shares: number; rate: number; amount: number; created_at: string }
 export type TaskItem = { id: number; title: string; destination_url: string; platform: string; is_active: number; completed?: number }
 export type AdminUser = { id: number; name: string; phone: string; role: string; is_active: number; referral_code: string; referred_by: string | null; created_at: string }

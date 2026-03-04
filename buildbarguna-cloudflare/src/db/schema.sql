@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS share_purchases (
   project_id    INTEGER NOT NULL REFERENCES projects(id),
   quantity      INTEGER NOT NULL CHECK(quantity > 0),
   total_amount  INTEGER NOT NULL,
-  bkash_txid    TEXT NOT NULL UNIQUE,
+  bkash_txid    TEXT,
+  payment_method TEXT NOT NULL DEFAULT 'bkash' CHECK(payment_method IN ('bkash','manual')),
   status        TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
   admin_note    TEXT,
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
@@ -139,6 +140,7 @@ INSERT OR IGNORE INTO withdrawal_settings (key, value) VALUES
 CREATE INDEX IF NOT EXISTS idx_share_purchases_user       ON share_purchases(user_id);
 CREATE INDEX IF NOT EXISTS idx_share_purchases_status     ON share_purchases(status);
 CREATE INDEX IF NOT EXISTS idx_share_purchases_project    ON share_purchases(project_id);
+CREATE INDEX IF NOT EXISTS idx_share_purchases_payment   ON share_purchases(payment_method);
 CREATE INDEX IF NOT EXISTS idx_user_shares_project        ON user_shares(project_id);
 CREATE INDEX IF NOT EXISTS idx_earnings_user              ON earnings(user_id);
 CREATE INDEX IF NOT EXISTS idx_earnings_month             ON earnings(month);

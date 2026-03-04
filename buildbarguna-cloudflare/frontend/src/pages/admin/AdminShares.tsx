@@ -85,11 +85,24 @@ export default function AdminShares() {
                         <p className="text-xs text-gray-400 mb-0.5">মোট টাকা</p>
                         <p className="font-bold text-sm text-primary-700">{formatTaka(r.total_amount)}</p>
                       </div>
-                      <div className="bg-gray-50 rounded-xl p-2 text-center">
-                        <p className="text-xs text-gray-400 mb-0.5">TxID</p>
-                        <p className="font-mono text-xs font-bold truncate">{r.bkash_txid}</p>
+                      <div className={`rounded-xl p-2 text-center ${r.payment_method === 'manual' ? 'bg-amber-50' : 'bg-gray-50'}`}>
+                        <p className="text-xs text-gray-400 mb-0.5">
+                          {r.payment_method === 'manual' ? 'পেমেন্ট' : 'TxID'}
+                        </p>
+                        {r.payment_method === 'manual' ? (
+                          <p className="font-bold text-xs text-amber-700">ম্যানুয়াল</p>
+                        ) : (
+                          <p className="font-mono text-xs font-bold truncate">{r.bkash_txid || '-'}</p>
+                        )}
                       </div>
                     </div>
+                    {r.payment_method === 'manual' && (
+                      <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        <p className="text-xs text-amber-700">
+                          <span className="font-semibold">⚠️ ম্যানুয়াল পেমেন্ট:</span> সদস্যের সাথে যোগাযোগ করে টাকা কালেক্ট করুন।
+                        </p>
+                      </div>
+                    )}
                     <p className="text-xs text-gray-400 mt-2">জমা: {formatDate(r.created_at)}</p>
                     {r.admin_note && <p className="text-xs text-red-500 mt-1 bg-red-50 rounded-lg px-2 py-1">⚠️ {r.admin_note}</p>}
                   </div>

@@ -4,7 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { projectsApi, sharesApi } from '../lib/api'
 import { formatTaka } from '../lib/auth'
 import Disclaimer from '../components/Disclaimer'
-import { HelpCircle, X, AlertTriangle, CheckSquare } from 'lucide-react'
+import { HelpCircle, X, AlertTriangle, CheckSquare, Plus, Minus, Wallet, Phone } from 'lucide-react'
+
+type PaymentMethod = 'bkash' | 'manual'
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>()
@@ -12,6 +14,7 @@ export default function ProjectDetail() {
   const qc = useQueryClient()
   const [qty, setQty] = useState(1)
   const [txid, setTxid] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('bkash')
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
   const [showConfirm, setShowConfirm] = useState(false)
@@ -38,11 +41,19 @@ export default function ProjectDetail() {
   })
 
   const buyMutation = useMutation({
-    mutationFn: () => sharesApi.buy({ project_id: Number(id), quantity: qty, bkash_txid: txid }),
+    mutationFn: () => sharesApi.buy({
+      project_id: Number(id),
+      quantity: qty,
+      payment_method: paymentMethod,
+      bkash_txid: paymentMethod === 'bkash' ? txid : undefined
+    }),
     onSuccess: (res) => {
       setShowConfirm(false)
       if (res.success) {
-        setMsg('শেয়ার কেনার অনুরোধ জমা হয়েছে! অ্যাডমিন অনুমোদন করলে পোর্টফোলিওতে যোগ হবে।')
+        const paymentMsg = paymentMethod === 'bkash'
+          ? 'bKash পেমেন্ট যাচাই করে অনুমোদন করা হবে।'
+          : 'ম্যানুয়াল পেমেন্টের জন্য অ্যাডমিন আপনার সাথে যোগাযোগ করবে।'
+        setMsg(`শেয়ার কেনার অনুরোধ জমা হয়েছে! ${paymentMsg}`)
         setTxid(''); setQty(1); setAcknowledged(false)
         qc.invalidateQueries({ queryKey: ['projects'] })
       } else {
@@ -50,6 +61,26 @@ export default function ProjectDetail() {
       }
     }
   })
+
+  // Quantity handlers
+  const handleMinus = () => {
+    if (qty > 1) {
+      setQty(qty - 1)
+      setError('')
+    }
+  }
+
+  const handlePlus = () => {
+    if (data?.data && qty < data.data.available_shares) {
+      setQty(qty + 1)
+      setError('')
+    }
+  }
+
+  // Validation
+  const canSubmit = paymentMethod === 'manual' 
+    ? (qty >= 1 && qty <= (data?.data?.available_shares ?? 0) && acknowledged)
+    : (qty >= 1 && qty <= (data?.data?.available_shares ?? 0) && txid.length >= 8 && acknowledged)
 
   if (isLoading) return <div className="text-center py-12 text-gray-400">লোড হচ্ছে...</div>
   if (!data?.success) return <div className="card text-center py-12 text-red-500">প্রজেক্ট পাওয়া যায়নি</div>
@@ -123,12 +154,70 @@ export default function ProjectDetail() {
             {msg && <div className="bg-green-50 border border-green-200 text-green-700 rounded-2xl p-3 mb-4 text-sm flex items-start gap-2"><span>✅</span><span>{msg}</span></div>}
             {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-3 mb-4 text-sm flex items-start gap-2"><span>⚠️</span><span>{error}</span></div>}
 
-            <div className="space-y-4">
+            <div className="space-y-5">
+              {/* Quantity Selector with Plus/Minus */}
               <div>
-                <label className="label">কত শেয়ার কিনতে চান?</label>
-                <input className="input" type="number" min={1} max={p.available_shares}
-                  value={qty} onChange={e => { setQty(Number(e.target.value)); setError('') }} />
-                <p className="text-xs text-gray-400 mt-1">সর্বোচ্চ {p.available_shares}টি শেয়ার কেনা যাবে</p>
+                <label className="label mb-3">কত শেয়ার কিনতে চান?</label>
+                <div className="flex items-center gap-4">
+                  {/* Minus Button */}
+                  <button
+                    type="button"
+                    onClick={handleMinus}
+                    disabled={qty <= 1}
+                    className="w-14 h-14 rounded-2xl bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all active:scale-95"
+                    aria-label="শেয়ার সংখ্যা কমান"
+                  >
+                    <Minus size={24} className="text-gray-700" />
+                  </button>
+
+                  {/* Quantity Display */}
+                  <div className="flex-1 bg-gradient-to-r from-primary-50 to-teal-50 rounded-2xl py-4 px-6 text-center border border-primary-100">
+                    <span className="text-3xl font-bold text-primary-700">{qty}</span>
+                    <span className="text-sm text-gray-500 ml-2">টি</span>
+                  </div>
+
+                  {/* Plus Button */}
+                  <button
+                    type="button"
+                    onClick={handlePlus}
+                    disabled={qty >= p.available_shares}
+                    className="w-14 h-14 rounded-2xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all active:scale-95"
+                    aria-label="শেয়ার সংখ্যা বাড়ান"
+                  >
+                    <Plus size={24} className="text-white" />
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-2 text-center">সর্বোচ্চ {p.available_shares}টি শেয়ার কেনা যাবে</p>
+              </div>
+
+              {/* Quick quantity buttons */}
+              <div className="flex gap-2 justify-center flex-wrap">
+                {[1, 5, 10, 25, 50].filter(n => n <= p.available_shares).map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => { setQty(n); setError('') }}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                      qty === n 
+                        ? 'bg-primary-600 text-white shadow-md' 
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {n}টি
+                  </button>
+                ))}
+                {p.available_shares > 50 && (
+                  <button
+                    type="button"
+                    onClick={() => { setQty(p.available_shares); setError('') }}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                      qty === p.available_shares 
+                        ? 'bg-primary-600 text-white shadow-md' 
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}>
+                    সব
+                  </button>
+                )}
               </div>
 
               {/* Total amount card */}
@@ -142,33 +231,106 @@ export default function ProjectDetail() {
                 </div>
               </div>
 
+              {/* Payment Method Selection */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="label mb-0">📱 bKash Transaction ID</label>
+                <label className="label mb-3">💳 পেমেন্ট মেথড</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* bKash Option */}
                   <button
                     type="button"
-                    aria-label="bKash TxID সম্পর্কে সাহায্য"
-                    onClick={() => setTxidHelp(!txidHelp)}
-                    className="text-gray-400 hover:text-primary-600 transition-colors p-1"
+                    onClick={() => { setPaymentMethod('bkash'); setError('') }}
+                    className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
+                      paymentMethod === 'bkash'
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                    }`}
                   >
-                    <HelpCircle size={16} />
+                    <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
+                      <span className="text-2xl">📱</span>
+                    </div>
+                    <span className={`font-semibold ${paymentMethod === 'bkash' ? 'text-primary-700' : 'text-gray-700'}`}>
+                      bKash
+                    </span>
+                    <span className="text-xs text-gray-500">অনলাইন পেমেন্ট</span>
+                  </button>
+
+                  {/* Manual/Cash Option */}
+                  <button
+                    type="button"
+                    onClick={() => { setPaymentMethod('manual'); setTxid(''); setError('') }}
+                    className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
+                      paymentMethod === 'manual'
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                    }`}
+                  >
+                    <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                      <Wallet size={24} className="text-amber-600" />
+                    </div>
+                    <span className={`font-semibold ${paymentMethod === 'manual' ? 'text-primary-700' : 'text-gray-700'}`}>
+                      ম্যানুয়াল
+                    </span>
+                    <span className="text-xs text-gray-500">ক্যাশ পেমেন্ট</span>
                   </button>
                 </div>
-                {txidHelp && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3.5 mb-2 text-xs text-blue-800 space-y-1.5">
-                    <p className="font-bold">📱 bKash TxID কোথায় পাবেন?</p>
-                    <p>১. bKash অ্যাপ খুলুন → "Send Money" করুন</p>
-                    <p>২. পাঠানোর পর SMS আসবে — সেখানে <strong>TrxID</strong> লেখা থাকবে</p>
-                    <p>৩. যেমন: <span className="font-mono bg-blue-100 px-1.5 py-0.5 rounded-lg">8N4K2M9X1P</span></p>
-                    <p className="text-blue-600 font-medium">bKash নম্বর: অ্যাডমিন জানাবেন</p>
-                  </div>
-                )}
-                <p className="text-xs text-gray-500 mb-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                  <strong>{formatTaka(total)}</strong> bKash করুন তারপর TxID নিচে দিন
-                </p>
-                <input className="input font-mono" type="text" placeholder="TxID যেমন: 8N4K2M..."
-                  value={txid} onChange={e => { setTxid(e.target.value); setError('') }} />
               </div>
+
+              {/* Conditional: bKash TxID Field */}
+              {paymentMethod === 'bkash' && (
+                <div className="animate-fadeIn">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="label mb-0">📱 bKash Transaction ID</label>
+                    <button
+                      type="button"
+                      aria-label="bKash TxID সম্পর্কে সাহায্য"
+                      onClick={() => setTxidHelp(!txidHelp)}
+                      className="text-gray-400 hover:text-primary-600 transition-colors p-1"
+                    >
+                      <HelpCircle size={16} />
+                    </button>
+                  </div>
+                  {txidHelp && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3.5 mb-2 text-xs text-blue-800 space-y-1.5">
+                      <p className="font-bold">📱 bKash TxID কোথায় পাবেন?</p>
+                      <p>১. bKash অ্যাপ খুলুন → "Send Money" করুন</p>
+                      <p>২. পাঠানোর পর SMS আসবে — সেখানে <strong>TrxID</strong> লেখা থাকবে</p>
+                      <p>৩. যেমন: <span className="font-mono bg-blue-100 px-1.5 py-0.5 rounded-lg">8N4K2M9X1P</span></p>
+                      <p className="text-blue-600 font-medium">bKash নম্বর: অ্যাডমিন জানাবেন</p>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 mb-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                    <strong>{formatTaka(total)}</strong> bKash করুন তারপর TxID নিচে দিন
+                  </p>
+                  <input 
+                    className="input font-mono" 
+                    type="text" 
+                    placeholder="TxID যেমন: 8N4K2M9X1P"
+                    value={txid} 
+                    onChange={e => { setTxid(e.target.value.toUpperCase()); setError('') }} 
+                  />
+                  {txid.length > 0 && txid.length < 8 && (
+                    <p className="text-xs text-red-500 mt-1">TxID কমপক্ষে ৮ অক্ষরের হতে হবে</p>
+                  )}
+                </div>
+              )}
+
+              {/* Conditional: Manual Payment Info */}
+              {paymentMethod === 'manual' && (
+                <div className="animate-fadeIn bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                      <Phone size={20} className="text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-amber-800 mb-1">ম্যানুয়াল পেমেন্ট</p>
+                      <p className="text-sm text-amber-700">
+                        আপনার অনুরোধ জমা হলে অ্যাডমিন আপনার দেওয়া ফোন নম্বরে যোগাযোগ করবে। 
+                        টাকা সরাসরি ক্যাশে পেমেন্ট করলে শেয়ার অনুমোদন করা হবে।
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <Disclaimer variant="halal" compact />
               <Disclaimer variant="investment-risk" compact />
@@ -189,7 +351,7 @@ export default function ProjectDetail() {
               <button
                 type="button"
                 onClick={() => setShowConfirm(true)}
-                disabled={!txid || qty < 1 || qty > p.available_shares || !acknowledged}
+                disabled={!canSubmit}
                 className="btn-primary w-full py-3.5 text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="শেয়ার কেনার অনুরোধ জমা দিন"
               >
@@ -227,9 +389,17 @@ export default function ProjectDetail() {
                         <span className="font-bold text-primary-700 text-base">{formatTaka(total)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-500">bKash TxID</span>
-                        <span className="font-mono text-xs">{txid}</span>
+                        <span className="text-gray-500">পেমেন্ট মেথড</span>
+                        <span className={`font-medium ${paymentMethod === 'bkash' ? 'text-purple-700' : 'text-amber-700'}`}>
+                          {paymentMethod === 'bkash' ? '📱 bKash' : '💵 ম্যানুয়াল'}
+                        </span>
                       </div>
+                      {paymentMethod === 'bkash' && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">bKash TxID</span>
+                          <span className="font-mono text-xs">{txid}</span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-start gap-2 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
                       <CheckSquare size={14} className="text-emerald-600 mt-0.5 flex-shrink-0" />
