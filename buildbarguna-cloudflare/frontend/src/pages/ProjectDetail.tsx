@@ -71,16 +71,18 @@ export default function ProjectDetail() {
   }
 
   const handlePlus = () => {
-    if (data?.data && qty < data.data.available_shares) {
+    if (data?.success && qty < data.data.available_shares) {
       setQty(qty + 1)
       setError('')
     }
   }
 
-  // Validation
-  const canSubmit = paymentMethod === 'manual' 
-    ? (qty >= 1 && qty <= (data?.data?.available_shares ?? 0) && acknowledged)
-    : (qty >= 1 && qty <= (data?.data?.available_shares ?? 0) && txid.length >= 8 && acknowledged)
+  // Validation - check data.success first
+  const canSubmit = data?.success
+    ? (paymentMethod === 'manual' 
+        ? (qty >= 1 && qty <= data.data.available_shares && acknowledged)
+        : (qty >= 1 && qty <= data.data.available_shares && txid.length >= 8 && acknowledged))
+    : false
 
   if (isLoading) return <div className="text-center py-12 text-gray-400">লোড হচ্ছে...</div>
   if (!data?.success) return <div className="card text-center py-12 text-red-500">প্রজেক্ট পাওয়া যায়নি</div>
