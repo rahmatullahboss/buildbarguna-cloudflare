@@ -52,14 +52,6 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Run database migrations
-        run: |
-          # Run migration files for new changes
-          npx wrangler d1 execute buildbarguna-invest-db --remote --file=src/db/migrations/002_payment_method_support.sql
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
       # Upload web build to R2 via AWS CLI (separate R2 account)
       - name: Install AWS CLI
         run: pip install awscli --quiet
