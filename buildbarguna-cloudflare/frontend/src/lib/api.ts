@@ -813,14 +813,18 @@ export interface MemberRegistrationForm {
   email?: string
   skills_interests?: string
   declaration_accepted: boolean
+  payment_method: 'bkash' | 'cash'
+  bkash_number?: string
+  bkash_trx_id?: string
+  payment_note?: string
 }
 
 export const memberApi = {
   register: (body: MemberRegistrationForm) =>
-    request<{ message: string; form_number: string; registration_id: number }>('/member/register', {
+    request<{ message: string; form_number: string; payment_status: string; payment_amount: number }>('/member/register', {
       method: 'POST',
       body: JSON.stringify(body)
     }),
-  status: () => request<{ registered: boolean; form_number?: string; name?: string; registered_at?: string }>('/member/status'),
+  status: () => request<{ registered: boolean; form_number?: string; payment_status?: string; payment_method?: string }>('/member/status'),
   downloadCertificate: (formNumber: string) => `${BASE}/member/certificate/${formNumber}`
 }

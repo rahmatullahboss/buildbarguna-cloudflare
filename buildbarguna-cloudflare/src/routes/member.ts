@@ -3,205 +3,195 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { authMiddleware } from '../middleware/auth'
 import { ok, err } from '../lib/response'
+import { toPaisa } from '../lib/money'
 import type { Bindings, Variables } from '../types'
-import { generateMemberCertificate } from '../lib/pdf/generator'
 
 export const memberRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
-// Registration schema with validation
-const registrationSchema = z.object({
-  name_english: z.string().min(2, 'ইংরেজি নাম কমপক্ষে ২ অক্ষরের হতে হবে'),
+// Validation schemas
+const registerSchema = z.object({
+  name_english: z.string().min(2),
   name_bangla: z.string().optional(),
-  father_name: z.string().min(2, 'পিতার নাম কমপক্ষে ২ অক্ষরের হতে হবে'),
-  mother_name: z.string().min(2, 'মাতার নাম কমপক্ষে ২ অক্ষরের হতে হবে'),
-  date_of_birth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'জন্ম তারিখ YYYY-MM-DD ফরম্যাটে দিন'),
+  father_name: z.string().min(2),
+  mother_name: z.string().min(2),
+  date_of_birth: z.string(),
   blood_group: z.string().optional(),
-  present_address: z.string().min(5, 'বর্তমান ঠিকানা কমপক্ষে ৫ অক্ষরের হতে হবে'),
-  permanent_address: z.string().min(5, 'স্থায়ী ঠিকানা কমপক্ষে ৫ অক্ষরের হতে হবে'),
+  present_address: z.string().min(5),
+  permanent_address: z.string().min(5),
   facebook_id: z.string().optional(),
-  mobile_whatsapp: z.string().regex(/^01[3-9]\d{8}$/, 'সঠিক বাংলাদেশি মোবাইল নম্বর দিন'),
+  mobile_whatsapp: z.string().min(10),
   emergency_contact: z.string().optional(),
-  email: z.string().email('সঠিক ইমেইল ঠিকানা দিন').optional().or(z.literal('')),
+  email: z.string().email().optional(),
   skills_interests: z.string().optional(),
-  declaration_accepted: z.boolean().refine(val => val === true, 'ঘোষণা অনুমোদন করতে হবে')
+  declaration_accepted: z.boolean().refine(v => v === true, 'Declaration must be accepted'),
+  payment_method: z.enum(['bkash', 'cash']),
+  bkash_number: z.string().regex(/^01[3-9]\d{8}$/, 'Invalid bKash number').optional(),
+  bkash_trx_id: z.string().optional(),
+  payment_note: z.string().optional()
 })
 
-// Generate sequential form number
-async function generateFormNumber(env: Bindings): Promise<string> {
-  const year = new Date().getFullYear()
+// Middleware: Check if user already registered
+const checkAlreadyRegistered = async (c: any, next: any) => {
+  const userId = c.get('userId')
+  const existing = await c.env.DB.prepare(
+    'SELECT id, form_number FROM member_registrations WHERE user_id = ?'
+  ).bind(userId).first()
   
-  // Get the last form number for this year
-  const result = await env.DB.prepare(`
-    SELECT form_number FROM member_registrations 
-    WHERE form_number LIKE ? 
-    ORDER BY id DESC 
-    LIMIT 1
-  `).bind(`BBI-${year}-%`).first<{ form_number: string }>()
-
-  let sequence = 1
-  if (result?.form_number) {
-    const match = result.form_number.match(/BBI-\d{4}-(\d{4})/)
-    if (match) {
-      sequence = parseInt(match[1]) + 1
-    }
-  }
-
-  return `BBI-${year}-${String(sequence).padStart(4, '0')}`
-}
-
-// POST /api/member/register - Submit member registration
-memberRoutes.post('/register', authMiddleware, zValidator('json', registrationSchema), async (c) => {
-  const userId = c.get('userId')
-  const data = c.req.valid('json')
-
-  try {
-    // Check if user already registered
-    const existing = await c.env.DB.prepare(
-      'SELECT id, form_number FROM member_registrations WHERE user_id = ?'
-    ).bind(userId).first()
-
-    if (existing) {
-      return err(c, `আপনি ইতিমধ্যে নিবন্ধিত। ফর্ম নম্বর: ${existing.form_number}`, 409)
-    }
-
-    // Generate form number
-    const formNumber = await generateFormNumber(c.env)
-
-    // Insert registration
-    const result = await c.env.DB.prepare(`
-      INSERT INTO member_registrations (
-        form_number, user_id, name_english, name_bangla, father_name, mother_name,
-        date_of_birth, blood_group, present_address, permanent_address, facebook_id,
-        mobile_whatsapp, emergency_contact, email, skills_interests, declaration_accepted
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      formNumber,
-      userId,
-      data.name_english,
-      data.name_bangla || null,
-      data.father_name,
-      data.mother_name,
-      data.date_of_birth,
-      data.blood_group || null,
-      data.present_address,
-      data.permanent_address,
-      data.facebook_id || null,
-      data.mobile_whatsapp,
-      data.emergency_contact || null,
-      data.email || null,
-      data.skills_interests || null,
-      data.declaration_accepted ? 1 : 0
-    ).run()
-
-    if (!result.success) {
-      return err(c, 'নিবন্ধন ব্যর্থ হয়েছে', 500)
-    }
-
-    // Fetch complete registration data
-    const registration = await c.env.DB.prepare(`
-      SELECT * FROM member_registrations WHERE id = ?
-    `).bind(result.meta?.last_row_id as number).first()
-
-    return ok(c, {
-      message: 'নিবন্ধন সফল হয়েছে',
-      form_number: formNumber,
-      registration_id: result.meta?.last_row_id
-    }, 201)
-
-  } catch (error: any) {
-    console.error('Registration error:', error)
-    return err(c, 'সার্ভার সমস্যা হয়েছে। আবার চেষ্টা করুন।', 500)
-  }
-})
-
-// GET /api/member/certificate/:formNumber - Download PDF certificate
-memberRoutes.get('/certificate/:formNumber', authMiddleware, async (c) => {
-  const formNumber = c.req.param('formNumber')
-  const userId = c.get('userId')
-
-  try {
-    // Get registration data
-    const registration = await c.env.DB.prepare(`
-      SELECT * FROM member_registrations WHERE form_number = ? AND user_id = ?
-    `).bind(formNumber, userId).first<any>()
-
-    if (!registration) {
-      return err(c, 'নিবন্ধন পাওয়া যায়নি', 404)
-    }
-
-    // Load BBI logo from R2 or use embedded version
-    let logoBuffer: ArrayBuffer | undefined
-    try {
-      // Try to load from R2 if available
-      const logoObject = await (c.env as any).BUCKET?.get('bbi-logo.jpg')
-      if (logoObject) {
-        logoBuffer = await logoObject.arrayBuffer()
-      }
-    } catch (e) {
-      console.warn('Could not load logo from R2, proceeding without')
-    }
-
-    // Generate PDF
-    const pdfBuffer = await generateMemberCertificate({
-      form_number: String(registration.form_number),
-      name_english: String(registration.name_english),
-      name_bangla: registration.name_bangla ? String(registration.name_bangla) : undefined,
-      father_name: String(registration.father_name),
-      mother_name: String(registration.mother_name),
-      date_of_birth: String(registration.date_of_birth),
-      blood_group: registration.blood_group ? String(registration.blood_group) : undefined,
-      present_address: String(registration.present_address),
-      permanent_address: String(registration.permanent_address),
-      facebook_id: registration.facebook_id ? String(registration.facebook_id) : undefined,
-      mobile_whatsapp: String(registration.mobile_whatsapp),
-      emergency_contact: registration.emergency_contact ? String(registration.emergency_contact) : undefined,
-      email: registration.email ? String(registration.email) : undefined,
-      skills_interests: registration.skills_interests ? String(registration.skills_interests) : undefined,
-      created_at: String(registration.created_at)
-    }, logoBuffer)
-
-    // Return PDF as download
-    const fileName = `BBI_Member_${formNumber}_${String(registration.name_english).replace(/\s+/g, '_')}.pdf`
-    
-    c.header('Content-Type', 'application/pdf')
-    c.header('Content-Disposition', `attachment; filename="${fileName}"`)
-    c.header('Content-Length', pdfBuffer.length.toString())
-    
-    // Return as blob for proper response type
-    return c.body(pdfBuffer as any, 200, {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${fileName}"`,
-      'Content-Length': pdfBuffer.length.toString()
+  if (existing) {
+    return ok(c, { 
+      registered: true, 
+      form_number: existing.form_number,
+      message: 'আপনি ইতিমধ্যে রেজিস্টার্ড হয়েছেন'
     })
-
-  } catch (error: any) {
-    console.error('PDF generation error:', error)
-    return err(c, 'পিডিএফ তৈরি করা যায়নি', 500)
   }
-})
+  await next()
+}
 
 // GET /api/member/status - Check registration status
 memberRoutes.get('/status', authMiddleware, async (c) => {
   const userId = c.get('userId')
-
-  try {
-    const registration = await c.env.DB.prepare(`
-      SELECT id, form_number, name_english, created_at FROM member_registrations WHERE user_id = ?
-    `).bind(userId).first()
-
-    if (!registration) {
-      return ok(c, { registered: false })
-    }
-
-    return ok(c, {
-      registered: true,
-      form_number: registration.form_number,
-      name: registration.name_english,
-      registered_at: registration.created_at
-    })
-
-  } catch (error: any) {
-    console.error('Status check error:', error)
-    return err(c, 'স্ট্যাটাস পাওয়া যায়নি', 500)
+  
+  const registration = await c.env.DB.prepare(
+    `SELECT form_number, payment_status, payment_method 
+     FROM member_registrations 
+     WHERE user_id = ?`
+  ).bind(userId).first()
+  
+  if (!registration) {
+    return ok(c, { registered: false })
   }
+  
+  return ok(c, { 
+    registered: true, 
+    form_number: registration.form_number,
+    payment_status: registration.payment_status,
+    payment_method: registration.payment_method
+  })
 })
+
+// POST /api/member/register - Submit registration with payment
+memberRoutes.post('/register', 
+  authMiddleware, 
+  checkAlreadyRegistered,
+  zValidator('json', registerSchema), 
+  async (c) => {
+    const userId = c.get('userId')
+    const body = c.req.valid('json')
+    
+    // Generate form number: BBI-YYYY-NNNN
+    const year = new Date().getFullYear()
+    const countResult = await c.env.DB.prepare(
+      `SELECT COUNT(*) as count FROM member_registrations WHERE form_number LIKE ?`
+    ).bind(`BBI-${year}-%`).first<{ count: number }>()
+    
+    const nextNumber = ((countResult?.count || 0) + 1).toString().padStart(4, '0')
+    const formNumber = `BBI-${year}-${nextNumber}`
+    
+    // Determine payment status
+    let paymentStatus = 'pending'
+    if (body.payment_method === 'bkash' && body.bkash_trx_id) {
+      paymentStatus = 'paid'  // Auto-verify bKash with TRX ID
+    }
+    
+    try {
+      const result = await c.env.DB.prepare(
+        `INSERT INTO member_registrations (
+          form_number, name_english, name_bangla, father_name, mother_name,
+          date_of_birth, blood_group, present_address, permanent_address,
+          facebook_id, mobile_whatsapp, emergency_contact, email,
+          skills_interests, declaration_accepted, user_id,
+          payment_method, payment_amount, bkash_number, bkash_trx_id, payment_note, payment_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        formNumber,
+        body.name_english,
+        body.name_bangla || null,
+        body.father_name,
+        body.mother_name,
+        body.date_of_birth,
+        body.blood_group || null,
+        body.present_address,
+        body.permanent_address,
+        body.facebook_id || null,
+        body.mobile_whatsapp,
+        body.emergency_contact || null,
+        body.email || null,
+        body.skills_interests || null,
+        body.declaration_accepted ? 1 : 0,
+        userId,
+        body.payment_method,
+        toPaisa(100),  // ৳100 membership fee
+        body.bkash_number || null,
+        body.bkash_trx_id || null,
+        body.payment_note || null,
+        paymentStatus
+      ).run()
+      
+      return ok(c, {
+        message: 'রেজিস্ট্রেশন সফল হয়েছে',
+        form_number: formNumber,
+        payment_status: paymentStatus,
+        payment_amount: 100,
+        next_step: paymentStatus === 'pending' 
+          ? 'অনুগ্রহ করে ৳100 রেজিস্ট্রেশন ফি প্রদান করুন'
+          : 'আপনার মেম্বারশিপ সার্টিফিকেট ডাউনলোড করুন'
+      })
+    } catch (error: any) {
+      console.error('Member registration error:', error)
+      return err(c, 'রেজিস্ট্রেশন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।', 500)
+    }
+  }
+)
+
+// Admin routes for member payment verification
+const adminMiddleware = async (c: any, next: any) => {
+  const userRole = c.get('userRole')
+  if (userRole !== 'admin') {
+    return err(c, 'অননুমোদিত', 403)
+  }
+  await next()
+}
+
+// GET /api/admin/members/payments - Get pending payment verifications
+memberRoutes.get('/admin/payments', authMiddleware, adminMiddleware, async (c) => {
+  const status = c.req.query('status') || 'pending'
+  
+  const payments = await c.env.DB.prepare(
+    `SELECT * FROM v_member_payments_${status === 'verified' ? 'verified' : 'pending'}`
+  ).all()
+  
+  return ok(c, payments.results)
+})
+
+// POST /api/admin/members/:id/verify - Verify member payment
+memberRoutes.post('/admin/members/:id/verify', 
+  authMiddleware, 
+  adminMiddleware,
+  zValidator('json', z.object({
+    action: z.enum(['approve', 'reject']),
+    note: z.string().optional()
+  })), 
+  async (c) => {
+    const memberId = parseInt(c.req.param('id'))
+    const body = c.req.valid('json')
+    const adminId = c.get('userId')
+    
+    if (body.action === 'approve') {
+      await c.env.DB.prepare(
+        `UPDATE member_registrations 
+         SET payment_status = 'verified', verified_by = ?, verified_at = datetime('now'), payment_note = ?
+         WHERE id = ?`
+      ).bind(adminId, body.note || null, memberId).run()
+      
+      return ok(c, { message: 'মেম্বারশিপ ফি যাচাই করা হয়েছে' })
+    } else {
+      await c.env.DB.prepare(
+        `UPDATE member_registrations 
+         SET payment_status = 'rejected', payment_note = ?
+         WHERE id = ?`
+      ).bind(body.note || null, memberId).run()
+      
+      return ok(c, { message: 'মেম্বারশিপ ফি প্রত্যাখ্যাত হয়েছে' })
+    }
+  }
+)

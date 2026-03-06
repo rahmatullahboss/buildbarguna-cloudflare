@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { memberApi } from '../lib/api'
 import { authApi } from '../lib/api'
-import { FileText, CheckCircle, AlertCircle, Download } from 'lucide-react'
+import { FileText, CheckCircle, AlertCircle, Download, Wallet, Smartphone } from 'lucide-react'
 
 export default function MemberRegistration() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState<{ formNumber: string; name: string } | null>(null)
+  const [success, setSuccess] = useState<{ formNumber: string; name: string; paymentStatus: string } | null>(null)
   const [downloading, setDownloading] = useState(false)
 
   // Check if already registered
@@ -16,7 +16,7 @@ export default function MemberRegistration() {
     async function checkStatus() {
       const res = await memberApi.status()
       if (res.success && res.data.registered && res.data.form_number && res.data.name) {
-        setSuccess({ formNumber: res.data.form_number, name: res.data.name })
+        setSuccess({ formNumber: res.data.form_number, name: res.data.name, paymentStatus: res.data.payment_status })
       }
     }
     checkStatus()
@@ -36,7 +36,11 @@ export default function MemberRegistration() {
     emergency_contact: '',
     email: '',
     skills_interests: '',
-    declaration_accepted: false
+    declaration_accepted: false,
+    payment_method: 'bkash' as 'bkash' | 'cash',
+    bkash_number: '',
+    bkash_trx_id: '',
+    payment_note: ''
   })
 
   const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
@@ -52,6 +56,20 @@ export default function MemberRegistration() {
       return
     }
 
+    // Validate bKash payment
+    if (form.payment_method === 'bkash' && !form.bkash_trx_id) {
+      setError('অনুগ্রহ করে bKash ট্রানজেকশন আইডি দিন')
+      setLoading(false)
+      return
+    }
+
+    // Validate bKash number format
+    if (form.payment_method === 'bkash' && form.bkash_number && !/^01[3-9]\d{8}$/.test(form.bkash_number)) {
+      setError('অকার্যক bKash নাম্বার। সঠিক ফরম্যাট: 01XXXXXXXXX')
+      setLoading(false)
+      return
+    }
+
     const res = await memberApi.register(form)
     setLoading(false)
 
@@ -60,12 +78,14 @@ export default function MemberRegistration() {
       return
     }
 
-    setSuccess({ formNumber: res.data.form_number, name: form.name_english })
-    
-    // Auto-download PDF after 1 second
-    setTimeout(() => {
-      downloadPDF(res.data.form_number)
-    }, 1000)
+    setSuccess({ formNumber: res.data.form_number, name: form.name_english, paymentStatus: res.data.payment_status })
+
+    // Auto-download PDF after 1 second if payment is verified
+    if (res.data.payment_status === 'paid' || res.data.payment_status === 'verified') {
+      setTimeout(() => {
+        downloadPDF(res.data.form_number)
+      }, 1000)
+    }
   }
 
   async function downloadPDF(formNumber: string) {
@@ -98,271 +118,339 @@ export default function MemberRegistration() {
     setForm(p => ({ ...p, [field]: value }))
   }
 
+  // If already registered, show success message
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-teal-700 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 text-center">
-          <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-            <CheckCircle className="w-12 h-12 text-white" />
+      <div className="max-w-2xl mx-auto p-4 space-y-6">
+        <div className="card bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+          <div className="flex items-center gap-3 mb-4">
+            <CheckCircle size={32} className="text-green-600" />
+            <h2 className="text-2xl font-bold text-green-900">রেজিস্ট্রেশন সফল!</h2>
           </div>
           
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">নিবন্ধন সফল হয়েছে!</h1>
-          <p className="text-gray-600 mb-6">আপনার সদস্যপদ নিশ্চিত করা হয়েছে</p>
-
-          <div className="bg-gradient-to-r from-primary-50 to-teal-50 rounded-2xl p-6 mb-6">
-            <p className="text-sm text-gray-600 mb-1">ফর্ম নম্বর</p>
-            <p className="text-2xl font-bold text-primary-700">{success.formNumber}</p>
-            <p className="text-sm text-gray-500 mt-2">সদস্যের নাম: {success.name}</p>
+          <div className="space-y-3 text-green-800">
+            <p><strong>ফর্ম নাম্বার:</strong> {success.formNumber}</p>
+            <p><strong>নাম:</strong> {success.name}</p>
+            <p><strong>পেমেন্ট স্ট্যাটাস:</strong> 
+              <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+                success.paymentStatus === 'verified' ? 'bg-green-200 text-green-800' :
+                success.paymentStatus === 'paid' ? 'bg-blue-200 text-blue-800' :
+                'bg-orange-200 text-orange-800'
+              }`}>
+                {success.paymentStatus === 'verified' ? 'যাচাই করা হয়েছে' :
+                 success.paymentStatus === 'paid' ? 'পরিশোধিত' : 'অপরিশোধিত'}
+              </span>
+            </p>
           </div>
 
-          <button
-            onClick={() => downloadPDF(success.formNumber)}
-            disabled={downloading}
-            className="w-full bg-gradient-to-r from-primary-600 to-teal-600 text-white font-semibold py-4 rounded-2xl hover:from-primary-700 hover:to-teal-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            <Download className="w-5 h-5" />
-            {downloading ? 'ডাউনলোড হচ্ছে...' : 'সদস্যপদ সার্টিফিকেট ডাউনলোড করুন'}
-          </button>
+          {(success.paymentStatus === 'paid' || success.paymentStatus === 'verified') && (
+            <button
+              onClick={() => downloadPDF(success.formNumber)}
+              disabled={downloading}
+              className="mt-4 btn-primary flex items-center gap-2 w-full justify-center"
+            >
+              <Download size={18} />
+              {downloading ? 'ডাউনলোড হচ্ছে...' : 'মেম্বারশিপ সার্টিফিকেট ডাউনলোড করুন'}
+            </button>
+          )}
 
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="w-full mt-4 text-primary-600 font-semibold py-3 hover:bg-primary-50 rounded-xl transition-all"
-          >
-            ড্যাশবোর্ডে যান
-          </button>
+          {success.paymentStatus === 'pending' && (
+            <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <p className="text-orange-800 font-medium">আপনার পেমেন্ট এখনও pending</p>
+              <p className="text-orange-700 text-sm mt-1">অ্যাডমিন যাচাই করার পর সার্টিফিকেট ডাউনলোড করতে পারবেন</p>
+            </div>
+          )}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-teal-700 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-br from-primary-500 to-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <FileText className="w-10 h-10 text-white" />
+    <div className="max-w-3xl mx-auto p-4 space-y-6">
+      {/* Header */}
+      <div className="card bg-gradient-to-r from-primary-800 via-primary-700 to-teal-700 text-white">
+        <div className="flex items-center gap-3">
+          <FileText size={32} />
+          <div>
+            <h1 className="text-2xl font-bold">BBI মেম্বার রেজিস্ট্রেশন</h1>
+            <p className="text-primary-100 text-sm">রেজিস্ট্রেশন ফি: ৳100</p>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">সদস্য নিবন্ধন ফর্ম</h1>
-          <p className="text-primary-100">বিল্ড বরগুনায় যোগ দিন এবং পরিবর্তনের অংশ হোন</p>
         </div>
+      </div>
 
-        {/* Form */}
-        <div className="bg-white rounded-3xl shadow-2xl p-8">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-4 mb-6 text-sm flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-              <span>{error}</span>
+      {/* Payment Info Box */}
+      <div className="card bg-blue-50 border-blue-200">
+        <div className="flex items-start gap-3">
+          <Wallet size={24} className="text-blue-600 mt-1" />
+          <div>
+            <h3 className="font-bold text-blue-900">পেমেন্ট তথ্য</h3>
+            <div className="mt-2 space-y-2 text-blue-800">
+              <p><strong>bKash নাম্বার:</strong> <span className="font-mono bg-blue-100 px-2 py-1 rounded">01635222142</span></p>
+              <p><strong>পেমেন্ট পদ্ধতি:</strong> bKash অথবা Cash</p>
+              <p><strong>টাকা:</strong> ৳100 (একশত টাকা)</p>
             </div>
-          )}
+          </div>
+        </div>
+      </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Personal Information */}
+      {/* Error Message */}
+      {error && (
+        <div className="card bg-red-50 border-red-200 flex items-center gap-3">
+          <AlertCircle size={20} className="text-red-600" />
+          <p className="text-red-700">{error}</p>
+        </div>
+      )}
+
+      {/* Registration Form */}
+      <form onSubmit={handleSubmit} className="card space-y-6">
+        {/* Personal Information */}
+        <div>
+          <h3 className="font-bold text-lg mb-4">ব্যক্তিগত তথ্য</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <span>👤</span> ব্যক্তিগত তথ্য
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="label">নাম (ইংরেজি) *</label>
-                  <input
-                    className="input"
-                    type="text"
-                    placeholder="English Name"
-                    value={form.name_english}
-                    onChange={(e) => handleChange('name_english', e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label">নাম (বাংলা)</label>
-                  <input
-                    className="input"
-                    type="text"
-                    placeholder="বাংলা নাম"
-                    value={form.name_bangla}
-                    onChange={(e) => handleChange('name_bangla', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="label">পিতার নাম *</label>
-                  <input
-                    className="input"
-                    type="text"
-                    placeholder="Father's Name"
-                    value={form.father_name}
-                    onChange={(e) => handleChange('father_name', e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label">মাতার নাম *</label>
-                  <input
-                    className="input"
-                    type="text"
-                    placeholder="Mother's Name"
-                    value={form.mother_name}
-                    onChange={(e) => handleChange('mother_name', e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label">জন্ম তারিখ *</label>
-                  <input
-                    className="input"
-                    type="date"
-                    value={form.date_of_birth}
-                    onChange={(e) => handleChange('date_of_birth', e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label">রক্তের গ্রুপ</label>
-                  <select
-                    className="input"
-                    value={form.blood_group}
-                    onChange={(e) => handleChange('blood_group', e.target.value)}
-                  >
-                    <option value="">নির্বাচন করুন</option>
-                    {bloodGroups.map(bg => (
-                      <option key={bg} value={bg}>{bg}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Contact Information */}
-            <div>
-              <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <span>📞</span> যোগাযোগের তথ্য
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="label">মোবাইল নম্বর (WhatsApp) *</label>
-                  <input
-                    className="input"
-                    type="tel"
-                    placeholder="01XXX XXXXXX"
-                    value={form.mobile_whatsapp}
-                    onChange={(e) => handleChange('mobile_whatsapp', e.target.value)}
-                    pattern="01[3-9]\d{8}"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label">ইমেইল</label>
-                  <input
-                    className="input"
-                    type="email"
-                    placeholder="email@example.com"
-                    value={form.email}
-                    onChange={(e) => handleChange('email', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="label">ফেসবুক আইডি</label>
-                  <input
-                    className="input"
-                    type="text"
-                    placeholder="Facebook ID Name"
-                    value={form.facebook_id}
-                    onChange={(e) => handleChange('facebook_id', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="label">জরুরি যোগাযোগ</label>
-                  <input
-                    className="input"
-                    type="tel"
-                    placeholder="Guardian/Emergency Contact"
-                    value={form.emergency_contact}
-                    onChange={(e) => handleChange('emergency_contact', e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <label className="label">বর্তমান ঠিকানা *</label>
-                <textarea
-                  className="input"
-                  rows={2}
-                  placeholder="Present Address"
-                  value={form.present_address}
-                  onChange={(e) => handleChange('present_address', e.target.value)}
-                  required
-                />
-              </div>
-              <div className="mt-4">
-                <label className="label">স্থায়ী ঠিকানা *</label>
-                <textarea
-                  className="input"
-                  rows={2}
-                  placeholder="Permanent Address"
-                  value={form.permanent_address}
-                  onChange={(e) => handleChange('permanent_address', e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Skills & Interests */}
-            <div>
-              <label className="label">দক্ষতা ও আগ্রহ</label>
-              <textarea
+              <label className="label">নাম (ইংরেজি) *</label>
+              <input
                 className="input"
-                rows={3}
-                placeholder="আপনার দক্ষতা এবং আগ্রহের ক্ষেত্র সম্পর্কে লিখুন..."
-                value={form.skills_interests}
-                onChange={(e) => handleChange('skills_interests', e.target.value)}
+                value={form.name_english}
+                onChange={(e) => handleChange('name_english', e.target.value)}
+                placeholder="English name as per NID"
+                required
               />
             </div>
-
-            {/* Declaration */}
-            <div className="bg-gradient-to-r from-primary-50 to-teal-50 rounded-2xl p-6">
-              <h3 className="font-bold text-gray-900 mb-3">ঘোষণা ও অঙ্গীকার</h3>
-              <p className="text-sm text-gray-700 mb-4">
-                আমি ঘোষণা করছি যে প্রদত্ত তথ্য সঠিক। বিল্ড বরগুনা ইনিশিয়েটিভ (BBI) এর সদস্য হিসেবে, আমি অঙ্গীকার করছি:
-              </p>
-              <ul className="text-sm text-gray-700 space-y-2 mb-4 list-disc list-inside">
-                <li>সংগঠনের নিয়ম, বিধি এবং সিদ্ধান্ত মেনে চলব</li>
-                <li>সর্বোচ্চ নৈতিক মান এবং শৃঙ্খলা বজায় রাখব</li>
-                <li>প্রচারের উদ্দেশ্যে BBI-কে আমার ছবি/ভিডিও ব্যবহারের অনুমতি প্রদান করব</li>
-                <li>অসদাচরণের জন্য Governing Body-এর পূর্ণ কর্তৃত্ব মেনে নেব</li>
-              </ul>
-              
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.declaration_accepted}
-                  onChange={(e) => handleChange('declaration_accepted', e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 mt-0.5"
-                  required
-                />
-                <span className="text-sm text-gray-700">
-                  আমি উপরের ঘোষণা ও অঙ্গীকার পাঠ করেছি এবং মেনে চলতে রাজি আছি *
-                </span>
-              </label>
+            <div>
+              <label className="label">নাম (বাংলা)</label>
+              <input
+                className="input"
+                value={form.name_bangla}
+                onChange={(e) => handleChange('name_bangla', e.target.value)}
+                placeholder="বাংলা নাম"
+              />
             </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-primary-600 to-teal-600 text-white font-bold py-4 rounded-2xl hover:from-primary-700 hover:to-teal-700 transition-all text-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-            >
-              {loading ? 'জমা দেওয়া হচ্ছে...' : 'নিবন্ধন সম্পন্ন করুন'}
-            </button>
-          </form>
+            <div>
+              <label className="label">পিতার নাম *</label>
+              <input
+                className="input"
+                value={form.father_name}
+                onChange={(e) => handleChange('father_name', e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="label">মাতার নাম *</label>
+              <input
+                className="input"
+                value={form.mother_name}
+                onChange={(e) => handleChange('mother_name', e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="label">জন্ম তারিখ *</label>
+              <input
+                type="date"
+                className="input"
+                value={form.date_of_birth}
+                onChange={(e) => handleChange('date_of_birth', e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="label">রক্তের গ্রুপ</label>
+              <select
+                className="input"
+                value={form.blood_group}
+                onChange={(e) => handleChange('blood_group', e.target.value)}
+              >
+                <option value="">নির্বাচন করুন</option>
+                {bloodGroups.map(bg => (
+                  <option key={bg} value={bg}>{bg}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
-        {/* Footer */}
-        <p className="text-center text-primary-100 text-sm mt-6">
-          প্রশ্ন থাকলে যোগাযোগ করুন: bbi.official2025@gmail.com | 01971951960
-        </p>
-      </div>
+        {/* Contact Information */}
+        <div>
+          <h3 className="font-bold text-lg mb-4">যোগাযোগের তথ্য</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="label">বর্তমান ঠিকানা *</label>
+              <textarea
+                className="input"
+                rows={2}
+                value={form.present_address}
+                onChange={(e) => handleChange('present_address', e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="label">স্থায়ী ঠিকানা *</label>
+              <textarea
+                className="input"
+                rows={2}
+                value={form.permanent_address}
+                onChange={(e) => handleChange('permanent_address', e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="label">মোবাইল (WhatsApp) *</label>
+              <input
+                type="tel"
+                className="input"
+                value={form.mobile_whatsapp}
+                onChange={(e) => handleChange('mobile_whatsapp', e.target.value)}
+                placeholder="01XXX-XXXXXX"
+                pattern="01[3-9]\d{8}"
+                required
+              />
+            </div>
+            <div>
+              <label className="label">ইমেইল</label>
+              <input
+                type="email"
+                className="input"
+                value={form.email}
+                onChange={(e) => handleChange('email', e.target.value)}
+                placeholder="example@email.com"
+              />
+            </div>
+            <div>
+              <label className="label">Facebook ID</label>
+              <input
+                className="input"
+                value={form.facebook_id}
+                onChange={(e) => handleChange('facebook_id', e.target.value)}
+                placeholder="facebook.com/your.id"
+              />
+            </div>
+            <div>
+              <label className="label">জরুরি যোগাযোগ</label>
+              <input
+                type="tel"
+                className="input"
+                value={form.emergency_contact}
+                onChange={(e) => handleChange('emergency_contact', e.target.value)}
+                placeholder="01XXX-XXXXXX"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Skills & Interests */}
+        <div>
+          <label className="label">দক্ষতা ও আগ্রহ</label>
+          <textarea
+            className="input"
+            rows={3}
+            value={form.skills_interests}
+            onChange={(e) => handleChange('skills_interests', e.target.value)}
+            placeholder="আপনার দক্ষতা, শিক্ষাগত যোগ্যতা, এবং পেশাদার আগ্রহ সম্পর্কে লিখুন"
+          />
+        </div>
+
+        {/* Payment Section */}
+        <div className="border-t pt-6">
+          <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+            <Wallet size={20} />
+            পেমেন্ট তথ্য (৳100)
+          </h3>
+          
+          <div className="bg-blue-50 p-4 rounded-lg mb-4">
+            <div className="flex items-center gap-2 text-blue-900 mb-2">
+              <Smartphone size={18} />
+              <strong>bKash পেমেন্ট:</strong>
+            </div>
+            <p className="text-blue-800">
+              <strong>bKash নাম্বার:</strong>{' '}
+              <span className="font-mono bg-white px-2 py-1 rounded">01635222142</span>
+            </p>
+            <p className="text-blue-700 text-sm mt-1">
+              এই নাম্বারে ৳100 সেন্ড মানি করুন অথবা এই নাম্বারে পেমেন্ট করে ট্রানজেকশন আইডি দিন
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="label">পেমেন্ট পদ্ধতি *</label>
+              <select
+                className="input"
+                value={form.payment_method}
+                onChange={(e) => handleChange('payment_method', e.target.value)}
+                required
+              >
+                <option value="bkash">bKash</option>
+                <option value="cash">Cash</option>
+              </select>
+            </div>
+
+            {form.payment_method === 'bkash' ? (
+              <>
+                <div>
+                  <label className="label">আপনার bKash নাম্বার</label>
+                  <input
+                    type="tel"
+                    className="input"
+                    value={form.bkash_number}
+                    onChange={(e) => handleChange('bkash_number', e.target.value)}
+                    placeholder="01XXX-XXXXXX"
+                    pattern="01[3-9]\d{8}"
+                  />
+                </div>
+                <div>
+                  <label className="label">bKash ট্রানজেকশন আইডি *</label>
+                  <input
+                    className="input"
+                    value={form.bkash_trx_id}
+                    onChange={(e) => handleChange('bkash_trx_id', e.target.value)}
+                    placeholder="e.g., 9H8G7F6E5D"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    bKash অ্যাপ থেকে ট্রানজেকশন আইডি কপি করুন
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="md:col-span-2">
+                <label className="label">ক্যাশ পেমেন্ট নোট</label>
+                <textarea
+                  className="input"
+                  rows={2}
+                  value={form.payment_note}
+                  onChange={(e) => handleChange('payment_note', e.target.value)}
+                  placeholder="ক্যাশ পেমেন্টের বিবরণ লিখুন (যেমন: অফিসে জমা দিয়েছেন, কার কাছে দিয়েছেন ইত্যাদি)"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Declaration */}
+        <div className="border-t pt-6">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.declaration_accepted}
+              onChange={(e) => handleChange('declaration_accepted', e.target.checked)}
+              className="mt-1 w-5 h-5"
+            />
+            <span className="text-sm text-gray-700">
+              আমি ঘোষণা করছি যে, উপরে প্রদত্ত তথ্যাবলী সত্য এবং সঠিক। আমি BuildBarguna Inc. (BBI) এর সদস্য হতে আগ্রহী।
+            </span>
+          </label>
+        </div>
+
+        {/* Submit Button */}
+        <button
+          type="submit"
+          disabled={loading}
+          className="btn-primary w-full"
+        >
+          {loading ? 'জমা দেওয়া হচ্ছে...' : 'রেজিস্ট্রেশন জমা দিন (৳100)'}
+        </button>
+      </form>
     </div>
   )
 }
