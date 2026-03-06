@@ -80,11 +80,27 @@ export type Earning = {
   created_at: string
 }
 
+export type TaskType = {
+  id: number
+  name: string
+  display_name: string
+  base_points: number
+  cooldown_seconds: number
+  daily_limit: number
+  is_active: number
+  created_at: string
+  updated_at: string
+}
+
 export type DailyTask = {
   id: number
   title: string
   destination_url: string
   platform: 'facebook' | 'youtube' | 'telegram' | 'other'
+  points: number
+  cooldown_seconds: number
+  daily_limit: number
+  task_type_id: number | null
   is_active: number
   created_at: string
 }
@@ -95,7 +111,56 @@ export type TaskCompletion = {
   task_id: number
   clicked_at: string | null
   completed_at: string
-  date: string
+  task_date: string
+  points_earned: number
+}
+
+export type UserPoints = {
+  user_id: number
+  available_points: number
+  lifetime_earned: number
+  lifetime_redeemed: number
+  monthly_earned: number
+  monthly_redeemed: number
+  current_month: string
+  updated_at: string
+}
+
+export type PointTransaction = {
+  id: number
+  user_id: number
+  task_id: number | null
+  points: number
+  transaction_type: 'earned' | 'redeemed' | 'expired' | 'adjusted' | 'refunded'
+  description: string | null
+  month_year: string
+  created_at: string
+  metadata: string | null
+}
+
+export type Reward = {
+  id: number
+  name: string
+  description: string | null
+  points_required: number
+  quantity: number | null
+  redeemed_count: number
+  image_url: string | null
+  is_active: number
+  created_at: string
+  updated_at: string
+}
+
+export type RewardRedemption = {
+  id: number
+  user_id: number
+  reward_id: number
+  points_spent: number
+  status: 'pending' | 'approved' | 'fulfilled' | 'rejected' | 'cancelled'
+  admin_note: string | null
+  fulfilled_at: string | null
+  redeemed_at: string
+  updated_at: string
 }
 
 // API response helpers

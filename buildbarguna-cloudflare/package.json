@@ -7,22 +7,33 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:watch": "vitest --project unit",
+    "test:migrations": "vitest run --project unit src/lib/migrations.test.ts",
     "dev": "wrangler dev",
     "dev:frontend": "cd frontend && npm run dev",
     "build": "cd frontend && npm run build",
     "deploy": "npm run build && wrangler deploy",
+    "deploy:prod": "./scripts/deploy.sh production",
+    "deploy:staging": "./scripts/deploy.sh staging",
+    "deploy:dry-run": "./scripts/deploy.sh production true",
     "db:migrate:local": "wrangler d1 execute buildbarguna-invest-db --file=src/db/schema.sql --local",
     "db:migrate:remote": "wrangler d1 execute buildbarguna-invest-db --file=src/db/schema.sql --remote",
+    "db:migrate:prod": "wrangler d1 execute buildbarguna-invest-db --remote --file=src/db/migrations/005_critical_fixes.sql",
+    "db:backup": "wrangler d1 export buildbarguna-invest-db --remote --output=./backups/backup_$(date +%Y%m%d_%H%M%S).sql",
+    "db:rollback": "node scripts/rollback.js",
+    "migration:status": "wrangler d1 execute buildbarguna-invest-db --remote --command 'SELECT id, name, applied_at FROM _migrations ORDER BY id'",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.7.6",
     "hono": "^4.12.3",
+    "pdfkit": "^0.17.2",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.12.18",
     "@cloudflare/workers-types": "^4.20260305.0",
+    "@types/node": "^25.3.5",
+    "@types/pdfkit": "^0.17.5",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18",
     "wrangler": "^4.69.0"

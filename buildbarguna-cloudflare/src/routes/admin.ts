@@ -356,3 +356,253 @@ adminRoutes.patch('/tasks/:id/toggle', async (c) => {
   await c.env.DB.prepare('UPDATE daily_tasks SET is_active = ? WHERE id = ?').bind(task.is_active ? 0 : 1, id).run()
   return ok(c, { message: task.is_active ? 'টাস্ক নিষ্ক্রিয় করা হয়েছে' : 'টাস্ক সক্রিয় করা হয়েছে' })
 })
+
+// ─── TASK TYPES (Points Settings) ──────────────────────────────────────────────
+
+const taskTypeSchema = z.object({
+  name: z.string().min(2),
+  display_name: z.string().min(2),
+  base_points: z.number().int().min(0),
+  cooldown_seconds: z.number().int().min(0),
+  daily_limit: z.number().int().min(1)
+})
+
+adminRoutes.get('/task-types', async (c) => {
+  const rows = await c.env.DB.prepare(
+    'SELECT * FROM task_types ORDER BY id ASC'
+  ).all()
+  return ok(c, rows.results)
+})
+
+adminRoutes.post('/task-types', zValidator('json', taskTypeSchema), async (c) => {
+  const body = c.req.valid('json')
+  const result = await c.env.DB.prepare(
+    `INSERT INTO task_types (name, display_name, base_points, cooldown_seconds, daily_limit)
+     VALUES (?, ?, ?, ?, ?)`
+  ).bind(body.name, body.display_name, body.base_points, body.cooldown_seconds, body.daily_limit).run()
+  return ok(c, { message: 'টাস্ক টাইপ তৈরি হয়েছে', id: result.meta.last_row_id }, 201)
+})
+
+adminRoutes.put('/task-types/:id', zValidator('json', taskTypeSchema.partial()), async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+  const body = c.req.valid('json')
+  
+  const fields = Object.entries(body).filter(([, v]) => v !== undefined)
+  if (fields.length === 0) return err(c, 'কোনো পরিবর্তন নেই')
+  
+  const setClauses = fields.map(([k]) => `${k} = ?`).join(', ')
+  const values = fields.map(([, v]) => v)
+  
+  await c.env.DB.prepare(`UPDATE task_types SET ${setClauses}, updated_at = datetime('now') WHERE id = ?`)
+    .bind(...values, id).run()
+  return ok(c, { message: 'টাস্ক টাইপ আপডেট হয়েছে' })
+})
+
+adminRoutes.patch('/task-types/:id/toggle', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+  const taskType = await c.env.DB.prepare('SELECT is_active FROM task_types WHERE id = ?').bind(id).first<{ is_active: number }>()
+  if (!taskType) return err(c, 'টাস্ক টাইপ পাওয়া যায়নি', 404)
+  await c.env.DB.prepare('UPDATE task_types SET is_active = ? WHERE id = ?').bind(taskType.is_active ? 0 : 1, id).run()
+  return ok(c, { message: taskType.is_active ? 'টাস্ক টাইপ নিষ্ক্রিয় করা হয়েছে' : 'টাস্ক টাইপ সক্রিয় করা হয়েছে' })
+})
+
+// ─── REWARDS MANAGEMENT ────────────────────────────────────────────────────────
+
+const rewardSchema = z.object({
+  name: z.string().min(2),
+  description: z.string().optional(),
+  points_required: z.number().int().min(1),
+  quantity: z.number().int().min(1).nullable(), // null = unlimited
+  image_url: z.string().url().optional()
+})
+
+adminRoutes.get('/rewards', async (c) => {
+  const rows = await c.env.DB.prepare(
+    'SELECT * FROM rewards ORDER BY points_required ASC'
+  ).all()
+  return ok(c, rows.results)
+})
+
+adminRoutes.post('/rewards', zValidator('json', rewardSchema), async (c) => {
+  const body = c.req.valid('json')
+  const result = await c.env.DB.prepare(
+    `INSERT INTO rewards (name, description, points_required, quantity, image_url)
+     VALUES (?, ?, ?, ?, ?)`
+  ).bind(body.name, body.description || null, body.points_required, body.quantity || null, body.image_url || null).run()
+  return ok(c, { message: 'রিওয়ার্ড তৈরি হয়েছে', id: result.meta.last_row_id }, 201)
+})
+
+adminRoutes.put('/rewards/:id', zValidator('json', rewardSchema.partial()), async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+  const body = c.req.valid('json')
+  
+  const fields = Object.entries(body).filter(([, v]) => v !== undefined)
+  if (fields.length === 0) return err(c, 'কোনো পরিবর্তন নেই')
+  
+  const setClauses = fields.map(([k]) => `${k} = ?`).join(', ')
+  const values = fields.map(([, v]) => v)
+  
+  await c.env.DB.prepare(`UPDATE rewards SET ${setClauses}, updated_at = datetime('now') WHERE id = ?`)
+    .bind(...values, id).run()
+  return ok(c, { message: 'রিওয়ার্ড আপডেট হয়েছে' })
+})
+
+adminRoutes.patch('/rewards/:id/toggle', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+  const reward = await c.env.DB.prepare('SELECT is_active FROM rewards WHERE id = ?').bind(id).first<{ is_active: number }>()
+  if (!reward) return err(c, 'রিওয়ার্ড পাওয়া যায়নি', 404)
+  await c.env.DB.prepare('UPDATE rewards SET is_active = ? WHERE id = ?').bind(reward.is_active ? 0 : 1, id).run()
+  return ok(c, { message: reward.is_active ? 'রিওয়ার্ড নিষ্ক্রিয় করা হয়েছে' : 'রিওয়ার্ড সক্রিয় করা হয়েছে' })
+})
+
+// ─── REWARD REDEMPTIONS (Admin Review) ─────────────────────────────────────────
+
+adminRoutes.get('/redemptions', async (c) => {
+  const status = c.req.query('status') || 'pending'
+  const rows = await c.env.DB.prepare(
+    `SELECT rr.*, r.name as reward_name, u.name as user_name, u.phone as user_phone
+     FROM reward_redemptions rr
+     JOIN rewards r ON rr.reward_id = r.id
+     JOIN users u ON rr.user_id = u.id
+     WHERE rr.status = ?
+     ORDER BY rr.redeemed_at DESC`
+  ).bind(status).all()
+  return ok(c, rows.results)
+})
+
+adminRoutes.patch('/redemptions/:id/status', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+  
+  const body = await c.req.parseBody()
+  const status = body.status as string
+  
+  if (!['pending', 'approved', 'fulfilled', 'rejected', 'cancelled'].includes(status)) {
+    return err(c, 'অকার্যকর স্ট্যাটাস', 400)
+  }
+  
+  const adminNote = body.admin_note as string || null
+  
+  const updateFields: string[] = ['status = ?', 'updated_at = datetime(\'now\')']
+  const params: any[] = [status]
+  
+  if (status === 'fulfilled') {
+    updateFields.push('fulfilled_at = datetime(\'now\')')
+  }
+  
+  if (adminNote) {
+    updateFields.push('admin_note = ?')
+    params.push(adminNote)
+  }
+  
+  params.push(id)
+  
+  await c.env.DB.prepare(
+    `UPDATE reward_redemptions SET ${updateFields.join(', ')} WHERE id = ?`
+  ).bind(...params).run()
+  
+  return ok(c, { message: `রিওয়ার্ড রিডিম স্ট্যাটাস আপডেট হয়েছে: ${status}` })
+})
+
+// ─── USER POINTS (Admin View & Adjust) ─────────────────────────────────────────
+
+adminRoutes.get('/users/:id/points', async (c) => {
+  const userId = parseInt(c.req.param('id'))
+  if (isNaN(userId)) return err(c, 'অকার্যকর আইডি')
+  
+  const userPoints = await c.env.DB.prepare(
+    'SELECT * FROM user_points WHERE user_id = ?'
+  ).bind(userId).first()
+  
+  if (!userPoints) {
+    // Initialize if not exists
+    await c.env.DB.prepare(
+      'INSERT INTO user_points (user_id, available_points, lifetime_earned, lifetime_redeemed, monthly_earned, monthly_redeemed) VALUES (?, 0, 0, 0, 0, 0)'
+    ).bind(userId).run()
+    
+    const freshPoints = await c.env.DB.prepare(
+      'SELECT * FROM user_points WHERE user_id = ?'
+    ).bind(userId).first()
+    
+    return ok(c, freshPoints)
+  }
+  
+  return ok(c, userPoints)
+})
+
+adminRoutes.post('/users/:id/points/adjust', zValidator('json', z.object({
+  points: z.number().int().min(-1000000).max(1000000),
+  reason: z.string().min(1).max(500)
+})), async (c) => {
+  const userId = parseInt(c.req.param('id'))
+  if (isNaN(userId)) return err(c, 'অকার্যকর আইডি')
+  
+  const body = c.req.valid('json')
+  const points = body.points
+  const reason = body.reason
+  const adminUserId = c.get('userId')
+  
+  if (points === 0) return err(c, 'পয়েন্ট মান প্রয়োজন', 400)
+  
+  // Get current points for audit trail
+  const currentUserPoints = await c.env.DB.prepare(
+    'SELECT available_points, lifetime_earned, lifetime_redeemed FROM user_points WHERE user_id = ?'
+  ).bind(userId).first()
+  
+  // Update user points
+  await c.env.DB.prepare(
+    `UPDATE user_points SET 
+       available_points = available_points + ?,
+       ${points > 0 ? 'lifetime_earned = lifetime_earned + ?,' : 'lifetime_redeemed = lifetime_redeemed + ?'}
+       ${points > 0 ? 'monthly_earned = monthly_earned + ?,' : 'monthly_redeemed = monthly_redeemed + ?'}
+       updated_at = datetime('now')
+     WHERE user_id = ?`
+  ).bind(points, Math.abs(points), Math.abs(points), userId).run()
+  
+  // Create transaction record
+  const txResult = await c.env.DB.prepare(
+    `INSERT INTO point_transactions (user_id, points, transaction_type, description, month_year, metadata)
+     VALUES (?, ?, 'adjusted', ?, strftime('%Y-%m', 'now'), ?)`
+  ).bind(userId, points, reason, JSON.stringify({ 
+    adjusted_by: adminUserId,
+    reason: reason 
+  })).run()
+  
+  // Create audit trail entry
+  await c.env.DB.prepare(
+    `INSERT INTO admin_actions (admin_user_id, action_type, target_id, target_type, old_value, new_value, reason)
+     VALUES (?, 'points_adjust', ?, 'user', ?, ?, ?)`
+  ).bind(
+    adminUserId, 
+    userId, 
+    JSON.stringify(currentUserPoints),
+    JSON.stringify({ points_added: points, new_total: (currentUserPoints?.available_points || 0) + points }),
+    reason
+  ).run()
+  
+  return ok(c, { 
+    message: `পয়েন্ট ${points > 0 ? 'যোগ' : 'বিয়োগ'} করা হয়েছে (${Math.abs(points)} পয়েন্ট)`,
+    transaction_id: txResult.meta.last_row_id,
+    new_balance: (currentUserPoints?.available_points || 0) + points
+  })
+})
+
+adminRoutes.get('/users/:id/points/history', async (c) => {
+  const userId = parseInt(c.req.param('id'))
+  if (isNaN(userId)) return err(c, 'অকার্যকর আইডি')
+  
+  const transactions = await c.env.DB.prepare(
+    `SELECT pt.*, dt.title as task_title
+     FROM point_transactions pt
+     LEFT JOIN daily_tasks dt ON pt.task_id = dt.id
+     WHERE pt.user_id = ?
+     ORDER BY pt.created_at DESC
+     LIMIT 100`
+  ).bind(userId).all()
+  
+  return ok(c, transactions.results)
+})

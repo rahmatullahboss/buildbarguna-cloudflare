@@ -202,11 +202,43 @@ export const tasksApi = {
   complete: (id: number) => request(`/tasks/${id}/complete`, { method: 'POST' })
 }
 
+// Points
+export const pointsApi = {
+  getBalance: () => request<UserPoints>('/points'),
+  getHistory: (month?: string, limit = 50) => request<PointTransaction[]>(`/points/history?${month ? `month=${month}&` : ''}limit=${limit}`),
+  getMonthly: () => request<MonthlyPoints>('/points/monthly'),
+  getLeaderboard: (timeframe = 'all', limit = 10) => request<LeaderboardEntry[]>(`/points/leaderboard?timeframe=${timeframe}&limit=${limit}`),
+  requestExport: (type = 'point_history') => request(`/points/export?type=${type}`),
+  getExportStatus: (id?: string) => request(`/points/export/status${id ? `?id=${id}` : ''}`),
+  getBadges: () => request<BadgeResponse>('/points/badges')
+}
+
+// Notifications
+export const notificationsApi = {
+  getList: (unreadOnly = false, limit = 50) => request<NotificationList>(`/notifications?unread=${unreadOnly}&limit=${limit}`),
+  markAsRead: (id: number) => request(`/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllAsRead: () => request('/notifications/read-all', { method: 'PATCH' }),
+  delete: (id: number) => request(`/notifications/${id}`, { method: 'DELETE' }),
+  getUnreadCount: () => request<{ unread_count: number }>('/notifications/unread/count')
+}
+
+// Rewards
+export const rewardsApi = {
+  list: () => request<RewardItem[]>('/rewards'),
+  getDetail: (id: number) => request<RewardItem>(`/rewards/${id}`),
+  redeem: (id: number) => request(`/rewards/${id}/redeem`, { method: 'POST' }),
+  myRedemptions: () => request<RewardRedemption[]>('/rewards/my-redemptions')
+}
+
 // Admin
 export const adminApi = {
   users: (page = 1) => request<Paginated<AdminUser>>(`/admin/users?page=${page}`),
   userDetail: (id: number) => request<AdminUserDetail>(`/admin/users/${id}`),
   toggleUser: (id: number) => request(`/admin/users/${id}/toggle`, { method: 'PATCH' }),
+  getUserPoints: (id: number) => request<UserPoints>(`/admin/users/${id}/points`),
+  adjustUserPoints: (id: number, points: number, reason: string) =>
+    request(`/admin/users/${id}/points/adjust`, { method: 'POST', body: JSON.stringify({ points, reason }) }),
+  getUserPointsHistory: (id: number) => request<PointTransaction[]>(`/admin/users/${id}/points/history`),
 
   projects: (page = 1) => request<Paginated<AdminProject>>(`/admin/projects?page=${page}`),
   createProject: (body: CreateProjectBody) =>
@@ -230,11 +262,29 @@ export const adminApi = {
 
   r2Url: () => request<{ url: string }>('/admin/r2-url'),
   tasks: () => request<TaskItem[]>('/admin/tasks'),
-  createTask: (body: { title: string; destination_url: string; platform?: string }) =>
+  createTask: (body: { title: string; destination_url: string; platform?: string; points?: number; cooldown_seconds?: number; daily_limit?: number }) =>
     request('/admin/tasks', { method: 'POST', body: JSON.stringify(body) }),
-  updateTask: (id: number, body: Partial<{ title: string; destination_url: string; platform: string }>) =>
+  updateTask: (id: number, body: Partial<{ title: string; destination_url: string; platform: string; points: number; cooldown_seconds: number; daily_limit: number }>) =>
     request(`/admin/tasks/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-  toggleTask: (id: number) => request(`/admin/tasks/${id}/toggle`, { method: 'PATCH' })
+  toggleTask: (id: number) => request(`/admin/tasks/${id}/toggle`, { method: 'PATCH' }),
+  
+  taskTypes: () => request<TaskTypeItem[]>('/admin/task-types'),
+  createTaskType: (body: { name: string; display_name: string; base_points: number; cooldown_seconds: number; daily_limit: number }) =>
+    request('/admin/task-types', { method: 'POST', body: JSON.stringify(body) }),
+  updateTaskType: (id: number, body: Partial<{ display_name: string; base_points: number; cooldown_seconds: number; daily_limit: number }>) =>
+    request(`/admin/task-types/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  toggleTaskType: (id: number) => request(`/admin/task-types/${id}/toggle`, { method: 'PATCH' }),
+  
+  rewards: () => request<RewardItem[]>('/admin/rewards'),
+  createReward: (body: { name: string; description?: string; points_required: number; quantity?: number | null; image_url?: string }) =>
+    request('/admin/rewards', { method: 'POST', body: JSON.stringify(body) }),
+  updateReward: (id: number, body: Partial<{ name: string; description: string; points_required: number; quantity: number | null; image_url: string }>) =>
+    request(`/admin/rewards/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  toggleReward: (id: number) => request(`/admin/rewards/${id}/toggle`, { method: 'PATCH' }),
+  
+  redemptions: (status = 'pending') => request<RedemptionItem[]>(`/admin/redemptions?status=${status}`),
+  updateRedemptionStatus: (id: number, status: string, admin_note?: string) =>
+    request(`/admin/redemptions/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, admin_note }) })
 }
 
 // Types
@@ -244,7 +294,145 @@ export type ProjectDetail = ProjectItem & { available_shares: number }
 export type MyShare = { user_id: number; project_id: number; quantity: number; title: string; share_price: number; status: string }
 export type ShareRequest = { id: number; project_id: number; project_title: string; quantity: number; total_amount: number; bkash_txid: string | null; payment_method: 'bkash' | 'manual'; status: string; admin_note: string | null; created_at: string }
 export type EarningItem = { id: number; project_id: number; project_title: string; month: string; shares: number; rate: number; amount: number; created_at: string }
-export type TaskItem = { id: number; title: string; destination_url: string; platform: string; is_active: number; completed?: number }
+export type TaskItem = { 
+  id: number
+  title: string
+  destination_url: string
+  platform: string
+  points: number
+  cooldown_seconds: number
+  daily_limit: number
+  is_active: number
+  completed?: number
+  points_earned?: number
+  clicked_at?: string
+  completion_timestamp?: string
+}
+
+export type TaskTypeItem = {
+  id: number
+  name: string
+  display_name: string
+  base_points: number
+  cooldown_seconds: number
+  daily_limit: number
+  is_active: number
+}
+
+export type UserPoints = {
+  user_id: number
+  available_points: number
+  lifetime_earned: number
+  lifetime_redeemed: number
+  monthly_earned: number
+  monthly_redeemed: number
+  current_month: string
+  updated_at: string
+}
+
+export type PointTransaction = {
+  id: number
+  user_id: number
+  task_id: number | null
+  points: number
+  transaction_type: 'earned' | 'redeemed' | 'expired' | 'adjusted' | 'refunded'
+  description: string | null
+  month_year: string
+  created_at: string
+  task_title?: string
+}
+
+export type MonthlyPoints = {
+  month_year: string
+  earned: number
+  redeemed: number
+  transaction_count: number
+}
+
+export type RewardItem = {
+  id: number
+  name: string
+  description: string | null
+  points_required: number
+  quantity: number | null
+  redeemed_count: number
+  image_url: string | null
+  is_active: number
+}
+
+export type RewardRedemption = {
+  id: number
+  user_id: number
+  reward_id: number
+  points_spent: number
+  status: 'pending' | 'approved' | 'fulfilled' | 'rejected' | 'cancelled'
+  admin_note: string | null
+  fulfilled_at: string | null
+  redeemed_at: string
+  reward_name?: string
+}
+
+export type RedemptionItem = RewardRedemption & {
+  user_name: string
+  user_phone: string
+}
+
+export type LeaderboardEntry = {
+  id: number
+  name: string
+  phone: string
+  lifetime_earned?: number
+  weekly_earned?: number
+  monthly_earned?: number
+  available_points: number
+  tasks_completed: number
+  rank?: number
+}
+
+export type Badge = {
+  id: number
+  user_id: number
+  badge_type: string
+  badge_name: string
+  badge_description: string
+  earned_at: string
+  metadata?: string
+}
+
+export type BadgeResponse = {
+  earned: Badge[]
+  available: Array<{ badge_type: string; badge_name: string; badge_description: string }>
+  total_earned: number
+  total_available: number
+}
+
+export type Notification = {
+  id: number
+  user_id: number
+  type: string
+  title: string
+  message: string | null
+  reference_id: number | null
+  reference_type: string | null
+  is_read: number
+  created_at: string
+}
+
+export type NotificationList = {
+  notifications: Notification[]
+  unread_count: number
+}
+
+export type DataExport = {
+  id: number
+  user_id: number
+  export_type: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  file_url?: string
+  expires_at?: string
+  requested_at: string
+  completed_at?: string
+}
 export type AdminUser = { id: number; name: string; phone: string; role: string; is_active: number; referral_code: string; referred_by: string | null; created_at: string }
 export type AdminUserDetail = AdminUser & { shares: MyShare[]; total_earnings_paisa: number }
 export type AdminProject = ProjectItem & { sold_shares: number }
@@ -607,4 +795,32 @@ export const profitApi = {
       projects_count: number
     }
   }>('/profit/my-profits')
+}
+
+// Member Registration
+export interface MemberRegistrationForm {
+  name_english: string
+  name_bangla?: string
+  father_name: string
+  mother_name: string
+  date_of_birth: string
+  blood_group?: string
+  present_address: string
+  permanent_address: string
+  facebook_id?: string
+  mobile_whatsapp: string
+  emergency_contact?: string
+  email?: string
+  skills_interests?: string
+  declaration_accepted: boolean
+}
+
+export const memberApi = {
+  register: (body: MemberRegistrationForm) =>
+    request<{ message: string; form_number: string; registration_id: number }>('/member/register', {
+      method: 'POST',
+      body: JSON.stringify(body)
+    }),
+  status: () => request<{ registered: boolean; form_number?: string; name?: string; registered_at?: string }>('/member/status'),
+  downloadCertificate: (formNumber: string) => `${BASE}/member/certificate/${formNumber}`
 }

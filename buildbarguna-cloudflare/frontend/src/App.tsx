@@ -22,9 +22,11 @@ const ProjectDetail   = lazy(() => import('./pages/ProjectDetail'))
 const MyInvestments   = lazy(() => import('./pages/MyInvestments'))
 const Earnings        = lazy(() => import('./pages/Earnings'))
 const DailyTasks      = lazy(() => import('./pages/DailyTasks'))
+const Rewards         = lazy(() => import('./pages/Rewards'))
 const Portfolio       = lazy(() => import('./pages/Portfolio'))
 const Withdraw        = lazy(() => import('./pages/Withdraw'))
 const Referrals       = lazy(() => import('./pages/Referrals'))
+const MemberRegistration = lazy(() => import('./pages/MemberRegistration'))
 
 // Admin pages — lazy loaded
 const AdminDashboard  = lazy(() => import('./pages/admin/AdminDashboard'))
@@ -33,6 +35,7 @@ const AdminProjects   = lazy(() => import('./pages/admin/AdminProjects'))
 const AdminShares     = lazy(() => import('./pages/admin/AdminShares'))
 const AdminEarnings   = lazy(() => import('./pages/admin/AdminEarnings'))
 const AdminTasks      = lazy(() => import('./pages/admin/AdminTasks'))
+const AdminRewards    = lazy(() => import('./pages/admin/AdminRewards'))
 const AdminUsers      = lazy(() => import('./pages/admin/AdminUsers'))
 const AdminReferrals  = lazy(() => import('./pages/admin/AdminReferrals'))
 const ProjectFinance  = lazy(() => import('./pages/admin/ProjectFinance'))
@@ -74,9 +77,11 @@ export default function App() {
         <Route path="/my-investments" element={<ProtectedRoute><Layout><MyInvestments /></Layout></ProtectedRoute>} />
         <Route path="/earnings"       element={<ProtectedRoute><Layout><Earnings /></Layout></ProtectedRoute>} />
         <Route path="/tasks"          element={<ProtectedRoute><Layout><DailyTasks /></Layout></ProtectedRoute>} />
+        <Route path="/rewards"        element={<ProtectedRoute><Layout><Rewards /></Layout></ProtectedRoute>} />
         <Route path="/portfolio"      element={<ProtectedRoute><Layout><Portfolio /></Layout></ProtectedRoute>} />
         <Route path="/withdraw"       element={<ProtectedRoute><Layout><Withdraw /></Layout></ProtectedRoute>} />
         <Route path="/referrals"      element={<ProtectedRoute><Layout><Referrals /></Layout></ProtectedRoute>} />
+        <Route path="/member-registration" element={<ProtectedRoute><MemberRegistration /></ProtectedRoute>} />
 
         {/* Admin routes */}
         <Route path="/admin"                element={<AdminRoute><Layout><AdminDashboard /></Layout></AdminRoute>} />
@@ -88,6 +93,7 @@ export default function App() {
         <Route path="/admin/shares"         element={<AdminRoute><Layout><AdminShares /></Layout></AdminRoute>} />
         <Route path="/admin/earnings"       element={<AdminRoute><Layout><AdminEarnings /></Layout></AdminRoute>} />
         <Route path="/admin/tasks"          element={<AdminRoute><Layout><AdminTasks /></Layout></AdminRoute>} />
+        <Route path="/admin/rewards"        element={<AdminRoute><Layout><AdminRewards /></Layout></AdminRoute>} />
         <Route path="/admin/users"          element={<AdminRoute><Layout><AdminUsers /></Layout></AdminRoute>} />
         <Route path="/admin/referrals"      element={<AdminRoute><Layout><AdminReferrals /></Layout></AdminRoute>} />
         <Route path="/admin/tutorial"       element={<AdminRoute><Layout><AdminTutorial /></Layout></AdminRoute>} />

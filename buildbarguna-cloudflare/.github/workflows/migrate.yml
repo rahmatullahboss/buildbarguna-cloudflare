@@ -1,0 +1,73 @@
+name: Run Database Migrations
+
+on:
+  workflow_dispatch:  # Manual trigger only
+    inputs:
+      environment:
+        description: 'Environment to migrate'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+      migration_file:
+        description: 'Specific migration file (optional, leave empty for all pending)'
+        required: false
+        type: string
+
+jobs:
+  migrate:
+    name: Run Migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+      
+      - name: Install dependencies
+        run: |
+          cd buildbarguna-cloudflare
+          npm ci
+      
+      - name: Run specific migration
+        if: ${{ inputs.migration_file != '' }}
+        run: |
+          echo "Running specific migration: ${{ inputs.migration_file }}"
+          npx wrangler d1 execute buildbarguna-invest-db --remote --file=src/db/migrations/${{ inputs.migration_file }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        working-directory: buildbarguna-cloudflare
+      
+      - name: Run all pending migrations
+        if: ${{ inputs.migration_file == '' }}
+        run: |
+          echo "Setting migration flag to trigger auto-migration..."
+          npx wrangler kv:key put --binding=SESSIONS needs_migration "true" --preview=false
+          echo "Waiting 5 seconds..."
+          sleep 5
+          echo "Making test request to trigger migrations..."
+          curl -s -o /dev/null -w "HTTP Status: %{http_code}" https://buildbarguna-worker.workers.dev/api/health || true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        working-directory: buildbarguna-cloudflare
+      
+      - name: Show migration status
+        run: |
+          echo "### Applied Migrations" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          npx wrangler d1 execute buildbarguna-invest-db --remote --command "SELECT id, name, applied_at FROM _migrations ORDER BY id" 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        working-directory: buildbarguna-cloudflare

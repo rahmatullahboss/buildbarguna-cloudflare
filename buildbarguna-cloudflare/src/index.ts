@@ -1,22 +1,67 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
+import { runMigrations, getMigrationStatus } from './lib/migrations'
 import { authRoutes } from './routes/auth'
 import { projectRoutes } from './routes/projects'
 import { shareRoutes } from './routes/shares'
 import { earningRoutes } from './routes/earnings'
 import { withdrawalRoutes, adminWithdrawalRoutes } from './routes/withdrawals'
 import { taskRoutes } from './routes/tasks'
+import { pointsRoutes } from './routes/points'
+import { rewardsRoutes } from './routes/rewards'
+import { notificationsRoutes } from './routes/notifications'
 import { adminRoutes } from './routes/admin'
 import { uploadRoutes } from './routes/upload'
 import { referralRoutes, adminReferralRoutes } from './routes/referrals'
 import { financeRoutes } from './routes/project-finance'
 import { profitRoutes } from './routes/profit-distribution'
 import { companyExpenseRoutes } from './routes/company-expenses'
+import { memberRoutes } from './routes/member'
 import { distributeMonthlyEarnings, cleanupTokenBlacklist } from './cron/earnings'
 import type { Bindings, Variables } from './types'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
+
+// Run migrations on startup (before any requests)
+// This ensures DB schema is always up to date
+app.use('*', async (c, next) => {
+  // Only check migrations on first request after deployment
+  const needsMigration = await c.env.SESSIONS.get('needs_migration')
+  
+  if (needsMigration !== 'false') {
+    console.log('[Startup] Migration flag detected, running migrations...')
+    const result = await runMigrations(c.env)
+    
+    if (!result.success) {
+      console.error('[Startup] Migration failed:', result.error)
+      // Log error but don't block requests
+      // In production, you might want to return 503 for critical failures
+    } else {
+      console.log('[Startup] Migrations complete:', result.applied)
+      // Clear migration flag
+      await c.env.SESSIONS.put('needs_migration', 'false', { expirationTtl: 86400 }) // 24 hours
+    }
+  }
+  
+  await next()
+})
+
+// Add migration status endpoint for monitoring
+app.get('/api/health/migrations', async (c) => {
+  try {
+    const status = await getMigrationStatus(c.env)
+    return c.json({
+      success: true,
+      data: status
+    })
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: error.message
+    }, 500)
+  }
+})
 
 // Global middleware
 app.use('*', logger())
@@ -81,6 +126,9 @@ app.route('/api/earnings', earningRoutes)
 app.route('/api/withdrawals', withdrawalRoutes)
 app.route('/api/admin/withdrawals', adminWithdrawalRoutes)
 app.route('/api/tasks', taskRoutes)
+app.route('/api/points', pointsRoutes)
+app.route('/api/rewards', rewardsRoutes)
+app.route('/api/notifications', notificationsRoutes)
 app.route('/api/admin', adminRoutes)
 app.route('/api/upload', uploadRoutes)
 app.route('/api/referrals', referralRoutes)
@@ -90,6 +138,9 @@ app.route('/api/admin/referrals', adminReferralRoutes)
 app.route('/api/finance', financeRoutes)
 app.route('/api/profit', profitRoutes)
 app.route('/api/company-expenses', companyExpenseRoutes)
+
+// Member Registration Routes
+app.route('/api/member', memberRoutes)
 
 // Health check
 app.get('/api/health', (c) => c.json({

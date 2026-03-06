@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { authApi, earningsApi, sharesApi, withdrawalsApi, referralsApi } from '../lib/api'
 import { formatTaka, getUser } from '../lib/auth'
-import { TrendingUp, PieChart, Briefcase, CheckSquare, Copy, BarChart2, ArrowRight, ArrowDownCircle, Gift, Users } from 'lucide-react'
+import { TrendingUp, PieChart, Briefcase, CheckSquare, Copy, BarChart2, ArrowRight, ArrowDownCircle, Gift, Users, FileText } from 'lucide-react'
 import { useState } from 'react'
 import Onboarding, { useOnboarding } from '../components/Onboarding'
 
@@ -195,6 +195,10 @@ export default function Dashboard() {
         <Link to="/withdraw" className="card hover:shadow-md transition-all hover:-translate-y-0.5 flex items-center gap-3 cursor-pointer group">
           <div className="bg-purple-100 group-hover:bg-purple-200 p-2.5 rounded-xl transition-colors"><ArrowDownCircle size={20} className="text-purple-700" /></div>
           <div><p className="font-semibold text-sm">উত্তোলন</p><p className="text-xs text-gray-400">মুনাফা নিন</p></div>
+        </Link>
+        <Link to="/member-registration" className="card hover:shadow-md transition-all hover:-translate-y-0.5 flex items-center gap-3 cursor-pointer group">
+          <div className="bg-teal-100 group-hover:bg-teal-200 p-2.5 rounded-xl transition-colors"><FileText size={20} className="text-teal-700" /></div>
+          <div><p className="font-semibold text-sm">সদস্যপদ</p><p className="text-xs text-gray-400">নিবন্ধন করুন</p></div>
         </Link>
       </div>
 

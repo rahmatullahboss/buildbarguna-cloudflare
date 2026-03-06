@@ -65,11 +65,27 @@ CREATE TABLE IF NOT EXISTS earnings (
   UNIQUE(user_id, project_id, month)
 );
 
+CREATE TABLE IF NOT EXISTS task_types (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    name              TEXT NOT NULL UNIQUE,
+    display_name      TEXT NOT NULL,
+    base_points       INTEGER NOT NULL DEFAULT 0 CHECK(base_points >= 0),
+    cooldown_seconds  INTEGER NOT NULL DEFAULT 30 CHECK(cooldown_seconds >= 0),
+    daily_limit       INTEGER NOT NULL DEFAULT 10 CHECK(daily_limit >= 1),
+    is_active         INTEGER NOT NULL DEFAULT 1,
+    created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS daily_tasks (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   title           TEXT NOT NULL,
   destination_url TEXT NOT NULL,
   platform        TEXT CHECK(platform IN ('facebook','youtube','telegram','other')),
+  points          INTEGER NOT NULL DEFAULT 5,
+  cooldown_seconds INTEGER NOT NULL DEFAULT 30,
+  daily_limit     INTEGER NOT NULL DEFAULT 20,
+  task_type_id    INTEGER REFERENCES task_types(id),
   is_active       INTEGER NOT NULL DEFAULT 1,
   created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -81,7 +97,57 @@ CREATE TABLE IF NOT EXISTS task_completions (
   clicked_at    TEXT,
   completed_at  TEXT NOT NULL DEFAULT (datetime('now')),
   task_date     TEXT NOT NULL,
+  points_earned INTEGER NOT NULL DEFAULT 0,
   UNIQUE(user_id, task_id, task_date)
+);
+
+CREATE TABLE IF NOT EXISTS user_points (
+    user_id           INTEGER PRIMARY KEY REFERENCES users(id),
+    available_points  INTEGER NOT NULL DEFAULT 0 CHECK(available_points >= 0),
+    lifetime_earned   INTEGER NOT NULL DEFAULT 0,
+    lifetime_redeemed INTEGER NOT NULL DEFAULT 0,
+    monthly_earned    INTEGER NOT NULL DEFAULT 0,
+    monthly_redeemed  INTEGER NOT NULL DEFAULT 0,
+    current_month     TEXT NOT NULL DEFAULT (strftime('%Y-%m', 'now')),
+    updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS point_transactions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    task_id         INTEGER REFERENCES daily_tasks(id),
+    points          INTEGER NOT NULL,
+    transaction_type TEXT NOT NULL CHECK(transaction_type IN ('earned', 'redeemed', 'expired', 'adjusted', 'refunded')),
+    description     TEXT,
+    month_year      TEXT NOT NULL DEFAULT (strftime('%Y-%m', 'now')),
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    metadata        TEXT
+);
+
+CREATE TABLE IF NOT EXISTS rewards (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL,
+    description     TEXT,
+    points_required INTEGER NOT NULL CHECK(points_required > 0),
+    quantity        INTEGER,
+    redeemed_count  INTEGER NOT NULL DEFAULT 0,
+    image_url       TEXT,
+    is_active       INTEGER NOT NULL DEFAULT 1,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS reward_redemptions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    reward_id       INTEGER NOT NULL REFERENCES rewards(id),
+    points_spent    INTEGER NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'pending'
+                    CHECK(status IN ('pending', 'approved', 'fulfilled', 'rejected', 'cancelled')),
+    admin_note      TEXT,
+    fulfilled_at    TEXT,
+    redeemed_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Referral bonuses: credited when referred user gets first investment approved

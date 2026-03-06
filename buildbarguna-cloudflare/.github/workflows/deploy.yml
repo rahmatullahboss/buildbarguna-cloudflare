@@ -1,0 +1,179 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches:
+      - main  # Deploy on push to main
+      - production  # Or production branch
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+      dry_run:
+        description: 'Run in dry-run mode (no changes)'
+        required: true
+        default: 'false'
+        type: boolean
+
+jobs:
+  deploy:
+    name: Deploy Worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+      
+      - name: Validate required secrets
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "❌ Error: CLOUDFLARE_API_TOKEN not set"
+            exit 1
+          fi
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "❌ Error: CLOUDFLARE_ACCOUNT_ID not set"
+            exit 1
+          fi
+          echo "✅ Secrets validated"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      
+      - name: Install dependencies
+        run: |
+          cd buildbarguna-cloudflare
+          npm ci
+      
+      - name: Run tests
+        run: |
+          cd buildbarguna-cloudflare
+          npm run test
+      
+      - name: Run migration dry-run
+        if: github.event.inputs.dry_run == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        run: |
+          echo "📋 Migration dry-run check..."
+          cd buildbarguna-cloudflare
+          npm run db:migrate:prod -- --dry-run || true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      
+      - name: Build frontend
+        run: |
+          cd buildbarguna-cloudflare
+          npm run build
+      
+      - name: Create database backup
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production'
+        run: |
+          echo "💾 Creating database backup..."
+          cd buildbarguna-cloudflare
+          mkdir -p backups
+          npx wrangler d1 export buildbarguna-invest-db --remote --output="./backups/backup_${{ github.run_id }}.sql" || echo "Backup skipped (export not available)"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      
+      - name: Deploy to Cloudflare
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: 'buildbarguna-cloudflare'
+          environment: ${{ github.event.inputs.environment || 'production' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      
+      - name: Store migrations in KV and trigger
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production'
+        run: |
+          echo "📦 Storing migrations in KV..."
+          cd buildbarguna-cloudflare
+          
+          # Store each migration SQL in KV
+          for file in src/db/migrations/*.sql; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file" .sql)
+              echo "Storing $filename..."
+              cat "$file" | npx wrangler kv:key put --binding=SESSIONS "migration_$filename" --preview=false
+            fi
+          done
+          
+          echo "Setting migration flag (24h TTL)..."
+          npx wrangler kv:key put --binding=SESSIONS needs_migration "true" --preview=false --ttl=86400
+          
+          echo "Waiting for KV propagation..."
+          for i in {1..15}; do
+            result=$(npx wrangler kv:key get needs_migration --binding=SESSIONS --preview=false 2>/dev/null || echo "")
+            if [ "$result" == "true" ]; then
+              echo "✅ KV propagation confirmed"
+              break
+            fi
+            echo "Attempt $i/15... waiting..."
+            sleep 2
+          done
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      
+      - name: Verify deployment and migrations
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production'
+        run: |
+          echo "⏳ Waiting 10 seconds for deployment to propagate..."
+          sleep 10
+          
+          echo "📊 Checking migration status..."
+          cd buildbarguna-cloudflare
+          npx wrangler d1 execute buildbarguna-invest-db --remote \
+            --command "SELECT id, name, applied_at FROM _migrations ORDER BY id" || echo "Unable to check migrations"
+          
+          echo "🏥 Health check..."
+          curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" https://buildbarguna-worker.workers.dev/api/health || echo "Health check failed"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "Check logs: https://dash.cloudflare.com/?to=/:account/workers/services/view/buildbarguna-worker/production/logs"
+          # TODO: Add Slack/email notification here
+      
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. Check Worker logs: https://dash.cloudflare.com/?to=/:account/workers/services/view/buildbarguna-worker/production/logs" >> $GITHUB_STEP_SUMMARY
+          echo "2. Check migration status: \`npx wrangler d1 execute buildbarguna-invest-db --remote --command 'SELECT * FROM _migrations ORDER BY id'\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. View backup: \`./backups/backup_${{ github.run_id }}.sql\`" >> $GITHUB_STEP_SUMMARY
