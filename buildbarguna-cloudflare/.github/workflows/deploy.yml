@@ -80,8 +80,12 @@ jobs:
       
       - name: Build frontend
         run: |
-          cd buildbarguna-cloudflare
+          cd buildbarguna-cloudflare/frontend
+          # Clean dist folders to avoid conflicts
+          rm -rf dist dist-app
           npm run build
+        env:
+          VITE_R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
       
       - name: Create database backup
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production'
