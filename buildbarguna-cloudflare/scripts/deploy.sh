@@ -104,6 +104,9 @@ fi
 # 8. Build frontend
 echo "🏗️  Building frontend..."
 cd frontend
+
+# Clean dist folder before build to avoid conflicts
+rm -rf dist dist-app
 npm run build
 cd ..
 

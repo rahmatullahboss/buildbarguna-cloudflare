@@ -80,12 +80,8 @@ export default function MemberRegistration() {
 
     setSuccess({ formNumber: res.data.form_number, name: form.name_english, paymentStatus: res.data.payment_status })
 
-    // Auto-download PDF after 1 second if payment is verified
-    if (res.data.payment_status === 'paid' || res.data.payment_status === 'verified') {
-      setTimeout(() => {
-        downloadPDF(res.data.form_number)
-      }, 1000)
-    }
+    // Don't auto-download - admin must verify first
+    // User will be notified that they need to wait for admin verification
   }
 
   async function downloadPDF(formNumber: string) {
@@ -143,7 +139,7 @@ export default function MemberRegistration() {
             </p>
           </div>
 
-          {(success.paymentStatus === 'paid' || success.paymentStatus === 'verified') && (
+          {success.paymentStatus === 'verified' ? (
             <button
               onClick={() => downloadPDF(success.formNumber)}
               disabled={downloading}
@@ -152,12 +148,15 @@ export default function MemberRegistration() {
               <Download size={18} />
               {downloading ? 'ডাউনলোড হচ্ছে...' : 'মেম্বারশিপ সার্টিফিকেট ডাউনলোড করুন'}
             </button>
-          )}
-
-          {success.paymentStatus === 'pending' && (
-            <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <p className="text-orange-800 font-medium">আপনার পেমেন্ট এখনও pending</p>
-              <p className="text-orange-700 text-sm mt-1">অ্যাডমিন যাচাই করার পর সার্টিফিকেট ডাউনলোড করতে পারবেন</p>
+          ) : (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-blue-800 font-medium">আপনার পেমেন্ট pending</p>
+              <p className="text-blue-700 text-sm mt-1">
+                অ্যাডমিন আপনার bKash TRX ID অথবা Cash পেমেন্ট যাচাই করার পর সার্টিফিকেট ডাউনলোড করতে পারবেন
+              </p>
+              <p className="text-blue-600 text-xs mt-2">
+                অ্যাডমিন যাচাই করার পর এই পেজে এসে যেকোনো সময় ডাউনলোড করতে পারবেন
+              </p>
             </div>
           )}
         </div>

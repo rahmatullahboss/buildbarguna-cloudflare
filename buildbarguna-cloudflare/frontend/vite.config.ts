@@ -10,8 +10,8 @@ export default defineConfig({
     alias: { '@': path.resolve(__dirname, './src') }
   },
   build: {
-    // 'dist-app' for Capacitor Android/iOS, '../dist' for Cloudflare deployment
-    outDir: isApp ? 'dist-app' : '../dist',
+    // 'dist-app' for Capacitor Android/iOS, 'dist' for Cloudflare deployment
+    outDir: isApp ? 'dist-app' : 'dist',
     emptyOutDir: true,
     chunkSizeWarningLimit: 500,
     rollupOptions: {

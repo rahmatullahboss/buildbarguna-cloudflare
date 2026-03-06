@@ -87,11 +87,8 @@ memberRoutes.post('/register',
     const nextNumber = ((countResult?.count || 0) + 1).toString().padStart(4, '0')
     const formNumber = `BBI-${year}-${nextNumber}`
     
-    // Determine payment status
-    let paymentStatus = 'pending'
-    if (body.payment_method === 'bkash' && body.bkash_trx_id) {
-      paymentStatus = 'paid'  // Auto-verify bKash with TRX ID
-    }
+    // Determine payment status - ALL payments need admin verification
+    const paymentStatus = 'paid'  // Mark as paid, but needs admin verification
     
     try {
       const result = await c.env.DB.prepare(
@@ -132,9 +129,7 @@ memberRoutes.post('/register',
         form_number: formNumber,
         payment_status: paymentStatus,
         payment_amount: 100,
-        next_step: paymentStatus === 'pending' 
-          ? 'অনুগ্রহ করে ৳100 রেজিস্ট্রেশন ফি প্রদান করুন'
-          : 'আপনার মেম্বারশিপ সার্টিফিকেট ডাউনলোড করুন'
+        next_step: 'অ্যাডমিন যাচাই করার পর মেম্বারশিপ সার্টিফিকেট ডাউনলোড করতে পারবেন'
       })
     } catch (error: any) {
       console.error('Member registration error:', error)
