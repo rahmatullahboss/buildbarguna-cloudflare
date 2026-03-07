@@ -37,6 +37,7 @@ const AdminEarnings   = lazy(() => import('./pages/admin/AdminEarnings'))
 const AdminTasks      = lazy(() => import('./pages/admin/AdminTasks'))
 const AdminRewards    = lazy(() => import('./pages/admin/AdminRewards'))
 const AdminUsers      = lazy(() => import('./pages/admin/AdminUsers'))
+const AdminMembers    = lazy(() => import('./pages/admin/AdminMembers'))
 const AdminReferrals  = lazy(() => import('./pages/admin/AdminReferrals'))
 const ProjectFinance  = lazy(() => import('./pages/admin/ProjectFinance'))
 const ProfitDistribution = lazy(() => import('./pages/admin/ProfitDistribution'))
@@ -95,6 +96,7 @@ export default function App() {
         <Route path="/admin/tasks"          element={<AdminRoute><Layout><AdminTasks /></Layout></AdminRoute>} />
         <Route path="/admin/rewards"        element={<AdminRoute><Layout><AdminRewards /></Layout></AdminRoute>} />
         <Route path="/admin/users"          element={<AdminRoute><Layout><AdminUsers /></Layout></AdminRoute>} />
+        <Route path="/admin/members"        element={<AdminRoute><Layout><AdminMembers /></Layout></AdminRoute>} />
         <Route path="/admin/referrals"      element={<AdminRoute><Layout><AdminReferrals /></Layout></AdminRoute>} />
         <Route path="/admin/tutorial"       element={<AdminRoute><Layout><AdminTutorial /></Layout></AdminRoute>} />
 

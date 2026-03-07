@@ -819,12 +819,57 @@ export interface MemberRegistrationForm {
   payment_note?: string
 }
 
+export interface MemberPayment {
+  id: number
+  form_number: string
+  name_english: string
+  name_bangla?: string
+  payment_method: 'bkash' | 'cash'
+  payment_amount: number
+  bkash_number?: string
+  bkash_trx_id?: string
+  payment_note?: string
+  created_at: string
+  user_phone: string
+  user_name: string
+  user_id: number
+}
+
+export interface MemberRegistrationStatus {
+  registered: boolean
+  form_number?: string
+  payment_status?: string
+  payment_method?: string
+}
+
 export const memberApi = {
   register: (body: MemberRegistrationForm) =>
     request<{ message: string; form_number: string; payment_status: string; payment_amount: number }>('/member/register', {
       method: 'POST',
       body: JSON.stringify(body)
     }),
-  status: () => request<{ registered: boolean; form_number?: string; payment_status?: string; payment_method?: string }>('/member/status'),
-  downloadCertificate: (formNumber: string) => `${BASE}/member/certificate/${formNumber}`
+  status: () => request<MemberRegistrationStatus>('/member/status'),
+  
+  // Issue: 6.1 - Certificate download calls non-existent endpoint in frontend
+  // Issue: 6.2 - Member API client incomplete
+  downloadCertificate: (formNumber: string): string => `${BASE}/member/certificate/${formNumber}`,
+  previewCertificate: (formNumber: string): string => `${BASE}/member/certificate/${formNumber}/preview`,
+  
+  // Admin member management APIs
+  getPayments: (status: 'pending' | 'verified' | 'all' = 'pending') =>
+    request<MemberPayment[]>(`/member/admin/payments?status=${status}`),
+  verifyPayment: (id: number, action: 'approve' | 'reject', note?: string) =>
+    request<{ message: string }>(`/member/admin/members/${id}/verify`, {
+      method: 'POST',
+      body: JSON.stringify({ action, note })
+    }),
+  getMemberList: (status: 'all' | 'pending' | 'verified' | 'rejected' = 'all', page = 1, limit = 20) =>
+    request<{ members: any[]; pagination: { page: number; limit: number; total: number; hasMore: boolean } }>(
+      `/member/admin/list?status=${status}&page=${page}&limit=${limit}`
+    ),
+  bulkGenerateCertificates: () =>
+    request<{ message: string; total_count: number; generated_count: number; certificates: Array<{ form_number: string; user_name: string }> }>(
+      '/member/admin/certificates/bulk',
+      { method: 'POST' }
+    )
 }

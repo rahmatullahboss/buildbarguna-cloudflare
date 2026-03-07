@@ -1,9 +1,19 @@
 /**
  * PDF Generation Utility for BBI Member Registration Certificates
  * Generates PDF certificates matching the BBI Member Registration Form design
+ *
+ * Issue: 3.4 - PDF Bangla text rendering - need to configure Bangla-compatible font
+ * Solution: Use Hind Siliguri font for Bangla text support
+ * 
+ * Why Hind Siliguri?
+ * - Modern, clean Bengali typeface designed by Google
+ * - Excellent readability for formal documents
+ * - Professional appearance perfect for certificates
+ * - Good weight variants (Regular, Bold, SemiBold, etc.)
  */
 
 import PDFDocument from 'pdfkit'
+import { FontKitFont } from 'pdfkit'
 
 interface MemberRegistration {
   form_number: string
@@ -21,6 +31,37 @@ interface MemberRegistration {
   email?: string
   skills_interests?: string
   created_at: string
+}
+
+/**
+ * Register Bangla font with PDFKit
+ * Uses Hind Siliguri for proper Bangla text rendering
+ * Font files should be placed in src/lib/pdf/fonts/ directory
+ */
+function registerBanglaFont(doc: PDFDocument) {
+  try {
+    // Try to register Hind Siliguri fonts
+    // Modern Bengali font designed by Google for proper Bangla script rendering
+    const fontPath = './src/lib/pdf/fonts/'
+
+    // Register regular and bold variants
+    doc.font('HindSiliguri', `${fontPath}HindSiliguri-Regular.ttf`)
+    doc.font('HindSiliguri-Bold', `${fontPath}HindSiliguri-Bold.ttf`)
+
+    return true
+  } catch (error) {
+    console.warn('Bangla font not found, falling back to Helvetica for Bangla text:', error)
+    return false
+  }
+}
+
+/**
+ * Check if text contains Bangla characters
+ */
+function hasBanglaText(text: string): boolean {
+  // Unicode range for Bengali script: U+0980 to U+09FF
+  const bengaliRegex = /[\u0980-\u09FF]/
+  return bengaliRegex.test(text)
 }
 
 /**
@@ -56,6 +97,9 @@ export async function generateMemberCertificate(
       resolve(result)
     })
     doc.on('error', reject)
+
+    // Register Bangla font if available
+    const hasBanglaFont = registerBanglaFont(doc)
 
     // Draw watermark (faded logo in background)
     if (logoBuffer) {
@@ -136,8 +180,17 @@ export async function generateMemberCertificate(
     doc.font('Helvetica').text(registration.name_english, valueX, yPos, { width: 450, underline: true })
     yPos += lineHeight + 5
 
+    // Name (Bangla) - Use Bangla font if available and text contains Bangla
     doc.font('Helvetica-Bold').text('Name (Bangla):', labelX, yPos)
-    doc.font('Helvetica').text(registration.name_bangla || '____________', valueX, yPos, { width: 450, underline: true })
+    if (registration.name_bangla && hasBanglaText(registration.name_bangla) && hasBanglaFont) {
+      try {
+        doc.font('HindSiliguri').text(registration.name_bangla, valueX, yPos, { width: 450, underline: true })
+      } catch (e) {
+        doc.font('Helvetica').text(registration.name_bangla || '____________', valueX, yPos, { width: 450, underline: true })
+      }
+    } else {
+      doc.font('Helvetica').text(registration.name_bangla || '____________', valueX, yPos, { width: 450, underline: true })
+    }
     yPos += lineHeight + 5
 
     // Parents names
@@ -200,7 +253,7 @@ export async function generateMemberCertificate(
     yPos += 20
 
     const pledges = [
-      'Follow the organization\'s rules, regulations, and decisions.',
+      "Follow the organization's rules, regulations, and decisions.",
       'Maintain the highest ethical standards and discipline.',
       'Grant permission to BBI to use my photographs/videos for promotional purposes.',
       'Accept that the Governing Body has the full authority to terminate my membership for misconduct.'

@@ -92,6 +92,96 @@ const MIGRATIONS: Migration[] = [
       DROP TABLE IF EXISTS member_registrations;
     `,
     timeout_ms: 60000
+  },
+  {
+    id: 7,
+    name: '007_critical_fixes',
+    sql_up: '',
+    sql_down: `
+      DROP TABLE IF EXISTS _migration_backups;
+      DROP TRIGGER IF EXISTS cleanup_old_rate_limits;
+      DROP TABLE IF EXISTS _migration_validation;
+    `,
+    timeout_ms: 120000
+  },
+  {
+    id: 8,
+    name: '008_member_payment',
+    sql_up: '',
+    sql_down: `
+      DROP VIEW IF EXISTS v_member_payments_pending;
+      DROP VIEW IF EXISTS v_member_payments_verified;
+    `,
+    timeout_ms: 60000
+  },
+  {
+    id: 9,
+    name: '009_missing_tables_fix',
+    sql_up: '',
+    sql_down: `
+      DROP VIEW IF EXISTS v_member_payments_pending;
+      DROP VIEW IF EXISTS v_member_payments_verified;
+      DROP TABLE IF EXISTS badge_definitions;
+      DROP TABLE IF EXISTS admin_actions;
+      DROP TABLE IF EXISTS data_exports;
+      DROP TABLE IF EXISTS rate_limits;
+      DROP TABLE IF EXISTS notifications;
+      DROP TABLE IF EXISTS user_badges;
+      DROP TABLE IF EXISTS reward_redemptions;
+      DROP TABLE IF EXISTS rewards;
+      DROP TABLE IF EXISTS point_transactions;
+      DROP TABLE IF EXISTS user_points;
+      DROP TABLE IF EXISTS member_registrations;
+    `,
+    timeout_ms: 180000
+  },
+  {
+    id: 10,
+    name: '010_full_schema',
+    sql_up: '',
+    sql_down: `
+      DROP TABLE IF EXISTS member_audit_log;
+      DROP VIEW IF EXISTS v_member_payments_all;
+      DROP VIEW IF EXISTS v_member_payments_verified;
+      DROP VIEW IF EXISTS v_member_payments_pending;
+    `,
+    timeout_ms: 180000
+  },
+  {
+    id: 11,
+    name: '011_member_schema_fixes',
+    sql_up: '',
+    sql_down: `
+      DROP INDEX IF EXISTS idx_member_registrations_verified_by;
+      DROP INDEX IF EXISTS idx_member_registrations_payment_method;
+      DROP INDEX IF EXISTS idx_member_registrations_payment_status;
+    `,
+    timeout_ms: 60000
+  },
+  {
+    id: 12,
+    name: '012_member_payment_views',
+    sql_up: '',
+    sql_down: `
+      DROP VIEW IF EXISTS v_member_payments_all;
+      DROP VIEW IF EXISTS v_member_payments_verified;
+      DROP VIEW IF EXISTS v_member_payments_pending;
+    `,
+    timeout_ms: 60000
+  },
+  {
+    id: 13,
+    name: '013_member_audit_logging',
+    sql_up: '',
+    sql_down: `
+      DROP INDEX IF EXISTS idx_member_audit_log_created_at;
+      DROP INDEX IF EXISTS idx_member_audit_log_form_number;
+      DROP INDEX IF EXISTS idx_member_audit_log_target_user_id;
+      DROP INDEX IF EXISTS idx_member_audit_log_user_id;
+      DROP INDEX IF EXISTS idx_member_audit_log_action_type;
+      DROP TABLE IF EXISTS member_audit_log;
+    `,
+    timeout_ms: 60000
   }
 ]
 
