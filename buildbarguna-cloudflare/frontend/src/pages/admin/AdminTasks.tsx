@@ -14,18 +14,27 @@ export default function AdminTasks() {
   const qc = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [activeTab, setActiveTab] = useState<'tasks' | 'task-types'>('tasks')
-  const [form, setForm] = useState({ 
-    title: '', 
-    destination_url: '', 
+  const [form, setForm] = useState({
+    title: '',
+    destination_url: '',
     platform: 'facebook',
     points: 5,
     cooldown_seconds: 30,
     daily_limit: 20
   })
   const [msg, setMsg] = useState('')
+  const [error, setError] = useState('')
 
-  const { data, isLoading } = useQuery({ queryKey: ['admin-tasks'], queryFn: () => adminApi.tasks() })
-  const { data: taskTypesData } = useQuery({ queryKey: ['task-types'], queryFn: () => adminApi.taskTypes() })
+  const { data, isLoading, error: tasksError } = useQuery({ 
+    queryKey: ['admin-tasks'], 
+    queryFn: () => adminApi.tasks(),
+    retry: 2
+  })
+  const { data: taskTypesData, error: taskTypesError } = useQuery({ 
+    queryKey: ['task-types'], 
+    queryFn: () => adminApi.taskTypes(),
+    retry: 2
+  })
 
   const createMutation = useMutation({
     mutationFn: () => adminApi.createTask(form),
@@ -35,13 +44,19 @@ export default function AdminTasks() {
         setForm({ title: '', destination_url: '', platform: 'facebook', points: 5, cooldown_seconds: 30, daily_limit: 20 })
         setShowForm(false)
         qc.invalidateQueries({ queryKey: ['admin-tasks'] })
+      } else {
+        setError(res.message || 'টাস্ক তৈরি করতে সমস্যা হচ্ছে')
       }
+    },
+    onError: () => {
+      setError('টাস্ক তৈরি করতে সমস্যা হচ্ছে')
     }
   })
 
   const toggleMutation = useMutation({
     mutationFn: (id: number) => adminApi.toggleTask(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-tasks'] })
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-tasks'] }),
+    onError: () => setError('টাস্ক টগল করতে সমস্যা হচ্ছে')
   })
 
   const tasks = data?.success ? data.data : []
@@ -90,6 +105,9 @@ export default function AdminTasks() {
       </div>
 
       {msg && <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">{msg}</div>}
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">{error}</div>}
+      {tasksError && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">টাস্ক লোড করা যায়নি</div>}
+      {taskTypesError && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">টাস্ক টাইপস লোড করা যায়নি</div>}
 
       {showForm && activeTab === 'tasks' && (
         <div className="card border-primary-200 bg-primary-50">
@@ -159,7 +177,17 @@ export default function AdminTasks() {
       )}
 
       {activeTab === 'tasks' && (
-        isLoading ? <p className="text-gray-400 text-sm">লোড হচ্ছে...</p> : (
+        isLoading ? (
+          <div className="space-y-3">
+            {[1,2,3].map(i => <div key={i} className="card h-20 animate-pulse bg-gray-50" />)}
+          </div>
+        ) : tasks.length === 0 ? (
+          <div className="card text-center py-10">
+            <List size={36} className="mx-auto mb-2 text-gray-200" />
+            <p className="text-gray-400 text-sm">কোনো টাস্ক নেই</p>
+            <button onClick={() => setShowForm(true)} className="mt-3 text-primary-600 hover:text-primary-700 text-sm font-medium">নতুন টাস্ক যোগ করুন</button>
+          </div>
+        ) : (
           <div className="space-y-3">
             {tasks.map(t => (
               <div key={t.id} className={`card flex items-center gap-4 ${!t.is_active ? 'opacity-50' : ''}`}>
@@ -186,8 +214,19 @@ export default function AdminTasks() {
       )}
 
       {activeTab === 'task-types' && (
-        <div className="space-y-3">
-          {taskTypes.map((tt: any) => (
+        isLoading ? (
+          <div className="space-y-3">
+            {[1,2,3].map(i => <div key={i} className="card h-20 animate-pulse bg-gray-50" />)}
+          </div>
+        ) : taskTypes.length === 0 ? (
+          <div className="card text-center py-10">
+            <Coins size={36} className="mx-auto mb-2 text-gray-200" />
+            <p className="text-gray-400 text-sm">কোনো টাস্ক টাইপ নেই</p>
+            <p className="text-gray-300 text-xs mt-1">টাস্ক টাইপস তৈরি করুন পয়েন্ট সেটিংস এর জন্য</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {taskTypes.map((tt: any) => (
             <div key={tt.id} className={`card flex items-center justify-between ${!tt.is_active ? 'opacity-50' : ''}`}>
               <div className="flex-1">
                 <p className="font-semibold text-gray-900">{tt.display_name}</p>

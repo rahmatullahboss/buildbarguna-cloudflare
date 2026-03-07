@@ -318,17 +318,30 @@ const taskSchema = z.object({
 })
 
 adminRoutes.get('/tasks', async (c) => {
-  const rows = await c.env.DB.prepare(
-    'SELECT * FROM daily_tasks ORDER BY created_at DESC'
-  ).all()
-  return ok(c, rows.results)
+  try {
+    const rows = await c.env.DB.prepare(
+      'SELECT id, title, destination_url, platform, points, cooldown_seconds, daily_limit, is_active, created_at FROM daily_tasks ORDER BY created_at DESC'
+    ).all()
+    return ok(c, rows.results)
+  } catch (error) {
+    console.error('Error fetching tasks:', error)
+    return err(c, 'টাস্ক লোড করা যায়নি', 500)
+  }
 })
 
 adminRoutes.post('/tasks', zValidator('json', taskSchema), async (c) => {
   const body = c.req.valid('json')
   const result = await c.env.DB.prepare(
-    'INSERT INTO daily_tasks (title, destination_url, platform) VALUES (?, ?, ?)'
-  ).bind(body.title, body.destination_url, body.platform ?? 'other').run()
+    `INSERT INTO daily_tasks (title, destination_url, platform, points, cooldown_seconds, daily_limit, is_active)
+     VALUES (?, ?, ?, ?, ?, ?, 1)`
+  ).bind(
+    body.title,
+    body.destination_url,
+    body.platform ?? 'other',
+    body.points ?? 5,
+    body.cooldown_seconds ?? 30,
+    body.daily_limit ?? 20
+  ).run()
   return ok(c, { message: 'টাস্ক তৈরি হয়েছে', id: result.meta.last_row_id }, 201)
 })
 
@@ -337,13 +350,19 @@ adminRoutes.put('/tasks/:id', zValidator('json', taskSchema.partial()), async (c
   if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
   const body = c.req.valid('json')
 
-  const fields = Object.entries(body).filter(([, v]) => v !== undefined)
+  const fields: string[] = []
+  const values: any[] = []
+
+  if (body.title !== undefined) { fields.push('title = ?'); values.push(body.title) }
+  if (body.destination_url !== undefined) { fields.push('destination_url = ?'); values.push(body.destination_url) }
+  if (body.platform !== undefined) { fields.push('platform = ?'); values.push(body.platform) }
+  if (body.points !== undefined) { fields.push('points = ?'); values.push(body.points) }
+  if (body.cooldown_seconds !== undefined) { fields.push('cooldown_seconds = ?'); values.push(body.cooldown_seconds) }
+  if (body.daily_limit !== undefined) { fields.push('daily_limit = ?'); values.push(body.daily_limit) }
+
   if (fields.length === 0) return err(c, 'কোনো পরিবর্তন নেই')
 
-  const setClauses = fields.map(([k]) => `${k} = ?`).join(', ')
-  const values = fields.map(([, v]) => v)
-
-  await c.env.DB.prepare(`UPDATE daily_tasks SET ${setClauses} WHERE id = ?`)
+  await c.env.DB.prepare(`UPDATE daily_tasks SET ${fields.join(', ')} WHERE id = ?`)
     .bind(...values, id).run()
   return ok(c, { message: 'টাস্ক আপডেট হয়েছে' })
 })
@@ -368,35 +387,54 @@ const taskTypeSchema = z.object({
 })
 
 adminRoutes.get('/task-types', async (c) => {
-  const rows = await c.env.DB.prepare(
-    'SELECT * FROM task_types ORDER BY id ASC'
-  ).all()
-  return ok(c, rows.results)
+  try {
+    const rows = await c.env.DB.prepare(
+      'SELECT id, name, display_name, base_points, cooldown_seconds, daily_limit, is_active, created_at, updated_at FROM task_types ORDER BY id ASC'
+    ).all()
+    return ok(c, rows.results)
+  } catch (error) {
+    console.error('Error fetching task types:', error)
+    return err(c, 'টাস্ক টাইপ লোড করা যায়নি', 500)
+  }
 })
 
 adminRoutes.post('/task-types', zValidator('json', taskTypeSchema), async (c) => {
   const body = c.req.valid('json')
-  const result = await c.env.DB.prepare(
-    `INSERT INTO task_types (name, display_name, base_points, cooldown_seconds, daily_limit)
-     VALUES (?, ?, ?, ?, ?)`
-  ).bind(body.name, body.display_name, body.base_points, body.cooldown_seconds, body.daily_limit).run()
-  return ok(c, { message: 'টাস্ক টাইপ তৈরি হয়েছে', id: result.meta.last_row_id }, 201)
+  try {
+    const result = await c.env.DB.prepare(
+      `INSERT INTO task_types (name, display_name, base_points, cooldown_seconds, daily_limit, is_active)
+       VALUES (?, ?, ?, ?, ?, 1)`
+    ).bind(body.name, body.display_name, body.base_points, body.cooldown_seconds, body.daily_limit).run()
+    return ok(c, { message: 'টাস্ক টাইপ তৈরি হয়েছে', id: result.meta.last_row_id }, 201)
+  } catch (error) {
+    console.error('Error creating task type:', error)
+    return err(c, 'টাস্ক টাইপ তৈরি করা যায়নি', 500)
+  }
 })
 
 adminRoutes.put('/task-types/:id', zValidator('json', taskTypeSchema.partial()), async (c) => {
   const id = parseInt(c.req.param('id'))
   if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
   const body = c.req.valid('json')
-  
-  const fields = Object.entries(body).filter(([, v]) => v !== undefined)
+
+  const fields: string[] = []
+  const values: any[] = []
+
+  if (body.display_name !== undefined) { fields.push('display_name = ?'); values.push(body.display_name) }
+  if (body.base_points !== undefined) { fields.push('base_points = ?'); values.push(body.base_points) }
+  if (body.cooldown_seconds !== undefined) { fields.push('cooldown_seconds = ?'); values.push(body.cooldown_seconds) }
+  if (body.daily_limit !== undefined) { fields.push('daily_limit = ?'); values.push(body.daily_limit) }
+
   if (fields.length === 0) return err(c, 'কোনো পরিবর্তন নেই')
-  
-  const setClauses = fields.map(([k]) => `${k} = ?`).join(', ')
-  const values = fields.map(([, v]) => v)
-  
-  await c.env.DB.prepare(`UPDATE task_types SET ${setClauses}, updated_at = datetime('now') WHERE id = ?`)
-    .bind(...values, id).run()
-  return ok(c, { message: 'টাস্ক টাইপ আপডেট হয়েছে' })
+
+  try {
+    await c.env.DB.prepare(`UPDATE task_types SET ${fields.join(', ')}, updated_at = datetime('now') WHERE id = ?`)
+      .bind(...values, id).run()
+    return ok(c, { message: 'টাস্ক টাইপ আপডেট হয়েছে' })
+  } catch (error) {
+    console.error('Error updating task type:', error)
+    return err(c, 'টাস্ক টাইপ আপডেট করা যায়নি', 500)
+  }
 })
 
 adminRoutes.patch('/task-types/:id/toggle', async (c) => {
