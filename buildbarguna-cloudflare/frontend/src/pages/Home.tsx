@@ -54,7 +54,7 @@ export default function Home() {
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🏗️</span>
+            <img src="/bbi logo.jpg" alt="BBI Logo" className="h-8 w-8 object-contain" />
             <span className="font-bold text-xl text-gray-900">বিল্ড বরগুনা</span>
           </div>
           <div className="flex items-center gap-3">

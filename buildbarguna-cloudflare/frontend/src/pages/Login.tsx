@@ -38,8 +38,8 @@ export default function Login() {
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative z-10">
         {/* Logo + title */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-br from-primary-500 to-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-4xl">🏗️</span>
+          <div className="w-20 h-20 bg-gradient-to-br from-primary-500 to-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg overflow-hidden">
+            <img src="/bbi logo.jpg" alt="BBI Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900">বিল্ড বরগুনা</h1>
           <p className="text-gray-500 text-sm mt-2">হালাল গ্রুপ ইনভেস্টমেন্ট প্ল্যাটফর্ম</p>
