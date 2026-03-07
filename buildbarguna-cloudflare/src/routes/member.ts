@@ -279,9 +279,9 @@ memberRoutes.get('/certificate/:formNumber', authMiddleware, async (c) => {
     // Try to get logo from R2
     let logoBuffer: ArrayBuffer | undefined
     try {
-      const logoObject = await c.env.R2.get('assets/bbi-logo.jpg')
+      if (c.env.R2) { const logoObject = await c.env.R2.get('assets/bbi-logo.jpg')
       if (logoObject) {
-        logoBuffer = await logoObject.arrayBuffer()
+        logoBuffer = await logoObject.arrayBuffer() }
       }
     } catch (e) {
       console.warn('Logo not found in R2, generating certificate without logo:', e)
@@ -358,9 +358,9 @@ memberRoutes.get('/certificate/:formNumber/preview', authMiddleware, async (c) =
     // Try to get logo from R2
     let logoBuffer: ArrayBuffer | undefined
     try {
-      const logoObject = await c.env.R2.get('assets/bbi-logo.jpg')
+      if (c.env.R2) { const logoObject = await c.env.R2.get('assets/bbi-logo.jpg')
       if (logoObject) {
-        logoBuffer = await logoObject.arrayBuffer()
+        logoBuffer = await logoObject.arrayBuffer() }
       }
     } catch (e) {
       console.warn('Logo not found in R2, generating certificate without logo:', e)
@@ -431,9 +431,9 @@ memberRoutes.post('/admin/certificates/bulk', authMiddleware, adminMiddleware, a
 
     // Try to get logo once
     try {
-      const logoObject = await c.env.R2.get('assets/bbi-logo.jpg')
+      if (c.env.R2) { const logoObject = await c.env.R2.get('assets/bbi-logo.jpg')
       if (logoObject) {
-        logoBuffer = await logoObject.arrayBuffer()
+        logoBuffer = await logoObject.arrayBuffer() }
       }
     } catch (e) {
       console.warn('Logo not found in R2, generating certificates without logo:', e)

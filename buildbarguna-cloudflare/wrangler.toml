@@ -29,9 +29,10 @@ id = "0e5da409471743769c5e0fe9d2752bd8"
 
 # ── R2 Bucket (Certificate storage, file uploads) ─────────────────────────────
 # Issue: 3.5 - No R2 configuration in wrangler.toml
-[[r2_buckets]]
-binding = "R2"
-bucket_name = "buildbarguna-storage"
+# TEMPORARILY DISABLED - R2 not enabled for this Worker in Cloudflare Dashboard
+# [[r2_buckets]]
+# binding = "R2"
+# bucket_name = "buildbarguna-storage"
 
 # ── Cron: 1st of every month at BD midnight (UTC 18:00) ──────────────────────
 [triggers]
