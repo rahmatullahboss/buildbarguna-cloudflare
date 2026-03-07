@@ -294,6 +294,33 @@ export default function ProjectDetail() {
                 </div>
               </div>
 
+              {/* bKash Payment Info Box - Always show when bKash selected */}
+              {paymentMethod === 'bkash' && (
+                <div className="card bg-blue-50 border-blue-200 animate-fadeIn">
+                  <div className="flex items-start gap-3">
+                    <Wallet size={24} className="text-blue-600 mt-1 shrink-0" />
+                    <div className="flex-1">
+                      <h3 className="font-bold text-blue-900 mb-2">💳 পেমেন্ট তথ্য</h3>
+                      <div className="space-y-2 text-blue-800 text-sm">
+                        <p>
+                          <strong>bKash নাম্বার:</strong>{' '}
+                          <span className="font-mono bg-blue-100 px-2 py-1 rounded-lg font-bold text-blue-900">
+                            01971951960
+                          </span>
+                        </p>
+                        <p>
+                          <strong>পেমেন্ট পদ্ধতি:</strong> Send Money
+                        </p>
+                        <p>
+                          <strong>টাকা:</strong>{' '}
+                          <span className="font-semibold">{formatTaka(total)}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Conditional: bKash TxID Field */}
               {paymentMethod === 'bkash' && (
                 <div className="animate-fadeIn">
