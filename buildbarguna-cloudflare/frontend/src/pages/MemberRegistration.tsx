@@ -15,8 +15,8 @@ export default function MemberRegistration() {
   useEffect(() => {
     async function checkStatus() {
       const res = await memberApi.status()
-      if (res.success && res.data.registered && res.data.form_number && res.data.name) {
-        setSuccess({ formNumber: res.data.form_number, name: res.data.name, paymentStatus: res.data.payment_status })
+      if (res.success && res.data.registered && res.data.form_number) {
+        setSuccess({ formNumber: res.data.form_number, name: '', paymentStatus: res.data.payment_status || 'pending' })
       }
     }
     checkStatus()
