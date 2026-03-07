@@ -44,12 +44,10 @@ export default function AdminTasks() {
         setForm({ title: '', destination_url: '', platform: 'facebook', points: 5, cooldown_seconds: 30, daily_limit: 20 })
         setShowForm(false)
         qc.invalidateQueries({ queryKey: ['admin-tasks'] })
-      } else {
-        setError(res.message || 'টাস্ক তৈরি করতে সমস্যা হচ্ছে')
       }
     },
-    onError: () => {
-      setError('টাস্ক তৈরি করতে সমস্যা হচ্ছে')
+    onError: (error: any) => {
+      setError(error?.message || 'টাস্ক তৈরি করতে সমস্যা হচ্ছে')
     }
   })
 
@@ -227,29 +225,30 @@ export default function AdminTasks() {
         ) : (
           <div className="space-y-3">
             {taskTypes.map((tt: any) => (
-            <div key={tt.id} className={`card flex items-center justify-between ${!tt.is_active ? 'opacity-50' : ''}`}>
-              <div className="flex-1">
-                <p className="font-semibold text-gray-900">{tt.display_name}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{tt.name}</p>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-xs text-amber-600 font-medium flex items-center gap-1">
-                    <Coins size={10} /> {tt.base_points} পয়েন্ট
-                  </span>
-                  <span className="text-xs text-gray-400 flex items-center gap-1">
-                    <Clock size={10} /> {tt.cooldown_seconds}s
-                  </span>
-                  <span className="text-xs text-gray-500">দৈনিক: {tt.daily_limit}</span>
+              <div key={tt.id} className={`card flex items-center justify-between ${!tt.is_active ? 'opacity-50' : ''}`}>
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900">{tt.display_name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{tt.name}</p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-xs text-amber-600 font-medium flex items-center gap-1">
+                      <Coins size={10} /> {tt.base_points} পয়েন্ট
+                    </span>
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <Clock size={10} /> {tt.cooldown_seconds}s
+                    </span>
+                    <span className="text-xs text-gray-500">দৈনিক: {tt.daily_limit}</span>
+                  </div>
                 </div>
+                <button
+                  onClick={() => adminApi.toggleTaskType(tt.id).then(() => qc.invalidateQueries({ queryKey: ['task-types'] }))}
+                  className="shrink-0 text-gray-400 hover:text-primary-600 transition-colors"
+                >
+                  {tt.is_active ? <ToggleRight size={32} className="text-green-500" /> : <ToggleLeft size={32} />}
+                </button>
               </div>
-              <button 
-                onClick={() => adminApi.toggleTaskType(tt.id).then(() => qc.invalidateQueries({ queryKey: ['task-types'] }))}
-                className="shrink-0 text-gray-400 hover:text-primary-600 transition-colors"
-              >
-                {tt.is_active ? <ToggleRight size={32} className="text-green-500" /> : <ToggleLeft size={32} />}
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )
       )}
     </div>
   )
