@@ -63,8 +63,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <header className="bg-gradient-to-r from-primary-800 via-primary-700 to-teal-700 text-white z-50 shadow-lg flex-shrink-0">
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
           <Link to="/dashboard" className="font-bold text-lg tracking-tight flex items-center gap-2">
-            <span className="bg-white/20 rounded-lg p-1 text-base">🏗️</span>
-            <span>বিল্ড বরগুনা</span>
+            <img src="/bbi logo.jpg" alt="BBI Logo" className="h-8 w-8 object-contain" />
+            <span className="hidden sm:inline">বিল্ড বরগুনা</span>
+            <span className="sm:hidden">BBI</span>
           </Link>
           <div className="flex items-center gap-3">
             <span className="hidden sm:block text-sm opacity-90 bg-white/10 px-3 py-1 rounded-full">{user?.name}</span>
