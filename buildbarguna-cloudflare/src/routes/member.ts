@@ -279,7 +279,7 @@ memberRoutes.get('/certificate/:formNumber', authMiddleware, async (c) => {
     // Try to get logo from R2
     let logoBuffer: ArrayBuffer | undefined
     try {
-      if (c.env.R2) { const logoObject = await c.env.R2.get('assets/bbi-logo.jpg')
+      if (c.env.FILES) { const logoObject = await c.env.FILES.get('assets/bbi-logo.jpg')
       if (logoObject) {
         logoBuffer = await logoObject.arrayBuffer() }
       }
@@ -358,7 +358,7 @@ memberRoutes.get('/certificate/:formNumber/preview', authMiddleware, async (c) =
     // Try to get logo from R2
     let logoBuffer: ArrayBuffer | undefined
     try {
-      if (c.env.R2) { const logoObject = await c.env.R2.get('assets/bbi-logo.jpg')
+      if (c.env.FILES) { const logoObject = await c.env.FILES.get('assets/bbi-logo.jpg')
       if (logoObject) {
         logoBuffer = await logoObject.arrayBuffer() }
       }
@@ -431,7 +431,7 @@ memberRoutes.post('/admin/certificates/bulk', authMiddleware, adminMiddleware, a
 
     // Try to get logo once
     try {
-      if (c.env.R2) { const logoObject = await c.env.R2.get('assets/bbi-logo.jpg')
+      if (c.env.FILES) { const logoObject = await c.env.FILES.get('assets/bbi-logo.jpg')
       if (logoObject) {
         logoBuffer = await logoObject.arrayBuffer() }
       }
@@ -465,7 +465,7 @@ memberRoutes.post('/admin/certificates/bulk', authMiddleware, adminMiddleware, a
 
         // Store certificate in R2
         const r2Key = `certificates/${registration.form_number}.pdf`
-        await c.env.R2.put(r2Key, pdfBuffer, {
+        await c.env.FILES.put(r2Key, pdfBuffer, {
           httpMetadata: { contentType: 'application/pdf' }
         })
 
