@@ -182,14 +182,6 @@ memberRoutes.post('/register',
 )
 
 // Admin routes for member payment verification
-const adminMiddleware = async (c: any, next: any) => {
-  const userRole = c.get('userRole')
-  if (userRole !== 'admin') {
-    return err(c, 'অননুমোদিত', 403)
-  }
-  await next()
-}
-
 // GET /api/admin/members/payments - Get pending payment verifications
 memberRoutes.get('/admin/payments', authMiddleware, adminMiddleware, async (c) => {
   const status = c.req.query('status') || 'pending'
