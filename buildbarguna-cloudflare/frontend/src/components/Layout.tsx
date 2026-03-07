@@ -38,6 +38,7 @@ const adminNav = [
   { to: '/admin/tasks', label: 'টাস্ক ব্যবস্থাপনা', icon: CheckSquare },
   { to: '/admin/rewards', label: 'রিওয়ার্ড ব্যবস্থাপনা', icon: Gift },
   { to: '/admin/users', label: 'মেম্বার তালিকা', icon: Home },
+  { to: '/admin/members', label: 'মেম্বারশিপ', icon: CheckSquare },
   { to: '/admin/referrals', label: 'রেফারেল ব্যবস্থাপনা', icon: Gift },
   { to: '/admin/company-expenses', label: 'কোম্পানি খরচ', icon: Building2 },
   { to: '/admin/tutorial', label: 'গাইড', icon: BookOpen },
