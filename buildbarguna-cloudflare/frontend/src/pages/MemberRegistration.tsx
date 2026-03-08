@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { memberApi } from '../lib/api'
 import { authApi } from '../lib/api'
-import { FileText, CheckCircle, AlertCircle, Download, Wallet, Smartphone } from 'lucide-react'
+import { FileText, CheckCircle, AlertCircle, Download, Wallet, Smartphone, Home, RefreshCw } from 'lucide-react'
 
 export default function MemberRegistration() {
   const navigate = useNavigate()
@@ -70,11 +70,41 @@ export default function MemberRegistration() {
       return
     }
 
-    const res = await memberApi.register(form)
+    // Build clean payload - remove empty strings and irrelevant payment fields
+    const payload: any = {
+      name_english: form.name_english,
+      name_bangla: form.name_bangla || undefined,
+      father_name: form.father_name,
+      mother_name: form.mother_name,
+      date_of_birth: form.date_of_birth,
+      blood_group: form.blood_group || undefined,
+      present_address: form.present_address,
+      permanent_address: form.permanent_address,
+      facebook_id: form.facebook_id || undefined,
+      mobile_whatsapp: form.mobile_whatsapp,
+      emergency_contact: form.emergency_contact || undefined,
+      email: form.email || undefined,
+      skills_interests: form.skills_interests || undefined,
+      declaration_accepted: form.declaration_accepted,
+      payment_method: form.payment_method,
+      payment_note: form.payment_note || undefined
+    }
+
+    // Only include bKash fields if payment method is bKash
+    if (form.payment_method === 'bkash') {
+      payload.bkash_number = form.bkash_number || undefined
+      payload.bkash_trx_id = form.bkash_trx_id || undefined
+    }
+
+    const res = await memberApi.register(payload)
     setLoading(false)
 
     if (!res.success) {
-      setError((res as { error: string }).error)
+      // Handle both string and object errors
+      const errorMsg = typeof (res as any).error === 'string' 
+        ? (res as { error: string }).error 
+        : 'সঠিক তথ্য দিন এবং আবার চেষ্টা করুন'
+      setError(errorMsg)
       return
     }
 
@@ -159,6 +189,24 @@ export default function MemberRegistration() {
               </p>
             </div>
           )}
+        </div>
+
+        {/* Navigation Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="btn-primary flex items-center justify-center gap-2 flex-1"
+          >
+            <Home size={18} />
+            ড্যাশবোর্ডে যান
+          </button>
+          <button
+            onClick={() => window.location.reload()}
+            className="btn-secondary flex items-center justify-center gap-2 flex-1"
+          >
+            <RefreshCw size={18} />
+            স্ট্যাটাস রিফ্রেশ করুন
+          </button>
         </div>
       </div>
     )

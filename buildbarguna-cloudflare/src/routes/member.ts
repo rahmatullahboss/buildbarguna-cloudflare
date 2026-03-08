@@ -7,6 +7,65 @@ import { toPaisa } from '../lib/money'
 import { generateMemberCertificate } from '../lib/pdf/generator'
 import type { Bindings, Variables } from '../types'
 
+// Custom Zod validation hook that returns user-friendly error messages
+function zodErrorHook(result: any, c: any) {
+  if (!result.success) {
+    const issues = result.error.issues
+    const messages = issues.map((issue: any) => {
+      // Map field names to Bengali
+      const fieldNames: Record<string, string> = {
+        name_english: 'নাম (ইংরেজি)',
+        name_bangla: 'নাম (বাংলা)',
+        father_name: 'পিতার নাম',
+        mother_name: 'মাতার নাম',
+        date_of_birth: 'জন্ম তারিখ',
+        blood_group: 'রক্তের গ্রুপ',
+        present_address: 'বর্তমান ঠিকানা',
+        permanent_address: 'স্থায়ী ঠিকানা',
+        facebook_id: 'Facebook ID',
+        mobile_whatsapp: 'মোবাইল (WhatsApp)',
+        emergency_contact: 'জরুরি যোগাযোগ',
+        email: 'ইমেইল',
+        skills_interests: 'দক্ষতা ও আগ্রহ',
+        declaration_accepted: 'ঘোষণা',
+        payment_method: 'পেমেন্ট পদ্ধতি',
+        bkash_number: 'bKash নাম্বার',
+        bkash_trx_id: 'bKash ট্রানজেকশন আইডি',
+        payment_note: 'পেমেন্ট নোট'
+      }
+      
+      const field = issue.path?.join('.') || ''
+      const fieldName = fieldNames[field] || field
+      
+      // Translate common validation messages
+      let message = issue.message
+      if (issue.code === 'too_small' && issue.minimum === 2) {
+        message = `${fieldName} কমপক্ষে ২ অক্ষর হতে হবে`
+      } else if (issue.code === 'too_small' && issue.minimum === 5) {
+        message = `${fieldName} কমপক্ষে ৫ অক্ষর হতে হবে`
+      } else if (issue.code === 'too_small' && issue.minimum === 10) {
+        message = `${fieldName} কমপক্ষে ১০ অক্ষর হতে হবে`
+      } else if (issue.code === 'invalid_string' && issue.validation === 'email') {
+        message = 'সঠিক ইমেইল দিন'
+      } else if (issue.code === 'invalid_string' && issue.validation === 'regex') {
+        if (field === 'bkash_number') {
+          message = 'সঠিক bKash নাম্বার দিন (০১XXXXXXXXX)'
+        } else {
+          message = `${fieldName} সঠিক ফরম্যাটে দিন`
+        }
+      } else if (issue.message === 'Declaration must be accepted') {
+        message = 'আপনাকে ঘোষণা অনুমোদন করতে হবে'
+      } else if (field && message) {
+        message = `${fieldName}: ${message}`
+      }
+      
+      return message
+    })
+    
+    return c.json({ success: false, error: messages[0] || 'Invalid input' }, 400)
+  }
+}
+
 export const memberRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
 // Validation schemas
@@ -22,11 +81,14 @@ const registerSchema = z.object({
   facebook_id: z.string().optional(),
   mobile_whatsapp: z.string().min(10),
   emergency_contact: z.string().optional(),
-  email: z.string().email().optional(),
+  email: z.string().email().optional().or(z.literal('')), // Allow empty string for optional email
   skills_interests: z.string().optional(),
   declaration_accepted: z.boolean().refine(v => v === true, 'Declaration must be accepted'),
   payment_method: z.enum(['bkash', 'cash']),
-  bkash_number: z.string().regex(/^01[3-9]\d{8}$/, 'Invalid bKash number').optional(),
+  bkash_number: z.string().optional().refine(
+    (val) => !val || /^01[3-9]\d{8}$/.test(val),
+    'Invalid bKash number'
+  ),
   bkash_trx_id: z.string().optional(),
   payment_note: z.string().optional()
 })
@@ -112,11 +174,54 @@ memberRoutes.get('/status', authMiddleware, async (c) => {
   })
 })
 
+// GET /api/member/my-registration - Get current user's full registration details
+memberRoutes.get('/my-registration', authMiddleware, async (c) => {
+  const userId = c.get('userId')
+  
+  const registration = await c.env.DB.prepare(
+    `SELECT mr.*, u.name as user_name, u.phone as user_phone, 
+            admin.name as verified_by_name
+     FROM member_registrations mr
+     JOIN users u ON mr.user_id = u.id
+     LEFT JOIN users admin ON mr.verified_by = admin.id
+     WHERE mr.user_id = ?`
+  ).bind(userId).first()
+  
+  if (!registration) {
+    return ok(c, { registered: false })
+  }
+  
+  return ok(c, { 
+    registered: true,
+    form_number: registration.form_number,
+    name_english: registration.name_english,
+    name_bangla: registration.name_bangla,
+    father_name: registration.father_name,
+    mother_name: registration.mother_name,
+    date_of_birth: registration.date_of_birth,
+    blood_group: registration.blood_group,
+    present_address: registration.present_address,
+    permanent_address: registration.permanent_address,
+    facebook_id: registration.facebook_id,
+    mobile_whatsapp: registration.mobile_whatsapp,
+    emergency_contact: registration.emergency_contact,
+    email: registration.email,
+    skills_interests: registration.skills_interests,
+    payment_status: registration.payment_status,
+    payment_method: registration.payment_method,
+    payment_amount: registration.payment_amount,
+    payment_note: registration.payment_note,
+    created_at: registration.created_at,
+    verified_at: registration.verified_at,
+    verified_by_name: registration.verified_by_name
+  })
+})
+
 // POST /api/member/register - Submit registration with payment
 memberRoutes.post('/register', 
   authMiddleware, 
   checkAlreadyRegistered,
-  zValidator('json', registerSchema), 
+  zValidator('json', registerSchema, zodErrorHook), 
   async (c) => {
     const userId = c.get('userId')
     const body = c.req.valid('json')
@@ -130,8 +235,8 @@ memberRoutes.post('/register',
     const nextNumber = ((countResult?.count || 0) + 1).toString().padStart(4, '0')
     const formNumber = `BBI-${year}-${nextNumber}`
     
-    // Determine payment status - ALL payments need admin verification
-    const paymentStatus = 'paid'  // Mark as paid, but needs admin verification
+    // Determine payment status - new registrations need admin verification
+    const paymentStatus = 'pending'
     
     try {
       const result = await c.env.DB.prepare(
@@ -168,11 +273,11 @@ memberRoutes.post('/register',
       ).run()
       
       return ok(c, {
-        message: 'রেজিস্ট্রেশন সফল হয়েছে',
+        message: 'রেজিস্ট্রেশন সফল হয়েছে। পেমেন্ট যাচাইয়ের অপেক্ষায় আছে।',
         form_number: formNumber,
         payment_status: paymentStatus,
         payment_amount: 100,
-        next_step: 'অ্যাডমিন যাচাই করার পর মেম্বারশিপ সার্টিফিকেট ডাউনলোড করতে পারবেন'
+        next_step: 'অ্যাডমিন পেমেন্ট যাচাই করার পর সার্টিফিকেট ডাউনলোড করতে পারবেন'
       })
     } catch (error: any) {
       console.error('Member registration error:', error)
@@ -200,7 +305,7 @@ memberRoutes.post('/admin/members/:id/verify',
   zValidator('json', z.object({
     action: z.enum(['approve', 'reject']),
     note: z.string().optional()
-  })),
+  }), zodErrorHook),
   async (c) => {
     const memberId = parseInt(c.req.param('id'))
     const body = c.req.valid('json')

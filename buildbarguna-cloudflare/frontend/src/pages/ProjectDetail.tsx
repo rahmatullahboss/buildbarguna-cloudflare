@@ -305,7 +305,7 @@ export default function ProjectDetail() {
                         <p>
                           <strong>bKash নাম্বার:</strong>{' '}
                           <span className="font-mono bg-blue-100 px-2 py-1 rounded-lg font-bold text-blue-900">
-                            01971951960
+                            01635222142
                           </span>
                         </p>
                         <p>
@@ -341,7 +341,7 @@ export default function ProjectDetail() {
                       <p>১. bKash অ্যাপ খুলুন → "Send Money" করুন</p>
                       <p>২. পাঠানোর পর SMS আসবে — সেখানে <strong>TrxID</strong> লেখা থাকবে</p>
                       <p>৩. যেমন: <span className="font-mono bg-blue-100 px-1.5 py-0.5 rounded-lg">8N4K2M9X1P</span></p>
-                      <p className="text-blue-600 font-medium">📲 bKash নম্বর: <span className="font-mono font-bold text-blue-900">01971951960</span></p>
+                      <p className="text-blue-600 font-medium">📲 bKash নম্বর: <span className="font-mono font-bold text-blue-900">01635222142</span></p>
                     </div>
                   )}
                   <p className="text-xs text-gray-500 mb-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">

@@ -62,6 +62,17 @@ async function request<T>(
 
   const res = await fetch(`${BASE}${path}`, { ...options, headers })
   const json = await res.json()
+  
+  // If the response is an error, ensure error is always a string
+  if (json.success === false && json.error) {
+    // Handle Zod validation errors that might slip through
+    if (typeof json.error === 'object' && json.error.issues) {
+      // Extract the first error message from Zod issues
+      const firstIssue = json.error.issues[0]
+      json.error = firstIssue?.message || 'Invalid input'
+    }
+  }
+  
   return json
 }
 
@@ -86,7 +97,11 @@ export const sharesApi = {
   buy: (body: { project_id: number; quantity: number; payment_method: 'bkash' | 'manual'; bkash_txid?: string }) =>
     request('/shares/buy', { method: 'POST', body: JSON.stringify(body) }),
   my: (page = 1) => request<Paginated<MyShare>>(`/shares/my?page=${page}`),
-  requests: (page = 1) => request<Paginated<ShareRequest>>(`/shares/requests?page=${page}`)
+  requests: (page = 1) => request<Paginated<ShareRequest>>(`/shares/requests?page=${page}`),
+  
+  // Share certificate download
+  downloadCertificate: (purchaseId: number): string => `${BASE}/shares/certificate/${purchaseId}`,
+  previewCertificate: (purchaseId: number): string => `${BASE}/shares/certificate/${purchaseId}/preview`
 }
 
 // Withdrawal types
@@ -845,6 +860,31 @@ export interface MemberRegistrationStatus {
   payment_method?: string
 }
 
+export interface MyRegistrationDetails {
+  registered: boolean
+  form_number?: string
+  name_english?: string
+  name_bangla?: string
+  father_name?: string
+  mother_name?: string
+  date_of_birth?: string
+  blood_group?: string
+  present_address?: string
+  permanent_address?: string
+  facebook_id?: string
+  mobile_whatsapp?: string
+  emergency_contact?: string
+  email?: string
+  skills_interests?: string
+  payment_status?: string
+  payment_method?: string
+  payment_amount?: number
+  payment_note?: string
+  created_at?: string
+  verified_at?: string
+  verified_by_name?: string
+}
+
 export const memberApi = {
   register: (body: MemberRegistrationForm) =>
     request<{ message: string; form_number: string; payment_status: string; payment_amount: number }>('/member/register', {
@@ -852,6 +892,7 @@ export const memberApi = {
       body: JSON.stringify(body)
     }),
   status: () => request<MemberRegistrationStatus>('/member/status'),
+  getMyRegistration: () => request<MyRegistrationDetails>('/member/my-registration'),
   
   // Issue: 6.1 - Certificate download calls non-existent endpoint in frontend
   // Issue: 6.2 - Member API client incomplete

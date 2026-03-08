@@ -22,28 +22,32 @@ import { distributeMonthlyEarnings, cleanupTokenBlacklist } from './cron/earning
 import type { Bindings, Variables } from './types'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
+let migrationBootstrap: Promise<void> | null = null
 
-// Run migrations on startup (before any requests)
-// This ensures DB schema is always up to date
-app.use('*', async (c, next) => {
-  // Only check migrations if flag is explicitly set to 'true' (set after deployment)
-  const needsMigration = await c.env.SESSIONS.get('needs_migration')
-  
-  if (needsMigration === 'true') {
-    console.log('[Startup] Migration flag detected, running migrations...')
-    const result = await runMigrations(c.env)
-    
-    if (!result.success) {
-      console.error('[Startup] Migration failed:', result.error)
-    } else {
+async function ensureMigrations(env: Bindings) {
+  if (!migrationBootstrap) {
+    migrationBootstrap = (async () => {
+      const needsMigration = await env.SESSIONS.get('needs_migration')
+
+      if (needsMigration !== 'true') {
+        return
+      }
+
+      console.log('[Startup] Migration flag detected, running migrations...')
+      const result = await runMigrations(env)
+
+      if (!result.success) {
+        console.error('[Startup] Migration failed:', result.error)
+        return
+      }
+
       console.log('[Startup] Migrations complete:', result.applied)
-      // Clear migration flag after successful run
-      await c.env.SESSIONS.put('needs_migration', 'false', { expirationTtl: 86400 })
-    }
+      await env.SESSIONS.put('needs_migration', 'false', { expirationTtl: 86400 })
+    })()
   }
-  
-  await next()
-})
+
+  await migrationBootstrap
+}
 
 // Add migration status endpoint for monitoring
 app.get('/api/health/migrations', async (c) => {
@@ -63,6 +67,10 @@ app.get('/api/health/migrations', async (c) => {
 
 // Global middleware
 app.use('*', logger())
+app.use('/api/*', async (c, next) => {
+  await ensureMigrations(c.env)
+  await next()
+})
 app.use('/api/*', cors({
   // Restrict to known origins — never use '*' with Authorization header
   origin: (origin) => {

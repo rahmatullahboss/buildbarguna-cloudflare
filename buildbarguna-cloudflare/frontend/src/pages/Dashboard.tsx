@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { authApi, earningsApi, sharesApi, withdrawalsApi, referralsApi } from '../lib/api'
+import { authApi, earningsApi, sharesApi, withdrawalsApi, referralsApi, memberApi } from '../lib/api'
 import { formatTaka, getUser } from '../lib/auth'
 import { TrendingUp, PieChart, Briefcase, CheckSquare, Copy, BarChart2, ArrowRight, ArrowDownCircle, Gift, Users, FileText } from 'lucide-react'
 import { useState } from 'react'
@@ -17,6 +17,7 @@ export default function Dashboard() {
   const { data: portfolio } = useQuery({ queryKey: ['portfolio'], queryFn: () => earningsApi.portfolio(), staleTime: 60_000 })
   const { data: withdrawalBalance } = useQuery({ queryKey: ['withdrawal-balance'], queryFn: () => withdrawalsApi.balance(), staleTime: 60_000 })
   const { data: referralStats } = useQuery({ queryKey: ['referral-stats'], queryFn: () => referralsApi.stats(), staleTime: 60_000 })
+  const { data: memberStatus } = useQuery({ queryKey: ['member-status'], queryFn: () => memberApi.status(), staleTime: 60_000 })
 
   const balance = me?.success ? me.data.balance_paisa : 0
   const thisMonth = summary?.success ? summary.data.this_month_paisa : 0
@@ -140,6 +141,39 @@ export default function Dashboard() {
           )}
         </div>
       )}
+
+      {/* Membership Status Card */}
+      <div className="card bg-gradient-to-br from-teal-50 to-cyan-50 border-teal-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-teal-100 p-2 rounded-xl">
+              <FileText size={20} className="text-teal-600" />
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900">মেম্বারশিপ</h2>
+              {memberStatus?.success && memberStatus.data.registered ? (
+                <p className="text-sm">
+                  {memberStatus.data.payment_status === 'verified' ? (
+                    <span className="text-green-600">যাচাইকৃত • {memberStatus.data.form_number}</span>
+                  ) : memberStatus.data.payment_status === 'pending' ? (
+                    <span className="text-yellow-600">পেমেন্ট যাচাইয়ের অপেক্ষায়</span>
+                  ) : (
+                    <span className="text-red-600">প্রত্যাখ্যাত</span>
+                  )}
+                </p>
+              ) : (
+                <p className="text-sm text-gray-500">এখনো রেজিস্ট্রেশন করেননি</p>
+              )}
+            </div>
+          </div>
+          <Link 
+            to="/membership" 
+            className="text-sm text-teal-600 font-medium flex items-center gap-1 hover:underline"
+          >
+            {memberStatus?.success && memberStatus.data.registered ? 'দেখুন' : 'রেজিস্ট্রেশন'} <ArrowRight size={14} />
+          </Link>
+        </div>
+      </div>
 
       {/* Withdrawal summary card */}
       {wbal && wbal.available_paisa > 0 && (

@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { sharesApi } from '../lib/api'
-import { formatTaka } from '../lib/auth'
-import { PieChart } from 'lucide-react'
+import { formatTaka, formatDate } from '../lib/auth'
+import { PieChart, Download } from 'lucide-react'
+import { useState } from 'react'
 import Disclaimer from '../components/Disclaimer'
 
 const statusLabel: Record<string, string> = { pending: 'অপেক্ষমাণ', approved: 'অনুমোদিত', rejected: 'বাতিল' }
@@ -10,6 +11,30 @@ const statusBadge: Record<string, string> = { pending: 'badge-pending', approved
 export default function MyInvestments() {
   const { data: shares, isLoading: sharesLoading } = useQuery({ queryKey: ['my-shares'], queryFn: () => sharesApi.my() })
   const { data: requests, isLoading: reqLoading } = useQuery({ queryKey: ['share-requests'], queryFn: () => sharesApi.requests() })
+  const [downloading, setDownloading] = useState<number | null>(null)
+
+  async function handleDownload(purchaseId: number) {
+    setDownloading(purchaseId)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`/api/shares/certificate/${purchaseId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (!response.ok) throw new Error('Download failed')
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `BBI_Share_Certificate_${purchaseId}.pdf`
+      link.click()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Download error:', err)
+    } finally {
+      setDownloading(null)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -97,6 +122,18 @@ export default function MyInvestments() {
                 </div>
                 {r.admin_note && (
                   <p className="text-xs text-red-600 mt-2 bg-red-50 rounded-xl px-3 py-2">⚠️ নোট: {r.admin_note}</p>
+                )}
+                
+                {/* Download certificate button for approved purchases */}
+                {r.status === 'approved' && (
+                  <button
+                    onClick={() => handleDownload(r.id)}
+                    disabled={downloading === r.id}
+                    className="mt-3 flex items-center gap-1 text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-sm font-medium"
+                  >
+                    <Download size={14} />
+                    {downloading === r.id ? 'ডাউনলোড হচ্ছে...' : 'সার্টিফিকেট ডাউনলোড'}
+                  </button>
                 )}
               </div>
             ))}

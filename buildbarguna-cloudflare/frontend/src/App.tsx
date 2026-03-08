@@ -27,6 +27,7 @@ const Portfolio       = lazy(() => import('./pages/Portfolio'))
 const Withdraw        = lazy(() => import('./pages/Withdraw'))
 const Referrals       = lazy(() => import('./pages/Referrals'))
 const MemberRegistration = lazy(() => import('./pages/MemberRegistration'))
+const Membership = lazy(() => import('./pages/Membership'))
 
 // Admin pages — lazy loaded
 const AdminDashboard  = lazy(() => import('./pages/admin/AdminDashboard'))
@@ -83,6 +84,7 @@ export default function App() {
         <Route path="/withdraw"       element={<ProtectedRoute><Layout><Withdraw /></Layout></ProtectedRoute>} />
         <Route path="/referrals"      element={<ProtectedRoute><Layout><Referrals /></Layout></ProtectedRoute>} />
         <Route path="/member-registration" element={<ProtectedRoute><MemberRegistration /></ProtectedRoute>} />
+        <Route path="/membership" element={<ProtectedRoute><Layout><Membership /></Layout></ProtectedRoute>} />
 
         {/* Admin routes */}
         <Route path="/admin"                element={<AdminRoute><Layout><AdminDashboard /></Layout></AdminRoute>} />

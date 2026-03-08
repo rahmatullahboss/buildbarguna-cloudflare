@@ -33,6 +33,18 @@ interface MemberRegistration {
   created_at: string
 }
 
+interface ShareCertificate {
+  certificate_id: string
+  project_name: string
+  share_quantity: number
+  total_amount_paisa: number
+  purchase_date: string
+  user_name: string
+  user_phone: string
+  payment_method: string
+  form_number?: string
+}
+
 /**
  * Register Bangla font with PDFKit
  * Uses Hind Siliguri for proper Bangla text rendering
@@ -270,6 +282,210 @@ export async function generateMemberCertificate(
     doc.font('Helvetica-Bold').fontSize(11)
       .text("Authority's Signature", labelX, yPos)
       .text("Applicant's Signature", pageWidth - 200, yPos)
+
+    doc.end()
+  })
+}
+
+/**
+ * Generate a PDF certificate for a share purchase
+ * @param certificate - Share certificate data
+ * @param logoBuffer - Optional BBI logo buffer (JPEG)
+ * @returns PDF buffer as Uint8Array
+ */
+export async function generateShareCertificate(
+  certificate: ShareCertificate,
+  logoBuffer?: ArrayBuffer
+): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: 'A4',
+      margins: {
+        top: 50,
+        bottom: 50,
+        left: 50,
+        right: 50
+      }
+    })
+
+    const chunks: Uint8Array[] = []
+    doc.on('data', (chunk: Uint8Array) => chunks.push(chunk))
+    doc.on('end', () => {
+      const result = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0))
+      let offset = 0
+      for (const chunk of chunks) {
+        result.set(chunk, offset)
+        offset += chunk.length
+      }
+      resolve(result)
+    })
+    doc.on('error', reject)
+
+    // Register Bangla font if available
+    registerBanglaFont(doc)
+
+    const pageWidth = doc.page.width
+    const pageHeight = doc.page.height
+
+    // Draw watermark (faded logo in background)
+    if (logoBuffer) {
+      try {
+        doc.image(Buffer.from(logoBuffer) as any, {
+          fit: [400, 400],
+          align: 'center',
+          valign: 'center',
+          opacity: 0.08
+        } as any)
+      } catch (e) {
+        console.warn('Failed to add watermark:', e)
+      }
+    }
+
+    // Draw logo at top left
+    if (logoBuffer) {
+      try {
+        doc.image(Buffer.from(logoBuffer) as any, 50, 50, {
+          width: 60,
+          height: 60
+        } as any)
+      } catch (e) {
+        console.warn('Failed to add header logo:', e)
+      }
+    }
+
+    // Organization name and details
+    doc.fontSize(16)
+      .font('Helvetica-Bold')
+      .text('Build Barguna Initiative (BBI)', 120, 55, {
+        align: 'left'
+      })
+
+    doc.fontSize(10)
+      .font('Helvetica')
+      .text('Barguna Sadar, Barguna', 120, 72, { align: 'left' })
+      .text('Email: bbi.official2025@gmail.com', 120, 85, { align: 'left' })
+      .text('Mobile: 01971951960', 120, 98, { align: 'left' })
+
+    // Horizontal line
+    doc.moveTo(50, 120)
+      .lineTo(pageWidth - 50, 120)
+      .stroke()
+
+    // Certificate title
+    doc.fontSize(18)
+      .font('Helvetica-Bold')
+      .text('Share Purchase Certificate', 0, 140, {
+        align: 'center'
+      })
+
+    // Certificate ID
+    doc.fontSize(12)
+      .font('Helvetica')
+      .text(`Certificate ID: ${certificate.certificate_id}`, 0, 165, {
+        align: 'center'
+      })
+
+    // Horizontal line
+    doc.moveTo(50, 185)
+      .lineTo(pageWidth - 50, 185)
+      .stroke()
+
+    // Certificate content
+    let yPos = 205
+    const labelX = 60
+    const valueX = 200
+
+    doc.fontSize(11)
+
+    // Project Name
+    doc.font('Helvetica-Bold').text('Project:', labelX, yPos)
+    doc.font('Helvetica').text(certificate.project_name, valueX, yPos, { width: 350 })
+    yPos += 25
+
+    // Share Quantity
+    doc.font('Helvetica-Bold').text('Number of Shares:', labelX, yPos)
+    doc.font('Helvetica').text(certificate.share_quantity.toString(), valueX, yPos)
+    yPos += 25
+
+    // Total Amount
+    doc.font('Helvetica-Bold').text('Total Investment:', labelX, yPos)
+    const amountTaka = (certificate.total_amount_paisa / 100).toFixed(2)
+    doc.font('Helvetica').text(`৳${amountTaka}`, valueX, yPos)
+    yPos += 25
+
+    // Purchase Date
+    doc.font('Helvetica-Bold').text('Purchase Date:', labelX, yPos)
+    doc.font('Helvetica').text(new Date(certificate.purchase_date).toLocaleDateString('en-BD'), valueX, yPos)
+    yPos += 25
+
+    // Payment Method
+    doc.font('Helvetica-Bold').text('Payment Method:', labelX, yPos)
+    doc.font('Helvetica').text(certificate.payment_method === 'bkash' ? 'bKash' : 'Manual/Cash', valueX, yPos)
+    yPos += 25
+
+    // Member Name
+    doc.font('Helvetica-Bold').text('Member Name:', labelX, yPos)
+    doc.font('Helvetica').text(certificate.user_name, valueX, yPos)
+    yPos += 25
+
+    // Member Phone
+    doc.font('Helvetica-Bold').text('Phone Number:', labelX, yPos)
+    doc.font('Helvetica').text(certificate.user_phone, valueX, yPos)
+    yPos += 25
+
+    // Member Form Number (if available)
+    if (certificate.form_number) {
+      doc.font('Helvetica-Bold').text('Member Form No:', labelX, yPos)
+      doc.font('Helvetica').text(certificate.form_number, valueX, yPos)
+      yPos += 25
+    }
+
+    yPos += 20
+
+    // Terms and conditions
+    doc.fontSize(10)
+      doc.font('Helvetica-Bold').text('Terms & Conditions:', labelX, yPos)
+    yPos += 18
+
+    doc.font('Helvetica').fontSize(9)
+    const terms = [
+      'This certificate is valid only after payment verification by BBI admin.',
+      'Share allocation is subject to project terms and conditions.',
+      'Profit distribution will be made as per project guidelines.',
+      'BBI reserves the right to modify terms with prior notice.'
+    ]
+
+    for (const term of terms) {
+      doc.text('• ' + term, labelX + 10, yPos, { width: 480 })
+      yPos += 14
+    }
+
+    // Signature section
+    yPos = pageHeight - 100
+
+    doc.fontSize(11)
+    doc.font('Helvetica-Bold')
+      .text("For Build Barguna Initiative (BBI)", labelX, yPos)
+      .text("Member Signature", pageWidth - 180, yPos)
+
+    // Signature lines
+    yPos += 8
+    doc.font('Helvetica').fontSize(9)
+    doc.text('_________________________', labelX, yPos)
+    doc.text('_________________________', pageWidth - 180, yPos)
+
+    yPos += 15
+    doc.text('Authorized Signature', labelX, yPos, { width: 150 })
+    doc.text('(With Seal)', pageWidth - 180, yPos, { width: 150 })
+
+    // Footer
+    doc.fontSize(8)
+    doc.text(
+      `This certificate was generated on ${new Date().toLocaleString('en-BD')}`,
+      0,
+      pageHeight - 30,
+      { align: 'center' }
+    )
 
     doc.end()
   })

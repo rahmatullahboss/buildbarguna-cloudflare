@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { earningsApi } from '../lib/api'
+import { earningsApi, sharesApi } from '../lib/api'
 import { formatTaka, formatDate } from '../lib/auth'
 import type { ProjectPortfolioItem } from '../lib/api'
 import {
@@ -14,7 +14,8 @@ import {
   CheckCircle,
   Clock,
   BarChart2,
-  Briefcase
+  Briefcase,
+  Download
 } from 'lucide-react'
 import DonutChart from '../components/DonutChart'
 import BarChart from '../components/BarChart'
@@ -65,8 +66,35 @@ function StatusBadge({ status }: { status: string }) {
 
 // ─── Project Card ─────────────────────────────────────────────────────────────
 
-function ProjectCard({ item }: { item: ProjectPortfolioItem }) {
+function ProjectCard({ item, purchases }: { item: ProjectPortfolioItem; purchases: any[] }) {
   const [expanded, setExpanded] = useState(false)
+  const [downloading, setDownloading] = useState<number | null>(null)
+
+  // Get approved purchases for this project
+  const projectPurchases = purchases?.filter(p => p.project_id === item.project_id && p.status === 'approved') || []
+
+  async function handleDownload(purchaseId: number) {
+    setDownloading(purchaseId)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`/api/shares/certificate/${purchaseId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (!response.ok) throw new Error('Download failed')
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `BBI_Share_Certificate_${purchaseId}.pdf`
+      link.click()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Download error:', err)
+    } finally {
+      setDownloading(null)
+    }
+  }
 
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
@@ -151,6 +179,31 @@ function ProjectCard({ item }: { item: ProjectPortfolioItem }) {
                 : 'এই মাসের হার এখনো নির্ধারিত হয়নি'}
             </p>
           </div>
+
+          {/* Share Certificate Download */}
+          {projectPurchases.length > 0 && (
+            <div className="border-t border-gray-200 pt-4">
+              <p className="text-xs font-semibold text-gray-500 mb-2">শেয়ার সার্টিফিকেট</p>
+              <div className="space-y-2">
+                {projectPurchases.map((purchase: any) => (
+                  <div key={purchase.id} className="flex items-center justify-between bg-white rounded-lg p-3 border">
+                    <div>
+                      <p className="text-sm font-medium">{purchase.quantity} শেয়ার • {formatTaka(purchase.total_amount)}</p>
+                      <p className="text-xs text-gray-500">{formatDate(purchase.created_at)} তারিখে ক্রয়</p>
+                    </div>
+                    <button
+                      onClick={() => handleDownload(purchase.id)}
+                      disabled={downloading === purchase.id}
+                      className="flex items-center gap-1 text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-sm font-medium"
+                    >
+                      <Download size={14} />
+                      {downloading === purchase.id ? 'ডাউনলোড হচ্ছে...' : 'সার্টিফিকেট'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -166,7 +219,15 @@ export default function Portfolio() {
     staleTime: 60_000
   })
 
+  // Fetch share purchases for certificate download
+  const { data: purchasesData } = useQuery({
+    queryKey: ['my-shares-for-cert'],
+    queryFn: () => sharesApi.my(1),
+    staleTime: 60_000
+  })
+
   const portfolio = data?.success ? data.data : null
+  const purchases = purchasesData?.success ? purchasesData.data.items : []
 
   if (isLoading) return (
     <div className="flex items-center justify-center min-h-64">
@@ -335,7 +396,7 @@ export default function Portfolio() {
             </h2>
             <div className="space-y-3">
               {portfolio.projects.map(item => (
-                <ProjectCard key={item.project_id} item={item} />
+                <ProjectCard key={item.project_id} item={item} purchases={purchases} />
               ))}
             </div>
           </div>
