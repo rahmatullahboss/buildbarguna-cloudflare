@@ -296,7 +296,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-teal-500 rounded-xl flex items-center justify-center">
-              <span className="text-xl">🏗️</span>
+              <img src="/bbi logo.jpg" alt="BBI Logo" className="h-6 w-6 object-contain" />
             </div>
             <span className="font-bold text-white text-xl">বিল্ড বরগুনা</span>
           </div>

@@ -119,7 +119,7 @@ export default function ProjectDetail() {
         ) : (
           <div className="w-full h-40 bg-gradient-to-br from-primary-600 via-teal-600 to-emerald-500 flex items-center justify-center relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-            <span className="text-6xl">🏗️</span>
+            <img src="/bbi logo.jpg" alt="BBI Logo" className="w-24 h-24 object-contain" />
           </div>
         )}
 

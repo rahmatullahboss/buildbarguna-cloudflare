@@ -74,7 +74,7 @@ export default function AdminShares() {
                       </div>
                     </div>
                     <div className="bg-primary-50 rounded-xl px-3 py-1.5 mb-3 inline-block">
-                      <p className="text-xs text-primary-700 font-semibold">🏗️ {r.project_title}</p>
+                      <p className="text-xs text-primary-700 font-semibold"><img src="/bbi logo.jpg" alt="BBI Logo" className="inline h-4 w-4 mr-1 object-contain" />{r.project_title}</p>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       <div className="bg-gray-50 rounded-xl p-2 text-center">

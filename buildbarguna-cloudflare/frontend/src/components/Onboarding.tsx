@@ -7,7 +7,7 @@ const ONBOARDING_KEY = 'bb_onboarding_done'
 const steps = [
   {
     icon: <Shield size={40} className="text-emerald-500" />,
-    title: 'বিল্ড বরগুনায় স্বাগতম! 🏗️',
+    title: 'বিল্ড বরগুনায় স্বাগতম! <img src="/bbi logo.jpg" alt="BBI" class="inline h-5 w-5" />',
     body: 'এটি একটি সম্পূর্ণ হালাল বিনিয়োগ প্ল্যাটফর্ম। আপনি বরগুনার বিভিন্ন প্রজেক্টে শেয়ার কিনে মুনাফা উপার্জন করতে পারবেন।',
     highlight: '✅ সুদমুক্ত | ✅ মুশারাকা নীতি | ✅ প্রজেক্টের লাভ-লোকসান ভাগাভাগি',
     action: null

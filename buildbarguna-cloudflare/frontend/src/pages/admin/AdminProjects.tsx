@@ -62,7 +62,9 @@ export default function AdminProjects() {
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-white/15 p-2.5 rounded-2xl text-2xl">🏗️</div>
+            <div className="bg-white/15 p-2.5 rounded-2xl">
+              <img src="/bbi logo.jpg" alt="BBI Logo" className="w-8 h-8 object-contain" />
+            </div>
             <div>
               <h1 className="text-2xl font-bold">প্রজেক্ট ব্যবস্থাপনা</h1>
               <p className="text-teal-100 text-sm mt-0.5">প্রজেক্ট তৈরি ও পরিচালনা করুন</p>

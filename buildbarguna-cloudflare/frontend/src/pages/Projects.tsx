@@ -28,7 +28,7 @@ export default function Projects() {
       <div className="bg-gradient-to-r from-primary-700 to-teal-600 rounded-3xl p-5 text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
         <div className="relative z-10">
-          <h1 className="text-2xl font-bold">🏗️ লাইভ প্রজেক্টসমূহ</h1>
+          <h1 className="text-2xl font-bold"><img src="/bbi logo.jpg" alt="BBI Logo" className="inline h-6 w-6 mr-2 object-contain" />লাইভ প্রজেক্টসমূহ</h1>
           <p className="text-primary-100 text-sm mt-1">শেয়ার কিনে বিনিয়োগ শুরু করুন</p>
         </div>
       </div>
@@ -59,7 +59,7 @@ export default function Projects() {
               ) : (
                 <div className="w-full h-36 bg-gradient-to-br from-primary-600 to-teal-500 flex items-center justify-center relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-                  <span className="text-5xl">🏗️</span>
+                  <img src="/bbi logo.jpg" alt="BBI Logo" className="w-16 h-16 object-contain" />
                 </div>
               )}
 
