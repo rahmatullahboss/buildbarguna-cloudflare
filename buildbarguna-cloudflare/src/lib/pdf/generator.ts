@@ -601,47 +601,9 @@ function drawMemberDetails(
     drawField("Skills & Interests:", reg.skills_interests)
   }
   
-  // Payment & Membership Details
-  y += 10
-  page.drawLine({
-    start: { x: MARGIN + 30, y: ty(y) },
-    end: { x: PAGE_W - MARGIN - 30, y: ty(y) },
-    thickness: 0.5,
-    color: COLORS.gold,
-  })
-  y += 12
-  
-  // Membership Info Header
-  page.drawText('MEMBERSHIP INFORMATION', {
-    x: MARGIN + 30,
-    y: ty(y + 11),
-    font: helveticaBold,
-    size: 11,
-    color: COLORS.navy,
-  })
-  y += 20
-  
-  // Payment Details
-  drawField("Payment Method:", reg.payment_method)
-  if (reg.payment_amount) {
-    const amountText = `৳${(reg.payment_amount / 100).toLocaleString('en-US')}`
-    drawField("Membership Fee:", amountText)
-  }
-  drawField("Payment Status:", reg.payment_status ? reg.payment_status.charAt(0).toUpperCase() + reg.payment_status.slice(1) : undefined)
-  
-  if (reg.bkash_number) {
-    drawField("bKash Number:", reg.bkash_number)
-  }
-  if (reg.bkash_trx_id) {
-    drawField("bKash Transaction ID:", reg.bkash_trx_id)
-  }
-  if (reg.payment_note) {
-    drawField("Payment Note:", reg.payment_note)
-  }
-  
-  // Declaration
+  // Declaration - only show if accepted
   if (reg.declaration_accepted) {
-    y += 5
+    y += 8
     page.drawText('[x] Declaration Accepted', {
       x: MARGIN + 30,
       y: ty(y + 10),
