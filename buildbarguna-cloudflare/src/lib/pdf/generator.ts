@@ -130,21 +130,15 @@ export async function generateMemberCertificate(
 
   // ── Logo ───────────────────────────────────────────────────────────────
   let logoImage = null
-  // Try local logo first, then fallback to remote
+  // Try multiple paths since dist has "bbi logo.jpg" (with space)
   let logoBuf = logoBuffer
   if (!logoBuf) {
-    try {
-      // Try to read from local fonts folder
-      const logoPath = './src/lib/pdf/fonts/bbi-logo.jpg'
-      const logoData = await fetchAsset(origin, '/fonts/bbi-logo.jpg')
-      if (logoData) {
-        logoBuf = logoData
-      }
-    } catch { /* ignore */ }
-  }
-  // Fallback to remote URL
-  if (!logoBuf) {
-    logoBuf = await fetchAsset(origin, '/fonts/bbi-logo.jpg')
+    // Try root path first (dist/bbi logo.jpg)
+    logoBuf = await fetchAsset(origin, '/bbi%20logo.jpg')
+    // Fallback to fonts path
+    if (!logoBuf) {
+      logoBuf = await fetchAsset(origin, '/fonts/bbi-logo.jpg')
+    }
   }
   if (logoBuf) {
     try {
@@ -639,11 +633,16 @@ export async function generateShareCertificate(
     }
   }
 
-  // Logo
+  // Logo - check multiple paths since dist has "bbi logo.jpg" (with space)
   let logoImage = null
   let logoBuf = logoBuffer
   if (!logoBuf) {
-    logoBuf = await fetchAsset(origin, '/fonts/bbi-logo.jpg')
+    // Try root path first (dist/bbi logo.jpg)
+    logoBuf = await fetchAsset(origin, '/bbi%20logo.jpg')
+    // Fallback to fonts path
+    if (!logoBuf) {
+      logoBuf = await fetchAsset(origin, '/fonts/bbi-logo.jpg')
+    }
   }
   if (logoBuf) {
     try {
