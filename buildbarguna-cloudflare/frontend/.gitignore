@@ -2,6 +2,10 @@
 dist/
 dist-app/
 *.apk
+*.jks
+*.keystore
+android-signing-secrets.txt
+android/release-keystore.base64.txt
 
 # Dependencies
 node_modules/

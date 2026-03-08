@@ -199,7 +199,8 @@ export const adminReferralsApi = {
 // Tasks
 export const tasksApi = {
   list: () => request<TaskItem[]>('/tasks'),
-  complete: (id: number) => request(`/tasks/${id}/complete`, { method: 'POST' })
+  complete: (id: number) => request(`/tasks/${id}/complete`, { method: 'POST' }),
+  trackClick: (id: number) => request(`/tasks/${id}/click`, { method: 'POST' })
 }
 
 // Points
@@ -262,9 +263,9 @@ export const adminApi = {
 
   r2Url: () => request<{ url: string }>('/admin/r2-url'),
   tasks: () => request<TaskItem[]>('/admin/tasks'),
-  createTask: (body: { title: string; destination_url: string; platform?: string; points?: number; cooldown_seconds?: number; daily_limit?: number }) =>
+  createTask: (body: { title: string; destination_url: string; platform?: string; points?: number; cooldown_seconds?: number; daily_limit?: number; is_one_time?: number }) =>
     request('/admin/tasks', { method: 'POST', body: JSON.stringify(body) }),
-  updateTask: (id: number, body: Partial<{ title: string; destination_url: string; platform: string; points: number; cooldown_seconds: number; daily_limit: number }>) =>
+  updateTask: (id: number, body: Partial<{ title: string; destination_url: string; platform: string; points: number; cooldown_seconds: number; daily_limit: number; is_one_time: number }>) =>
     request(`/admin/tasks/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   toggleTask: (id: number) => request(`/admin/tasks/${id}/toggle`, { method: 'PATCH' }),
   
@@ -302,6 +303,7 @@ export type TaskItem = {
   points: number
   cooldown_seconds: number
   daily_limit: number
+  is_one_time: number
   is_active: number
   completed?: number
   points_earned?: number

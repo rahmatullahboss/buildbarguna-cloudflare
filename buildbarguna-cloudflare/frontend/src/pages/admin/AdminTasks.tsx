@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '../../lib/api'
-import { ToggleLeft, ToggleRight, Plus, Coins, Clock, List } from 'lucide-react'
+import { ToggleLeft, ToggleRight, Plus, Coins, Clock, List, Edit2, X } from 'lucide-react'
 
 const platformOptions = [
   { value: 'facebook', label: 'Facebook' },
@@ -14,11 +14,21 @@ export default function AdminTasks() {
   const qc = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [activeTab, setActiveTab] = useState<'tasks' | 'task-types'>('tasks')
+  const [editingTask, setEditingTask] = useState<any>(null)
+  const [editingTaskType, setEditingTaskType] = useState<any>(null)
   const [form, setForm] = useState({
     title: '',
     destination_url: '',
     platform: 'facebook',
     points: 5,
+    cooldown_seconds: 30,
+    daily_limit: 20,
+    is_one_time: 0
+  })
+  const [taskTypeForm, setTaskTypeForm] = useState({
+    name: '',
+    display_name: '',
+    base_points: 5,
     cooldown_seconds: 30,
     daily_limit: 20
   })
@@ -41,13 +51,58 @@ export default function AdminTasks() {
     onSuccess: (res) => {
       if (res.success) {
         setMsg('টাস্ক তৈরি হয়েছে')
-        setForm({ title: '', destination_url: '', platform: 'facebook', points: 5, cooldown_seconds: 30, daily_limit: 20 })
+        setForm({ title: '', destination_url: '', platform: 'facebook', points: 5, cooldown_seconds: 30, daily_limit: 20, is_one_time: 0 })
         setShowForm(false)
         qc.invalidateQueries({ queryKey: ['admin-tasks'] })
       }
     },
     onError: (error: any) => {
       setError(error?.message || 'টাস্ক তৈরি করতে সমস্যা হচ্ছে')
+    }
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: any }) => adminApi.updateTask(id, body),
+    onSuccess: (res) => {
+      if (res.success) {
+        setMsg('টাস্ক আপডেট হয়েছে')
+        setEditingTask(null)
+        setForm({ title: '', destination_url: '', platform: 'facebook', points: 5, cooldown_seconds: 30, daily_limit: 20, is_one_time: 0 })
+        setShowForm(false)
+        qc.invalidateQueries({ queryKey: ['admin-tasks'] })
+      }
+    },
+    onError: (error: any) => {
+      setError(error?.message || 'টাস্ক আপডেট করতে সমস্যা হচ্ছে')
+    }
+  })
+
+  const createTaskTypeMutation = useMutation({
+    mutationFn: () => adminApi.createTaskType(taskTypeForm),
+    onSuccess: (res) => {
+      if (res.success) {
+        setMsg('টাস্ক টাইপ তৈরি হয়েছে')
+        setTaskTypeForm({ name: '', display_name: '', base_points: 5, cooldown_seconds: 30, daily_limit: 20 })
+        qc.invalidateQueries({ queryKey: ['task-types'] })
+      }
+    },
+    onError: (error: any) => {
+      setError(error?.message || 'টাস্ক টাইপ তৈরি করতে সমস্যা হচ্ছে')
+    }
+  })
+
+  const updateTaskTypeMutation = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: any }) => adminApi.updateTaskType(id, body),
+    onSuccess: (res) => {
+      if (res.success) {
+        setMsg('টাস্ক টাইপ আপডেট হয়েছে')
+        setEditingTaskType(null)
+        setTaskTypeForm({ name: '', display_name: '', base_points: 5, cooldown_seconds: 30, daily_limit: 20 })
+        qc.invalidateQueries({ queryKey: ['task-types'] })
+      }
+    },
+    onError: (error: any) => {
+      setError(error?.message || 'টাস্ক টাইপ আপডেট করতে সমস্যা হচ্ছে')
     }
   })
 
@@ -59,6 +114,64 @@ export default function AdminTasks() {
 
   const tasks = data?.success ? data.data : []
   const taskTypes = taskTypesData?.success ? taskTypesData.data : []
+
+  // Helper to open edit form for task
+  const handleEditTask = (task: any) => {
+    setEditingTask(task)
+    setForm({
+      title: task.title,
+      destination_url: task.destination_url,
+      platform: task.platform,
+      points: task.points,
+      cooldown_seconds: task.cooldown_seconds,
+      daily_limit: task.daily_limit,
+      is_one_time: task.is_one_time || 0
+    })
+    setShowForm(true)
+  }
+
+  // Helper to open edit form for task type
+  const handleEditTaskType = (taskType: any) => {
+    setEditingTaskType(taskType)
+    setTaskTypeForm({
+      name: taskType.name,
+      display_name: taskType.display_name,
+      base_points: taskType.base_points,
+      cooldown_seconds: taskType.cooldown_seconds,
+      daily_limit: taskType.daily_limit
+    })
+    setActiveTab('task-types')
+  }
+
+  // Handle form submit (create or update)
+  const handleSubmit = () => {
+    if (editingTask) {
+      updateMutation.mutate({ id: editingTask.id, body: form })
+    } else {
+      createMutation.mutate()
+    }
+  }
+
+  // Handle task type form submit (create or update)
+  const handleTaskTypeSubmit = () => {
+    if (editingTaskType) {
+      updateTaskTypeMutation.mutate({ id: editingTaskType.id, body: taskTypeForm })
+    } else {
+      createTaskTypeMutation.mutate()
+    }
+  }
+
+  // Close forms
+  const handleCloseForm = () => {
+    setShowForm(false)
+    setEditingTask(null)
+    setForm({ title: '', destination_url: '', platform: 'facebook', points: 5, cooldown_seconds: 30, daily_limit: 20, is_one_time: 0 })
+  }
+
+  const handleCloseTaskTypeForm = () => {
+    setEditingTaskType(null)
+    setTaskTypeForm({ name: '', display_name: '', base_points: 5, cooldown_seconds: 30, daily_limit: 20 })
+  }
 
   return (
     <div className="space-y-6">
@@ -109,7 +222,12 @@ export default function AdminTasks() {
 
       {showForm && activeTab === 'tasks' && (
         <div className="card border-primary-200 bg-primary-50">
-          <h2 className="font-bold text-lg mb-4">নতুন টাস্ক যোগ করুন</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-lg">{editingTask ? 'টাস্ক সম্পাদনা করুন' : 'নতুন টাস্ক যোগ করুন'}</h2>
+            <button onClick={handleCloseForm} className="text-gray-500 hover:text-gray-700">
+              <X size={20} />
+            </button>
+          </div>
           <div className="space-y-4">
             <div>
               <label className="label">টাস্কের নাম</label>
@@ -165,10 +283,24 @@ export default function AdminTasks() {
                 />
               </div>
             </div>
+            {/* One Time Toggle */}
+            <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <input
+                type="checkbox"
+                id="is_one_time"
+                checked={form.is_one_time === 1}
+                onChange={e => setForm(p => ({ ...p, is_one_time: e.target.checked ? 1 : 0 }))}
+                className="w-5 h-5 text-amber-600"
+              />
+              <div>
+                <label htmlFor="is_one_time" className="font-medium text-amber-800 cursor-pointer">ওয়ান টাইম টাস্ক</label>
+                <p className="text-xs text-amber-600">একবারই করা যাবে, প্রতিদিন নয়</p>
+              </div>
+            </div>
             <div className="flex gap-3">
-              <button onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !form.title || !form.destination_url}
-                className="btn-primary">{createMutation.isPending ? 'তৈরি হচ্ছে...' : 'তৈরি করুন'}</button>
-              <button onClick={() => setShowForm(false)} className="btn-secondary">বাতিল</button>
+              <button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending || !form.title || !form.destination_url}
+                className="btn-primary">{updateMutation.isPending ? 'আপডেট হচ্ছে...' : createMutation.isPending ? 'তৈরি হচ্ছে...' : editingTask ? 'আপডেট করুন' : 'তৈরি করুন'}</button>
+              <button onClick={handleCloseForm} className="btn-secondary">বাতিল</button>
             </div>
           </div>
         </div>
@@ -190,18 +322,32 @@ export default function AdminTasks() {
             {tasks.map(t => (
               <div key={t.id} className={`card flex items-center gap-4 ${!t.is_active ? 'opacity-50' : ''}`}>
                 <div className="flex-1">
-                  <p className="font-semibold text-gray-900">{t.title}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-gray-900">{t.title}</p>
+                    {t.is_one_time === 1 && (
+                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">ওয়ান টাইম</span>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-400 mt-0.5 truncate">{t.destination_url}</p>
                   <div className="flex items-center gap-3 mt-1">
                     <span className="text-xs text-amber-600 font-medium flex items-center gap-1">
                       <Coins size={10} /> {t.points || 5} পয়েন্ট
                     </span>
-                    <span className="text-xs text-gray-400 flex items-center gap-1">
-                      <Clock size={10} /> {t.cooldown_seconds || 30}s
-                    </span>
+                    {t.is_one_time !== 1 && (
+                      <span className="text-xs text-gray-400 flex items-center gap-1">
+                        <Clock size={10} /> {t.cooldown_seconds || 30}s
+                      </span>
+                    )}
                     <span className="text-xs text-gray-500">{t.platform}</span>
                   </div>
                 </div>
+                <button 
+                  onClick={() => handleEditTask(t)} 
+                  className="shrink-0 text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                  title="সম্পাদনা"
+                >
+                  <Edit2 size={18} />
+                </button>
                 <button onClick={() => toggleMutation.mutate(t.id)} className="shrink-0 text-gray-400 hover:text-primary-600 transition-colors">
                   {t.is_active ? <ToggleRight size={32} className="text-green-500" /> : <ToggleLeft size={32} />}
                 </button>

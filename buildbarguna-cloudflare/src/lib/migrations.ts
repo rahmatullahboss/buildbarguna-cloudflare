@@ -182,6 +182,13 @@ const MIGRATIONS: Migration[] = [
       DROP TABLE IF EXISTS member_audit_log;
     `,
     timeout_ms: 60000
+  },
+  {
+    id: 14,
+    name: '014_one_time_tasks',
+    sql_up: 'ALTER TABLE daily_tasks ADD COLUMN is_one_time INTEGER NOT NULL DEFAULT 0;',
+    sql_down: '',
+    timeout_ms: 60000
   }
 ]
 

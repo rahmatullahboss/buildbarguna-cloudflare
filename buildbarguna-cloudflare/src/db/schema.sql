@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS daily_tasks (
   points          INTEGER NOT NULL DEFAULT 5,
   cooldown_seconds INTEGER NOT NULL DEFAULT 30,
   daily_limit     INTEGER NOT NULL DEFAULT 20,
+  is_one_time     INTEGER NOT NULL DEFAULT 0,
   task_type_id    INTEGER REFERENCES task_types(id),
   is_active       INTEGER NOT NULL DEFAULT 1,
   created_at      TEXT NOT NULL DEFAULT (datetime('now'))

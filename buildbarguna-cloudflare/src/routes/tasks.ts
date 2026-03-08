@@ -6,7 +6,46 @@ import type { Bindings, Variables, DailyTask } from '../types'
 
 export const taskRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
+// Public route: redirect to task URL (no auth required for the redirect itself)
+// The task completion will be tracked separately when user completes the task
+taskRoutes.get('/public/:id/redirect', async (c) => {
+  const taskId = parseInt(c.req.param('id'))
+  if (isNaN(taskId)) return c.redirect('/', 302)
+
+  const task = await c.env.DB.prepare(
+    'SELECT destination_url FROM daily_tasks WHERE id = ? AND is_active = 1'
+  ).bind(taskId).first<{ destination_url: string }>()
+
+  if (!task) return c.redirect('/', 302)
+  
+  // Redirect to the actual destination
+  return c.redirect(task.destination_url, 302)
+})
+
 taskRoutes.use('*', authMiddleware)
+
+// POST /api/tasks/:id/click — track that user clicked the task link
+taskRoutes.post('/:id/click', async (c) => {
+  const taskId = parseInt(c.req.param('id'))
+  if (isNaN(taskId)) return err(c, 'অকার্যকর টাস্ক আইডি')
+  const userId = c.get('userId')
+  const today = new Date().toISOString().slice(0, 10)
+
+  const task = await c.env.DB.prepare(
+    'SELECT id FROM daily_tasks WHERE id = ? AND is_active = 1'
+  ).bind(taskId).first()
+
+  if (!task) return err(c, 'টাস্ক পাওয়া যায়নি', 404)
+
+  // Log the click (upsert clicked_at)
+  await c.env.DB.prepare(
+    `INSERT INTO task_completions (user_id, task_id, task_date, clicked_at)
+     VALUES (?, ?, ?, datetime('now'))
+     ON CONFLICT(user_id, task_id, task_date) DO UPDATE SET clicked_at = datetime('now')`
+  ).bind(userId, taskId, today).run()
+
+  return ok(c, { message: 'ক্লিক ট্র্যাক করা হয়েছে' })
+})
 
 // GET /api/tasks — today's tasks with completion status and points
 taskRoutes.get('/', async (c) => {
@@ -75,11 +114,30 @@ taskRoutes.post('/:id/complete', async (c) => {
 
   // Already completed - return success (idempotent)
   if (existing?.completed_at) {
+    // Check if this is a one-time task - if so, they can't do it again
+    if (task.is_one_time === 1) {
+      return ok(c, { 
+        message: 'এই টাস্ক একবারই করা যায়, আগেই সম্পন্ন হয়েছে',
+        already_completed: true,
+        points_earned: existing.points_earned
+      })
+    }
     return ok(c, { 
       message: 'টাস্ক আগেই সম্পন্ন হয়েছে',
       already_completed: true,
       points_earned: existing.points_earned
     })
+  }
+
+  // Check if one-time task already completed ever (not just today)
+  if (task.is_one_time === 1) {
+    const oneTimeCheck = await c.env.DB.prepare(
+      'SELECT points_earned FROM task_completions WHERE user_id = ? AND task_id = ? AND completed_at IS NOT NULL'
+    ).bind(userId, taskId).first<{ points_earned: number }>()
+    
+    if (oneTimeCheck) {
+      return err(c, 'এই টাস্ক একবারই করা যায়, আগেই সম্পন্ন হয়েছে')
+    }
   }
 
   // Check if clicked first (must redirect before completing)
@@ -182,22 +240,29 @@ taskRoutes.post('/:id/complete', async (c) => {
     }
 
     // Initialize user_points if not exists (use INSERT OR IGNORE to prevent race condition)
+    // Also update current_month if needed to ensure the record is ready for points
     await c.env.DB.prepare(
-      `INSERT OR IGNORE INTO user_points (user_id, available_points, lifetime_earned, lifetime_redeemed, monthly_earned, monthly_redeemed)
-       VALUES (?, 0, 0, 0, 0, 0)`
+      `INSERT INTO user_points (user_id, available_points, lifetime_earned, lifetime_redeemed, monthly_earned, monthly_redeemed, current_month, updated_at)
+       VALUES (?, 0, 0, 0, 0, 0, strftime('%Y-%m', 'now'), datetime('now'))
+       ON CONFLICT(user_id) DO UPDATE SET current_month = strftime('%Y-%m', 'now')`
     ).bind(userId).run()
 
-    // Add points to user balance - use CHECK constraint to prevent negative points
+    // Add points to user balance - fetch current points first to ensure record exists
+    const currentPoints = await c.env.DB.prepare(
+      'SELECT available_points FROM user_points WHERE user_id = ?'
+    ).bind(userId).first<{ available_points: number }>()
+
+    // Now update with guaranteed existence
     const pointsUpdate = await c.env.DB.prepare(
       `UPDATE user_points SET 
          available_points = available_points + ?,
          lifetime_earned = lifetime_earned + ?,
          monthly_earned = monthly_earned + ?,
          updated_at = datetime('now')
-       WHERE user_id = ? AND (available_points + ?) >= 0`
-    ).bind(pointsToAward, pointsToAward, pointsToAward, userId, pointsToAward).run()
+       WHERE user_id = ?`
+    ).bind(pointsToAward, pointsToAward, pointsToAward, userId).run()
 
-    // Check if points update succeeded (constraint violation would mean 0 rows affected)
+    // Check if points update succeeded
     if (!pointsUpdate.meta.changes || pointsUpdate.meta.changes === 0) {
       // Rollback the task completion since points couldn't be added
       await c.env.DB.prepare(
@@ -207,6 +272,11 @@ taskRoutes.post('/:id/complete', async (c) => {
       
       return err(c, 'পয়েন্ট যোগ করতে সমস্যা হচ্ছে। আবার চেষ্টা করুন।', 500)
     }
+
+    // Get the updated points for response
+    const updatedPoints = await c.env.DB.prepare(
+      'SELECT available_points FROM user_points WHERE user_id = ?'
+    ).bind(userId).first<{ available_points: number }>()
 
     // Create transaction record with metadata
     await c.env.DB.prepare(

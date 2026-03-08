@@ -50,7 +50,18 @@ Add these secrets:
 ```bash
 CLOUDFLARE_API_TOKEN=your_api_token_here
 CLOUDFLARE_ACCOUNT_ID=your_account_id_here
+R2_ACCOUNT_ID=your_r2_account_id_here
+R2_ACCESS_KEY_ID=your_r2_access_key_here
+R2_SECRET_ACCESS_KEY=your_r2_secret_here
+R2_BUCKET_NAME=your_bucket_name_here
+R2_PUBLIC_URL=https://your-public-r2-domain
+ANDROID_KEYSTORE_BASE64=base64_of_your_release_keystore
+ANDROID_KEYSTORE_PASSWORD=your_keystore_password
+ANDROID_KEY_ALIAS=your_key_alias
+ANDROID_KEY_PASSWORD=your_key_password
 ```
+
+`ANDROID_KEYSTORE_BASE64` should be the Base64-encoded contents of the same release keystore you want every APK update to use. If this key changes, Android will treat the APK as a different signer and users will need to uninstall before reinstalling.
 
 ### 2. Create Cloudflare API Token
 

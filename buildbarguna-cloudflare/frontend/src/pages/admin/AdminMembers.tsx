@@ -112,7 +112,7 @@ export default function AdminMembers() {
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          Verified
+          যাচাইকৃত
         </button>
         <button
           onClick={() => setActiveTab('all')}
@@ -122,7 +122,7 @@ export default function AdminMembers() {
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          All Members
+          সকল মেম্বার
         </button>
       </div>
 
@@ -130,7 +130,7 @@ export default function AdminMembers() {
       {activeTab === 'pending' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-800">pending Payment Verifications</h2>
+            <h2 className="text-lg font-semibold text-gray-800">pending পেমেন্ট যাচাই</h2>
             <span className="text-sm text-gray-500">{payments.length} pending</span>
           </div>
 
@@ -242,8 +242,8 @@ export default function AdminMembers() {
       {activeTab === 'verified' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-800">Verified Members</h2>
-            <span className="text-sm text-gray-500">{members.filter((m: any) => m.payment_status === 'verified').length} verified</span>
+            <h2 className="text-lg font-semibold text-gray-800">যাচাইকৃত মেম্বার</h2>
+            <span className="text-sm text-gray-500">{members.filter((m: any) => m.payment_status === 'verified').length} যাচাইকৃত</span>
           </div>
 
           {membersLoading ? (
@@ -289,10 +289,10 @@ export default function AdminMembers() {
       {activeTab === 'all' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-800">All Members</h2>
+            <h2 className="text-lg font-semibold text-gray-800">সকল মেম্বার</h2>
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <Users size={16} />
-              <span>{pagination?.total || 0} total</span>
+              <span>{pagination?.total || 0} মোট</span>
             </div>
           </div>
 
@@ -303,13 +303,13 @@ export default function AdminMembers() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Form No</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Phone</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Payment</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Date</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Actions</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">ফর্ম নং</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">নাম</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">মোবাইল</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">পেমেন্ট</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">স্ট্যাটাস</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">তারিখ</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">অ্যাকশন</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -2,8 +2,7 @@ import { Link } from 'react-router-dom'
 import { TrendingUp, Users, Shield, CheckCircle, ArrowRight, Star, Download, Bell, BarChart2, Zap, Lock, BookOpen } from 'lucide-react'
 import { isLoggedIn } from '../lib/auth'
 
-// Direct R2 public URL — permanent link, no redirect needed
-const APK_URL = 'https://pub-ab7b08208848418f9562358e8b65ad06.r2.dev/builds/android/buildbarguna-latest-debug.apk'
+const APK_URL = '/api/download/app'
 
 const features = [
   {
@@ -256,7 +255,7 @@ export default function Home() {
                   <Download size={20} />
                   Android APK ডাউনলোড করুন
                 </a>
-                <p className="text-gray-600 text-xs mt-3">v1.0.0 • ~25MB • Android 7.0+</p>
+                <p className="text-gray-600 text-xs mt-3">সর্বশেষ signed release • Android 7.0+</p>
 
                 {/* Security note */}
                 <div className="flex items-center gap-2 mt-4 justify-center lg:justify-start">

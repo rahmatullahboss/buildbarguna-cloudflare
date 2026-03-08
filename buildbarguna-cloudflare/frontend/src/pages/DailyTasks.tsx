@@ -90,8 +90,11 @@ export default function DailyTasks() {
   }, [])
 
   function handleOpenLink(task: TaskItem) {
-    // Open in new tab
-    window.open(`/api/tasks/${task.id}/redirect`, '_blank', 'noopener,noreferrer')
+    // Open the destination URL directly - this will work in all browsers and Capacitor
+    window.open(task.destination_url, '_blank', 'noopener,noreferrer')
+    
+    // Track the click in background - user opened the link
+    tasksApi.trackClick(task.id).catch(console.error)
     
     // Start cooldown
     if (!cooldowns[task.id] && !task.completed) {

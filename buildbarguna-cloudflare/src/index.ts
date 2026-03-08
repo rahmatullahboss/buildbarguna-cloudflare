@@ -156,7 +156,7 @@ app.get('/api/download/app', (c) => {
   if (!publicUrl) {
     return c.json({ success: false, error: 'Download not available' }, 503)
   }
-  const apkUrl = `${publicUrl}/builds/android/buildbarguna-latest-debug.apk`
+  const apkUrl = `${publicUrl}/builds/android/buildbarguna-latest-release.apk`
   return c.redirect(apkUrl, 302)
 })
 

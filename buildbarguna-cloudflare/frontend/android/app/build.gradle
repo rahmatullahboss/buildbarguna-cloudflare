@@ -1,5 +1,27 @@
 apply plugin: 'com.android.application'
 
+def getBuildProperty = { String name, String fallback = null ->
+    if (project.hasProperty(name)) {
+        return project.property(name)
+    }
+
+    def envValue = System.getenv(name)
+    if (envValue != null && !envValue.trim().isEmpty()) {
+        return envValue
+    }
+
+    return fallback
+}
+
+def versionCodeValue = (getBuildProperty('APP_VERSION_CODE', '10002') as String).toInteger()
+def versionNameValue = getBuildProperty('APP_VERSION_NAME', '1.0.2')
+def signingStoreFile = getBuildProperty('BUILD_BARGUNA_UPLOAD_STORE_FILE')
+def signingStoreType = getBuildProperty('BUILD_BARGUNA_UPLOAD_STORE_TYPE')
+def signingStorePassword = getBuildProperty('BUILD_BARGUNA_UPLOAD_STORE_PASSWORD')
+def signingKeyAlias = getBuildProperty('BUILD_BARGUNA_UPLOAD_KEY_ALIAS')
+def signingKeyPassword = getBuildProperty('BUILD_BARGUNA_UPLOAD_KEY_PASSWORD')
+def hasReleaseSigning = signingStoreFile && signingStorePassword && signingKeyAlias && signingKeyPassword
+
 android {
     namespace = "com.buildbarguna.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +29,8 @@ android {
         applicationId "com.buildbarguna.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10002
-        versionName "1.0.2"
+        versionCode versionCodeValue
+        versionName versionNameValue
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +38,26 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(signingStoreFile)
+                if (signingStoreType) {
+                    storeType signingStoreType
+                }
+                storePassword signingStorePassword
+                keyAlias signingKeyAlias
+                keyPassword signingKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

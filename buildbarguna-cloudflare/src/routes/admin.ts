@@ -314,13 +314,17 @@ adminRoutes.post('/distribute-earnings', zValidator('json', z.object({ month: z.
 const taskSchema = z.object({
   title: z.string().min(2),
   destination_url: z.string().url(),
-  platform: z.enum(['facebook', 'youtube', 'telegram', 'other']).optional()
+  platform: z.enum(['facebook', 'youtube', 'telegram', 'other']).optional(),
+  points: z.number().int().min(0).optional(),
+  cooldown_seconds: z.number().int().min(0).optional(),
+  daily_limit: z.number().int().min(1).optional(),
+  is_one_time: z.number().int().min(0).max(1).optional()
 })
 
 adminRoutes.get('/tasks', async (c) => {
   try {
     const rows = await c.env.DB.prepare(
-      'SELECT id, title, destination_url, platform, points, cooldown_seconds, daily_limit, is_active, created_at FROM daily_tasks ORDER BY created_at DESC'
+      'SELECT id, title, destination_url, platform, points, cooldown_seconds, daily_limit, is_one_time, is_active, created_at FROM daily_tasks ORDER BY created_at DESC'
     ).all()
     return ok(c, rows.results)
   } catch (error) {
@@ -332,15 +336,16 @@ adminRoutes.get('/tasks', async (c) => {
 adminRoutes.post('/tasks', zValidator('json', taskSchema), async (c) => {
   const body = c.req.valid('json')
   const result = await c.env.DB.prepare(
-    `INSERT INTO daily_tasks (title, destination_url, platform, points, cooldown_seconds, daily_limit, is_active)
-     VALUES (?, ?, ?, ?, ?, ?, 1)`
+    `INSERT INTO daily_tasks (title, destination_url, platform, points, cooldown_seconds, daily_limit, is_one_time, is_active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 1)`
   ).bind(
     body.title,
     body.destination_url,
     body.platform ?? 'other',
     body.points ?? 5,
     body.cooldown_seconds ?? 30,
-    body.daily_limit ?? 20
+    body.daily_limit ?? 20,
+    body.is_one_time ?? 0
   ).run()
   return ok(c, { message: 'টাস্ক তৈরি হয়েছে', id: result.meta.last_row_id }, 201)
 })
@@ -359,6 +364,7 @@ adminRoutes.put('/tasks/:id', zValidator('json', taskSchema.partial()), async (c
   if (body.points !== undefined) { fields.push('points = ?'); values.push(body.points) }
   if (body.cooldown_seconds !== undefined) { fields.push('cooldown_seconds = ?'); values.push(body.cooldown_seconds) }
   if (body.daily_limit !== undefined) { fields.push('daily_limit = ?'); values.push(body.daily_limit) }
+  if (body.is_one_time !== undefined) { fields.push('is_one_time = ?'); values.push(body.is_one_time) }
 
   if (fields.length === 0) return err(c, 'কোনো পরিবর্তন নেই')
 

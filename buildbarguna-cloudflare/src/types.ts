@@ -100,6 +100,7 @@ export type DailyTask = {
   points: number
   cooldown_seconds: number
   daily_limit: number
+  is_one_time: number
   task_type_id: number | null
   is_active: number
   created_at: string
