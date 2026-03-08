@@ -156,15 +156,15 @@ export default function CompanyExpenses() {
         </div>
       ) : summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
             <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
               <DollarSign size={16} /> মোট খরচ
             </div>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">{formatTaka(summary.total_expenses)}</p>
+            <p className="text-xl font-bold text-gray-900">{formatTaka(summary.total_expenses)}</p>
             <p className="text-xs text-gray-400">গত ৩০ দিনে</p>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
             <div className="flex items-center gap-2 text-green-600 text-sm mb-1">
               <CheckCircle size={16} /> বরাদ্দকৃত
             </div>
@@ -172,7 +172,7 @@ export default function CompanyExpenses() {
             <p className="text-xs text-gray-400">প্রজেক্টে</p>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
             <div className="flex items-center gap-2 text-amber-600 text-sm mb-1">
               <Clock size={16} /> অপেক্ষমান
             </div>
@@ -180,11 +180,11 @@ export default function CompanyExpenses() {
             <p className="text-xs text-gray-400">বরাদ্দ বাকি</p>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
             <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
               <PieChart size={16} /> মোট এন্ট্রি
             </div>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">{summary.expenses_count}</p>
+            <p className="text-xl font-bold text-gray-900">{summary.expenses_count}</p>
             <p className="text-xs text-gray-400">ট্রানজেকশন</p>
           </div>
         </div>
@@ -192,14 +192,14 @@ export default function CompanyExpenses() {
 
       {/* Category Breakdown */}
       {summary && summary.by_category.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-3">ক্যাটাগরি অনুযায়ী খরচ</h3>
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <h3 className="font-semibold text-gray-900 mb-3">ক্যাটাগরি অনুযায়ী খরচ</h3>
           <div className="space-y-2">
             {summary.by_category.map((cat, idx) => (
               <div key={idx} className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-300">{cat.category_name}</span>
+                <span className="text-gray-600">{cat.category_name}</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-900 dark:text-white">{formatTaka(cat.total_amount)}</span>
+                  <span className="font-medium text-gray-900">{formatTaka(cat.total_amount)}</span>
                   <span className="text-xs text-gray-400">({cat.count})</span>
                 </div>
               </div>
@@ -217,7 +217,7 @@ export default function CompanyExpenses() {
             className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition ${
               filter === f 
                 ? 'bg-rose-600 text-white' 
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
             {f === 'all' ? 'সব' : f === 'pending' ? 'বরাদ্দ বাকি' : 'বরাদ্দ হয়েছে'}
@@ -230,7 +230,7 @@ export default function CompanyExpenses() {
         {expensesLoading ? (
           [1,2,3].map(i => <div key={i} className="shimmer rounded-2xl h-20" />)
         ) : expenses.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center">
+          <div className="bg-white rounded-2xl p-8 text-center">
             <AlertCircle size={48} className="mx-auto text-gray-300 mb-3" />
             <p className="text-gray-500">কোনো খরচ পাওয়া যায়নি</p>
           </div>
@@ -238,11 +238,11 @@ export default function CompanyExpenses() {
           expenses.map(expense => (
             <div
               key={expense.id}
-              className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm flex items-center justify-between"
+              className="bg-white rounded-2xl p-4 shadow-sm flex items-center justify-between"
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-900 dark:text-white">{expense.category_name}</span>
+                  <span className="font-medium text-gray-900">{expense.category_name}</span>
                   <span className={`px-2 py-0.5 rounded-full text-xs ${
                     expense.is_allocated 
                       ? 'bg-green-100 text-green-700' 
@@ -255,7 +255,7 @@ export default function CompanyExpenses() {
                   <span className="flex items-center gap-1">
                     <Calendar size={14} /> {formatDate(expense.expense_date)}
                   </span>
-                  <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">
+                  <span className="px-2 py-0.5 bg-gray-100 rounded text-xs">
                     {allocationMethodLabels[expense.allocation_method]}
                   </span>
                 </div>
@@ -264,7 +264,7 @@ export default function CompanyExpenses() {
                 )}
               </div>
               <div className="flex items-center gap-3">
-                <p className="font-bold text-lg text-gray-900 dark:text-white">{formatTaka(expense.amount)}</p>
+                <p className="font-bold text-lg text-gray-900">{formatTaka(expense.amount)}</p>
                 <div className="flex gap-1">
                   {!expense.is_allocated && expense.allocation_method !== 'company_only' && (
                     <button
@@ -277,7 +277,7 @@ export default function CompanyExpenses() {
                   )}
                   <button
                     onClick={() => setSelectedExpense(expense)}
-                    className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                    className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition"
                     title="বিস্তারিত"
                   >
                     <Eye size={16} />
@@ -304,32 +304,32 @@ export default function CompanyExpenses() {
       {/* Add Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">নতুন কোম্পানি খরচ</h2>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">নতুন কোম্পানি খরচ</h2>
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   পরিমাণ (টাকা)
                 </label>
                 <input
                   type="number"
                   value={amount}
                   onChange={e => setAmount(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900"
                   placeholder="0"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   ক্যাটাগরি
                 </label>
                 <select
                   value={categoryId}
                   onChange={e => handleCategoryChange(Number(e.target.value))}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900"
                 >
                   <option value="">নতুন ক্যাটাগরি</option>
                   {categories.map(cat => (
@@ -341,7 +341,7 @@ export default function CompanyExpenses() {
                     type="text"
                     value={categoryName}
                     onChange={e => setCategoryName(e.target.value)}
-                    className="w-full mt-2 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white"
+                    className="w-full mt-2 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900"
                     placeholder="ক্যাটাগরি নাম"
                     required={!categoryId}
                   />
@@ -349,26 +349,26 @@ export default function CompanyExpenses() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   তারিখ
                 </label>
                 <input
                   type="date"
                   value={expenseDate}
                   onChange={e => setExpenseDate(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   বরাদ্দ পদ্ধতি
                 </label>
                 <select
                   value={allocationMethod}
                   onChange={e => setAllocationMethod(e.target.value as any)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900"
                 >
                   <option value="by_project_value">প্রজেক্ট মূল্য অনুযায়ী (প্রস্তাবিত)</option>
                   <option value="by_revenue">আয় অনুযায়ী</option>

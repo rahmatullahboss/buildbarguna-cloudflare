@@ -267,6 +267,7 @@ export const adminApi = {
     request('/admin/tasks', { method: 'POST', body: JSON.stringify(body) }),
   updateTask: (id: number, body: Partial<{ title: string; destination_url: string; platform: string; points: number; cooldown_seconds: number; daily_limit: number; is_one_time: number }>) =>
     request(`/admin/tasks/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteTask: (id: number) => request(`/admin/tasks/${id}`, { method: 'DELETE' }),
   toggleTask: (id: number) => request(`/admin/tasks/${id}/toggle`, { method: 'PATCH' }),
   
   taskTypes: () => request<TaskTypeItem[]>('/admin/task-types'),

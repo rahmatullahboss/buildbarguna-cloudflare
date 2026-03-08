@@ -373,6 +373,20 @@ adminRoutes.put('/tasks/:id', zValidator('json', taskSchema.partial()), async (c
   return ok(c, { message: 'টাস্ক আপডেট হয়েছে' })
 })
 
+// DELETE /api/admin/tasks/:id - Delete a task
+adminRoutes.delete('/tasks/:id', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+  
+  // Check if task exists
+  const task = await c.env.DB.prepare('SELECT title FROM daily_tasks WHERE id = ?').bind(id).first<{ title: string }>()
+  if (!task) return err(c, 'টাস্ক পাওয়া যায়নি', 404)
+  
+  // Delete the task (will cascade delete task_completions if foreign key is set)
+  await c.env.DB.prepare('DELETE FROM daily_tasks WHERE id = ?').bind(id).run()
+  return ok(c, { message: 'টাস্ক মুছে ফেলা হয়েছে' })
+})
+
 adminRoutes.patch('/tasks/:id/toggle', async (c) => {
   const id = parseInt(c.req.param('id'))
   if (isNaN(id)) return err(c, 'অকার্যকর আইডি')

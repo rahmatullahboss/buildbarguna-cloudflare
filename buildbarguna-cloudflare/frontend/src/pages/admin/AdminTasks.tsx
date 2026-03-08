@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '../../lib/api'
-import { ToggleLeft, ToggleRight, Plus, Coins, Clock, List, Edit2, X } from 'lucide-react'
+import { ToggleLeft, ToggleRight, Plus, Coins, Clock, List, Edit2, X, Trash2 } from 'lucide-react'
 
 const platformOptions = [
   { value: 'facebook', label: 'Facebook' },
@@ -110,6 +110,19 @@ export default function AdminTasks() {
     mutationFn: (id: number) => adminApi.toggleTask(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-tasks'] }),
     onError: () => setError('টাস্ক টগল করতে সমস্যা হচ্ছে')
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => adminApi.deleteTask(id),
+    onSuccess: (res) => {
+      if (res.success) {
+        setMsg('টাস্ক মুছে ফেলা হয়েছে')
+        qc.invalidateQueries({ queryKey: ['admin-tasks'] })
+      }
+    },
+    onError: (error: any) => {
+      setError(error?.message || 'টাস্ক মুছতে সমস্যা হচ্ছে')
+    }
   })
 
   const tasks = data?.success ? data.data : []
@@ -347,6 +360,17 @@ export default function AdminTasks() {
                   title="সম্পাদনা"
                 >
                   <Edit2 size={18} />
+                </button>
+                <button 
+                  onClick={() => {
+                    if (confirm(`"${t.title}" টাস্কটি মুছে ফেলতে চান?`)) {
+                      deleteMutation.mutate(t.id)
+                    }
+                  }} 
+                  className="shrink-0 text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                  title="মুছে ফেলুন"
+                >
+                  <Trash2 size={18} />
                 </button>
                 <button onClick={() => toggleMutation.mutate(t.id)} className="shrink-0 text-gray-400 hover:text-primary-600 transition-colors">
                   {t.is_active ? <ToggleRight size={32} className="text-green-500" /> : <ToggleLeft size={32} />}

@@ -318,7 +318,7 @@ companyExpenseRoutes.get('/admin/summary', async (c) => {
        COUNT(*) as expenses_count
      FROM company_expenses 
      WHERE 1=1 ${dateFilter}`
-  ).bind().first<{
+  ).first<{
     total_expenses: number
     total_allocated: number
     pending_allocation: number
