@@ -1,16 +1,18 @@
 /**
- * PDF Certificate Generator — Cloudflare Workers compatible
+ * PDF Certificate Generator — World Class Design
+ * Build Barguna Initiative (BBI) Membership Certificate
  *
  * Uses pdf-lib + @pdf-lib/fontkit for full Unicode (Bangla) support.
- * Matches the BBI Member Registration Form design exactly.
- *
- * Font strategy:
- *  - Latin text: Helvetica (built-in, no embedding needed)
- *  - Bangla text: Noto Sans Bengali TTF fetched from static assets
- *  - Logo: JPEG fetched from static assets or passed as buffer
+ * 
+ * Design Features:
+ * - Professional certificate border with decorative corners
+ * - BBI Logo at top center
+ * - Off-white/cream background (#FFFEF5)
+ * - Elegant typography with Helvetica + Noto Sans Bengali
+ * - Both English and Bangla font support
  */
 
-import { PDFDocument, PDFFont, rgb, StandardFonts, degrees } from 'pdf-lib'
+import { PDFDocument, PDFFont, rgb, StandardFonts, degrees, rgbColor } from 'pdf-lib'
 import fontkit from '@pdf-lib/fontkit'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -31,6 +33,8 @@ export interface MemberRegistration {
   email?: string
   skills_interests?: string
   created_at: string
+  verified_at?: string
+  verified_by_name?: string
 }
 
 export interface ShareCertificate {
@@ -57,13 +61,33 @@ async function fetchAsset(origin: string, path: string): Promise<ArrayBuffer | n
   }
 }
 
-// ─── Point helpers ─────────────────────────────────────────────────────────────
+// ─── Color Palette ────────────────────────────────────────────────────────────
 
-// pdf-lib uses bottom-left origin. Page height = 841.89 (A4).
-// We work top-down and convert at draw time.
-const PAGE_H = 841.89
-const PAGE_W = 595.28
-const MARGIN = 45
+const COLORS = {
+  // Primary colors
+  cream: rgb(255/255, 254/255, 245/255),        // #FFFEF5 - Certificate background
+  white: rgb(255/255, 255/255, 255/255),
+  
+  // Accent colors  
+  gold: rgb(184/255, 134/255, 11/255),         // #B8860B - Gold accent
+  darkGold: rgb(139/255, 90/255, 43/255),       // #8B5A2B - Dark gold
+  
+  // Text colors
+  black: rgb(20/255, 20/255, 20/255),         // Near black
+  darkGray: rgb(51/255, 51/255, 51/255),       // #333333
+  gray: rgb(100/255, 100/255, 100/255),          // #646464
+  lightGray: rgb(180/255, 180/255, 180/255),    // #B4B4B4
+  
+  // Brand colors
+  navy: rgb(0/255, 51/255, 102/255),           // #003366 - Deep navy
+  forest: rgb(34/255, 139/255, 34/255),         // #228B22 - Forest green
+}
+
+// ─── PDF Constants ────────────────────────────────────────────────────────────
+
+const PAGE_H = 842  // A4 Portrait
+const PAGE_W = 595
+const MARGIN = 40
 
 function ty(y: number): number {
   return PAGE_H - y
@@ -79,10 +103,11 @@ export async function generateMemberCertificate(
   const pdfDoc = await PDFDocument.create()
   pdfDoc.registerFontkit(fontkit)
 
-  // ── Fonts ──────────────────────────────────────────────────────────────────
+  // ── Fonts ───────────────────────────────────────────────────────────────
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-
+  const helveticaItalic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
+  
   // Try to load Noto Sans Bengali for Bangla text
   let banglaFont: PDFFont | null = null
   const origin = requestOrigin ?? 'https://buildbarguna-worker.rahmatullahzisan01.workers.dev'
@@ -95,7 +120,7 @@ export async function generateMemberCertificate(
     }
   }
 
-  // ── Logo ───────────────────────────────────────────────────────────────────
+  // ── Logo ───────────────────────────────────────────────────────────────
   let logoImage = null
   const logoBuf = logoBuffer ?? await fetchAsset(origin, '/bbi%20logo.jpg')
   if (logoBuf) {
@@ -104,268 +129,457 @@ export async function generateMemberCertificate(
     } catch { /* ignore */ }
   }
 
-  // ── Page ───────────────────────────────────────────────────────────────────
+  // ── Page ────────────────────────────────────────────────────────────────
   const page = pdfDoc.addPage([PAGE_W, PAGE_H])
+  
+  // Fill background with cream color
+  page.drawRectangle({
+    x: 0,
+    y: 0,
+    width: PAGE_W,
+    height: PAGE_H,
+    color: COLORS.cream,
+  })
 
-  const black = rgb(0, 0, 0)
-  const gray = rgb(0.5, 0.5, 0.5)
-  const lightGray = rgb(0.8, 0.8, 0.8)
+  // ── Decorative Border ──────────────────────────────────────────────────
+  drawDecorativeBorder(page)
 
-  // ── Logo placement ─────────────────────────────────────────────────────────
-  let y = MARGIN
+  // ── Header Section ───────────────────────────────────────────────────────
+  let y = MARGIN + 20
 
+  // Logo (centered)
   if (logoImage) {
-    // Top-left logo: 55x55 pt
+    const logoSize = 70
     page.drawImage(logoImage, {
-      x: MARGIN,
-      y: ty(y + 55),
-      width: 55,
-      height: 55,
+      x: (PAGE_W - logoSize) / 2,
+      y: ty(y + logoSize),
+      width: logoSize,
+      height: logoSize,
     })
-
-    // Center watermark — faded
-    page.drawImage(logoImage, {
-      x: (PAGE_W - 200) / 2,
-      y: ty((PAGE_H + 200) / 2),
-      width: 200,
-      height: 200,
-      opacity: 0.07,
-    })
+    y += logoSize + 15
   }
 
-  // ── Org header ─────────────────────────────────────────────────────────────
-  const headerX = MARGIN + 65  // right of logo
+  // Organization Name
+  const orgName = 'Build Barguna Initiative (BBI)'
+  const orgSize = 24
+  const orgW = helveticaBold.widthOfTextAtSize(orgName, orgSize)
+  page.drawText(orgName, {
+    x: (PAGE_W - orgW) / 2,
+    y: ty(y + orgSize),
+    font: helveticaBold,
+    size: orgSize,
+    color: COLORS.navy,
+  })
+  y += orgSize + 5
 
-  function centeredText(text: string, ty_y: number, font: PDFFont, size: number) {
-    const w = font.widthOfTextAtSize(text, size)
-    const x = headerX + (PAGE_W - headerX - MARGIN - w) / 2
-    page.drawText(text, { x, y: ty(ty_y + size * 0.8), font, size, color: black })
-  }
+  // Tagline
+  const tagline = 'Barguna Sadar, Barguna, Bangladesh'
+  const taglineSize = 11
+  const taglineW = helvetica.widthOfTextAtSize(tagline, taglineSize)
+  page.drawText(tagline, {
+    x: (PAGE_W - taglineW) / 2,
+    y: ty(y + taglineSize),
+    font: helvetica,
+    size: taglineSize,
+    color: COLORS.gray,
+  })
+  y += taglineSize + 3
 
-  centeredText('Build Barguna Initiative (BBI)', y + 4, helveticaBold, 15)
-  centeredText('Barguna Sadar, Barguna', y + 22, helvetica, 10)
-  centeredText('Email:bbi.official2025@gmail.com', y + 34, helvetica, 10)
-  centeredText('Mobile:01971951960', y + 46, helvetica, 10)
+  // Contact info
+  const contact = 'Email: bbi.official2025@gmail.com | Mobile: 01971951960'
+  const contactSize = 9
+  const contactW = helvetica.widthOfTextAtSize(contact, contactSize)
+  page.drawText(contact, {
+    x: (PAGE_W - contactW) / 2,
+    y: ty(y + contactSize),
+    font: helvetica,
+    size: contactSize,
+    color: COLORS.lightGray,
+  })
+  y += contactSize + 20
 
-  y = MARGIN + 62
+  // ── Certificate Title ────────────────────────────────────────────────────
+  const certTitle = 'MEMBERSHIP CERTIFICATE'
+  const certTitleSize = 22
+  const certTitleW = helveticaBold.widthOfTextAtSize(certTitle, certTitleSize)
+  page.drawText(certTitle, {
+    x: (PAGE_W - certTitleW) / 2,
+    y: ty(y + certTitleSize),
+    font: helveticaBold,
+    size: certTitleSize,
+    color: COLORS.darkGold,
+  })
+  y += certTitleSize + 8
 
-  // Thick horizontal rule
-  page.drawLine({ start: { x: MARGIN, y: ty(y) }, end: { x: PAGE_W - MARGIN, y: ty(y) }, thickness: 1, color: black })
-  y += 10
+  // Certificate number
+  const certNo = `Certificate No: ${reg.form_number}`
+  const certNoSize = 10
+  const certNoW = helvetica.widthOfTextAtSize(certNo, certNoSize)
+  page.drawText(certNo, {
+    x: (PAGE_W - certNoW) / 2,
+    y: ty(y + certNoSize),
+    font: helvetica,
+    size: certNoSize,
+    color: COLORS.gray,
+  })
+  y += certNoSize + 20
 
-  // Title
-  const titleText = 'Member  Registration Form'
-  const titleSize = 14
-  const titleW = helveticaBold.widthOfTextAtSize(titleText, titleSize)
-  const titleX = (PAGE_W - titleW) / 2
-  page.drawText(titleText, { x: titleX, y: ty(y + titleSize), font: helveticaBold, size: titleSize, color: black })
-
-  // Underline the title
+  // ── Divider Line ─────────────────────────────────────────────────────────
   page.drawLine({
-    start: { x: titleX, y: ty(y + titleSize + 3) },
-    end: { x: titleX + titleW, y: ty(y + titleSize + 3) },
-    thickness: 0.8,
-    color: black,
+    start: { x: MARGIN + 50, y: ty(y) },
+    end: { x: PAGE_W - MARGIN - 50, y: ty(y) },
+    thickness: 1,
+    color: COLORS.gold,
   })
+  y += 15
 
-  y += titleSize + 8
-  page.drawLine({ start: { x: MARGIN, y: ty(y) }, end: { x: PAGE_W - MARGIN, y: ty(y) }, thickness: 0.4, color: gray })
-  y += 10
+  // ── Certificate Body ────────────────────────────────────────────────────
+  const introText = 'This is to certify that'
+  const introSize = 12
+  const introW = helvetica.widthOfTextAtSize(introText, introSize)
+  page.drawText(introText, {
+    x: (PAGE_W - introW) / 2,
+    y: ty(y + introSize),
+    font: helvetica,
+    size: introSize,
+    color: COLORS.darkGray,
+  })
+  y += introSize + 15
 
-  // ── Field layout helpers ───────────────────────────────────────────────────
-  const labelSize = 10
-  const valueSize = 9.5
-  const rowH = 20
-  const underlineRight = PAGE_W - MARGIN
+  // Member Name (English)
+  const memberName = reg.name_english
+  const nameSize = 26
+  const nameW = helveticaBold.widthOfTextAtSize(memberName, nameSize)
+  page.drawText(memberName, {
+    x: (PAGE_W - nameW) / 2,
+    y: ty(y + nameSize),
+    font: helveticaBold,
+    size: nameSize,
+    color: COLORS.black,
+  })
+  y += nameSize + 8
 
-  // Detect if a string contains Bangla characters
-  function hasBangla(s: string): boolean {
-    return /[\u0980-\u09FF]/.test(s)
-  }
-
-  // Choose font for a string
-  function fontFor(s: string, bold = false): PDFFont {
-    if (banglaFont && hasBangla(s)) return banglaFont
-    return bold ? helveticaBold : helvetica
-  }
-
-  /**
-   * Draw a label + value on the same row, with an underline.
-   * @param label   Bold label text
-   * @param value   Value text (Bangla-aware)
-   * @param labelX  X position of label
-   * @param valueX  X position where value starts / underline starts
-   * @param endX    X position where underline ends
-   */
-  function drawField(label: string, value: string | undefined | null, labelX: number, valueX: number, endX: number) {
-    // Label
-    page.drawText(`${label}:`, {
-      x: labelX,
-      y: ty(y + labelSize),
-      font: helveticaBold,
-      size: labelSize,
-      color: black,
+  // Member Name (Bangla) - if available
+  if (reg.name_bangla && banglaFont) {
+    const banglaSize = 18
+    const banglaW = banglaFont.widthOfTextAtSize(reg.name_bangla, banglaSize)
+    page.drawText(reg.name_bangla, {
+      x: (PAGE_W - banglaW) / 2,
+      y: ty(y + banglaSize),
+      font: banglaFont,
+      size: banglaSize,
+      color: COLORS.navy,
     })
+    y += banglaSize + 15
+  } else {
+    y += 15
+  }
 
-    // Value (if present)
-    if (value) {
-      const vFont = fontFor(value)
-      // Clip value width to available space
-      const maxW = endX - valueX - 4
-      let displayValue = value
-      while (displayValue.length > 0 && vFont.widthOfTextAtSize(displayValue, valueSize) > maxW) {
-        displayValue = displayValue.slice(0, -1)
-      }
-      page.drawText(displayValue, {
-        x: valueX,
-        y: ty(y + valueSize),
-        font: vFont,
-        size: valueSize,
-        color: black,
-      })
-    }
+  // Has become a member text
+  const memberText = 'has been accepted as a Member of'
+  const memberTextSize = 12
+  const memberTextW = helvetica.widthOfTextAtSize(memberText, memberTextSize)
+  page.drawText(memberText, {
+    x: (PAGE_W - memberTextW) / 2,
+    y: ty(y + memberTextSize),
+    font: helvetica,
+    size: memberTextSize,
+    color: COLORS.darkGray,
+  })
+  y += memberTextSize + 10
 
-    // Underline (dashed line below the field)
-    page.drawLine({
-      start: { x: valueX, y: ty(y + rowH - 4) },
-      end: { x: endX, y: ty(y + rowH - 4) },
-      thickness: 0.4,
-      color: lightGray,
-      dashArray: [2, 2],
+  // Organization again
+  const orgAgain = 'Build Barguna Initiative (BBI)'
+  const orgAgainSize = 16
+  const orgAgainW = helveticaBold.widthOfTextAtSize(orgAgain, orgAgainSize)
+  page.drawText(orgAgain, {
+    x: (PAGE_W - orgAgainW) / 2,
+    y: ty(y + orgAgainSize),
+    font: helveticaBold,
+    size: orgAgainSize,
+    color: COLORS.navy,
+  })
+  y += orgAgainSize + 25
+
+  // ── Member Details Section ────────────────────────────────────────────────
+  drawMemberDetails(page, reg, banglaFont, helvetica, helveticaBold, y)
+
+  y = PAGE_H - 200
+
+  // ── Footer Section ────────────────────────────────────────────────────────
+  // Divider
+  page.drawLine({
+    start: { x: MARGIN + 50, y: ty(y) },
+    end: { x: PAGE_W - MARGIN - 50, y: ty(y) },
+    thickness: 0.5,
+    color: COLORS.lightGray,
+  })
+  y += 15
+
+  // Verification status
+  if (reg.verified_at) {
+    const verifiedText = `Verified on: ${new Date(reg.verified_at).toLocaleDateString('en-GB')}`
+    const verifiedSize = 9
+    const verifiedW = helvetica.widthOfTextAtSize(verifiedText, verifiedSize)
+    page.drawText(verifiedText, {
+      x: (PAGE_W - verifiedW) / 2,
+      y: ty(y + verifiedSize),
+      font: helvetica,
+      size: verifiedSize,
+      color: COLORS.forest,
     })
+    y += verifiedSize + 10
   }
 
-  // ── Form fields ─────────────────────────────────────────────────────────────
-
-  // Form No + Date row (no underline, just text)
-  const dateStr = new Date(reg.created_at).toLocaleDateString('en-GB')
-  page.drawText(`Form NO: [ ${reg.form_number} ]`, {
-    x: MARGIN, y: ty(y + labelSize), font: helveticaBold, size: labelSize, color: black,
+  // Certificate date
+  const issueDate = `Issued on: ${new Date(reg.created_at).toLocaleDateString('en-GB')}`
+  const dateSize = 9
+  const dateW = helvetica.widthOfTextAtSize(issueDate, dateSize)
+  page.drawText(issueDate, {
+    x: (PAGE_W - dateW) / 2,
+    y: ty(y + dateSize),
+    font: helvetica,
+    size: dateSize,
+    color: COLORS.gray,
   })
-  const dateLabelW = helveticaBold.widthOfTextAtSize('Date:', labelSize)
-  const dateValW = helvetica.widthOfTextAtSize(dateStr, labelSize)
-  page.drawText('Date:', {
-    x: underlineRight - dateLabelW - dateValW - 4,
-    y: ty(y + labelSize), font: helveticaBold, size: labelSize, color: black,
+  y += dateSize + 25
+
+  // ── Signature Section ────────────────────────────────────────────────────
+  const sigY = y
+  
+  // Member signature area
+  page.drawLine({
+    start: { x: MARGIN + 30, y: ty(sigY) },
+    end: { x: MARGIN + 150, y: ty(sigY) },
+    thickness: 0.5,
+    color: COLORS.lightGray,
   })
-  page.drawText(dateStr, {
-    x: underlineRight - dateValW,
-    y: ty(y + labelSize), font: helvetica, size: labelSize, color: black,
+  page.drawText('Member Signature', {
+    x: MARGIN + 30,
+    y: ty(sigY + 5),
+    font: helvetica,
+    size: 8,
+    color: COLORS.gray,
   })
-  y += rowH
 
-  drawField("Name (English)", reg.name_english, MARGIN, MARGIN + 110, underlineRight)
-  y += rowH
-
-  drawField("Name (Bangla)", reg.name_bangla, MARGIN, MARGIN + 105, underlineRight)
-  y += rowH
-
-  drawField("Father's Name", reg.father_name, MARGIN, MARGIN + 102, underlineRight)
-  y += rowH
-
-  drawField("Mother's Name", reg.mother_name, MARGIN, MARGIN + 102, underlineRight)
-  y += rowH
-
-  // Date of Birth + Blood Group on same row
-  const midX = MARGIN + 290
-  drawField("Date of Birth", reg.date_of_birth, MARGIN, MARGIN + 88, midX - 6)
-  drawField("Blood Group", reg.blood_group, midX, midX + 85, underlineRight)
-  y += rowH
-
-  // Skills & Interests (multiline)
-  page.drawText('Skills & Interests:', {
-    x: MARGIN, y: ty(y + labelSize), font: helveticaBold, size: labelSize, color: black,
+  // Authorized signature area
+  page.drawLine({
+    start: { x: PAGE_W - MARGIN - 150, y: ty(sigY) },
+    end: { x: PAGE_W - MARGIN - 30, y: ty(sigY) },
+    thickness: 0.5,
+    color: COLORS.lightGray,
   })
-  y += 16
-
-  const skills = reg.skills_interests || ''
-  const skillFont = fontFor(skills)
-  const maxLineW = underlineRight - MARGIN - 4
-  const skillWords = skills.split(' ')
-  let skillLine = ''
-  const skillLines: string[] = []
-  for (const w of skillWords) {
-    const test = skillLine ? `${skillLine} ${w}` : w
-    if (skillFont.widthOfTextAtSize(test, valueSize) > maxLineW) {
-      if (skillLine) skillLines.push(skillLine)
-      skillLine = w
-    } else {
-      skillLine = test
-    }
-  }
-  if (skillLine) skillLines.push(skillLine)
-  if (skillLines.length === 0) skillLines.push('')
-
-  for (let i = 0; i < Math.max(skillLines.length, 1); i++) {
-    const sl = skillLines[i] || ''
-    if (sl) {
-      page.drawText(sl, { x: MARGIN, y: ty(y + valueSize), font: skillFont, size: valueSize, color: black })
-    }
-    page.drawLine({ start: { x: MARGIN, y: ty(y + 15) }, end: { x: underlineRight, y: ty(y + 15) }, thickness: 0.4, color: lightGray, dashArray: [2, 2] })
-    y += 16
-  }
-
-  y += 4
-  page.drawLine({ start: { x: MARGIN, y: ty(y) }, end: { x: PAGE_W - MARGIN, y: ty(y) }, thickness: 0.4, color: gray })
-  y += 8
-
-  drawField("Present Address", reg.present_address, MARGIN, MARGIN + 112, underlineRight)
-  y += rowH
-
-  drawField("Permanent Address", reg.permanent_address, MARGIN, MARGIN + 120, underlineRight)
-  y += rowH
-
-  drawField("Facebook ID Name", reg.facebook_id, MARGIN, MARGIN + 118, underlineRight)
-  y += rowH
-
-  // Mobile + Emergency on same row
-  const mid2X = MARGIN + 315
-  drawField("Mobile No (WhatsApp)", reg.mobile_whatsapp, MARGIN, MARGIN + 138, mid2X - 6)
-  drawField("(Guardian/Emergency)", reg.emergency_contact, mid2X, mid2X + 142, underlineRight)
-  y += rowH
-
-  drawField("E-mail", reg.email, MARGIN, MARGIN + 52, underlineRight)
-  y += rowH + 6
-
-  // ── Declaration ────────────────────────────────────────────────────────────
-  // "Undertaking & Declaration:" bold + rest normal
-  const uLabel = 'Undertaking & Declaration: '
-  const uLabelW = helveticaBold.widthOfTextAtSize(uLabel, 10)
-  page.drawText(uLabel, { x: MARGIN, y: ty(y + 10), font: helveticaBold, size: 10, color: black })
-  page.drawText('I certify that the information provided is correct. As a member of', {
-    x: MARGIN + uLabelW, y: ty(y + 10), font: helvetica, size: 10, color: black,
+  page.drawText('Authorized Signature', {
+    x: PAGE_W - MARGIN - 130,
+    y: ty(sigY + 5),
+    font: helvetica,
+    size: 8,
+    color: COLORS.gray,
   })
-  y += 13
-  page.drawText('Build Barguna Initiative (BBI)', { x: MARGIN, y: ty(y + 10), font: helveticaBold, size: 10, color: black })
-  const bbiW = helveticaBold.widthOfTextAtSize('Build Barguna Initiative (BBI)', 10)
-  page.drawText(', I pledge to:', { x: MARGIN + bbiW, y: ty(y + 10), font: helvetica, size: 10, color: black })
-  y += 13
 
-  const pledges = [
-    "Follow the organization's rules, regulations, and decisions.",
-    'Maintain the highest ethical standards and discipline.',
-    'Grant permission to BBI to use my photographs/videos for promotional purposes.',
-    'Accept that the Governing Body has the full authority to terminate my membership for misconduct.',
-  ]
-  for (const p of pledges) {
-    page.drawText(`\u2022  ${p}`, { x: MARGIN + 10, y: ty(y + 9.5), font: helvetica, size: 9.5, color: black })
-    y += 13
-  }
+  // Seal placeholder
+  const sealX = PAGE_W / 2 - 25
+  page.drawCircle({
+    x: sealX,
+    y: ty(sigY + 15),
+    size: 20,
+    borderWidth: 1,
+    borderColor: COLORS.darkGold,
+    color: undefined,
+  })
+  page.drawText('OFFICIAL', {
+    x: sealX - 18,
+    y: ty(sigY + 17),
+    font: helveticaBold,
+    size: 6,
+    color: COLORS.darkGold,
+  })
 
-  // ── Signature lines ────────────────────────────────────────────────────────
-  const sigY = Math.max(y + 18, PAGE_H - 80)
-  const sigLineLen = 155
-
-  page.drawLine({ start: { x: MARGIN, y: ty(sigY) }, end: { x: MARGIN + sigLineLen, y: ty(sigY) }, thickness: 0.7, color: black })
-  page.drawLine({ start: { x: PAGE_W - MARGIN - sigLineLen, y: ty(sigY) }, end: { x: PAGE_W - MARGIN, y: ty(sigY) }, thickness: 0.7, color: black })
-
-  page.drawText("Authority's  Signature", { x: MARGIN, y: ty(sigY + 13), font: helvetica, size: 10, color: black })
-  page.drawText("Applicant's Signature", { x: PAGE_W - MARGIN - sigLineLen, y: ty(sigY + 13), font: helvetica, size: 10, color: black })
+  // ── Bottom Border ────────────────────────────────────────────────────────
+  page.drawLine({
+    start: { x: MARGIN, y: ty(PAGE_H - 20) },
+    end: { x: PAGE_W - MARGIN, y: ty(PAGE_H - 20) },
+    thickness: 2,
+    color: COLORS.gold,
+  })
 
   return await pdfDoc.save()
 }
 
-// ─── Share Certificate ─────────────────────────────────────────────────────────
+// ─── Helper Functions ──────────────────────────────────────────────────────
+
+function drawDecorativeBorder(page: any) {
+  const borderMargin = 15
+  const innerMargin = 20
+  
+  // Outer border (gold)
+  page.drawRectangle({
+    x: borderMargin,
+    y: borderMargin,
+    width: PAGE_W - borderMargin * 2,
+    height: PAGE_H - borderMargin * 2,
+    borderColor: COLORS.gold,
+    borderWidth: 2,
+  })
+  
+  // Inner border (thin gold)
+  page.drawRectangle({
+    x: innerMargin,
+    y: innerMargin,
+    width: PAGE_W - innerMargin * 2,
+    height: PAGE_H - innerMargin * 2,
+    borderColor: COLORS.gold,
+    borderWidth: 0.5,
+  })
+
+  // Corner decorations
+  const cornerSize = 20
+  
+  // Top-left corner
+  page.drawLine({
+    start: { x: borderMargin + 5, y: ty(borderMargin + 5) },
+    end: { x: borderMargin + 5 + cornerSize, y: ty(borderMargin + 5) },
+    thickness: 2,
+    color: COLORS.gold,
+  })
+  page.drawLine({
+    start: { x: borderMargin + 5, y: ty(borderMargin + 5) },
+    end: { x: borderMargin + 5, y: ty(borderMargin + 5 + cornerSize) },
+    thickness: 2,
+    color: COLORS.gold,
+  })
+
+  // Top-right corner
+  page.drawLine({
+    start: { x: PAGE_W - borderMargin - 5, y: ty(borderMargin + 5) },
+    end: { x: PAGE_W - borderMargin - 5 - cornerSize, y: ty(borderMargin + 5) },
+    thickness: 2,
+    color: COLORS.gold,
+  })
+  page.drawLine({
+    start: { x: PAGE_W - borderMargin - 5, y: ty(borderMargin + 5) },
+    end: { x: PAGE_W - borderMargin - 5, y: ty(borderMargin + 5 + cornerSize) },
+    thickness: 2,
+    color: COLORS.gold,
+  })
+
+  // Bottom-left corner
+  page.drawLine({
+    start: { x: borderMargin + 5, y: ty(PAGE_H - borderMargin - 5) },
+    end: { x: borderMargin + 5 + cornerSize, y: ty(PAGE_H - borderMargin - 5) },
+    thickness: 2,
+    color: COLORS.gold,
+  })
+  page.drawLine({
+    start: { x: borderMargin + 5, y: ty(PAGE_H - borderMargin - 5) },
+    end: { x: borderMargin + 5, y: ty(PAGE_H - borderMargin - 5 - cornerSize) },
+    thickness: 2,
+    color: COLORS.gold,
+  })
+
+  // Bottom-right corner
+  page.drawLine({
+    start: { x: PAGE_W - borderMargin - 5, y: ty(PAGE_H - borderMargin - 5) },
+    end: { x: PAGE_W - borderMargin - 5 - cornerSize, y: ty(PAGE_H - borderMargin - 5) },
+    thickness: 2,
+    color: COLORS.gold,
+  })
+  page.drawLine({
+    start: { x: PAGE_W - borderMargin - 5, y: ty(PAGE_H - borderMargin - 5) },
+    end: { x: PAGE_W - borderMargin - 5, y: ty(PAGE_H - borderMargin - 5 - cornerSize) },
+    thickness: 2,
+    color: COLORS.gold,
+  })
+}
+
+function drawMemberDetails(
+  page: any, 
+  reg: MemberRegistration, 
+  banglaFont: PDFFont | null,
+  helvetica: PDFFont,
+  helveticaBold: PDFFont,
+  startY: number
+) {
+  let y = startY
+  const labelCol = MARGIN + 30
+  const valueCol = MARGIN + 130
+  
+  // Helper to detect Bangla
+  function hasBangla(s: string): boolean {
+    return /[\u0980-\u09FF]/.test(s)
+  }
+  
+  // Helper to draw a field
+  function drawField(label: string, value: string | undefined | null, forceBangla = false) {
+    if (!value) return
+    
+    // Check if value contains Bangla or forceBangla is set
+    const useBangla = forceBangla || (banglaFont && hasBangla(value))
+    const font = useBangla ? banglaFont! : helvetica
+    const size = useBangla ? 11 : 10
+    
+    page.drawText(label, {
+      x: labelCol,
+      y: ty(y + size),
+      font: helveticaBold,
+      size: size,
+      color: COLORS.navy,
+    })
+    
+    const valSize = useBangla ? 11 : 10
+    page.drawText(value, {
+      x: valueCol,
+      y: ty(y + valSize),
+      font: font,
+      size: valSize,
+      color: COLORS.black,
+    })
+    
+    // Underline
+    page.drawLine({
+      start: { x: valueCol, y: ty(y + valSize + 3) },
+      end: { x: valueCol + Math.max(200, font.widthOfTextAtSize(value, valSize)), y: ty(y + valSize + 3) },
+      thickness: 0.3,
+      color: COLORS.lightGray,
+    })
+    
+    y += 18
+  }
+
+  // Parents - these may contain Bangla
+  drawField("Father's Name:", reg.father_name)
+  drawField("Mother's Name:", reg.mother_name)
+  
+  // Personal
+  drawField("Date of Birth:", reg.date_of_birth)
+  drawField("Blood Group:", reg.blood_group)
+  
+  // Address - auto-detect Bangla
+  y += 5
+  drawField("Present Address:", reg.present_address)
+  drawField("Permanent Address:", reg.permanent_address)
+  
+  // Contact
+  y += 5
+  drawField("Mobile/WhatsApp:", reg.mobile_whatsapp)
+  if (reg.emergency_contact) {
+    drawField("Emergency Contact:", reg.emergency_contact)
+  }
+  if (reg.email) {
+    drawField("Email:", reg.email)
+  }
+  if (reg.facebook_id) {
+    drawField("Facebook ID:", reg.facebook_id)
+  }
+  
+  // Skills - auto-detect Bangla
+  if (reg.skills_interests) {
+    y += 5
+    drawField("Skills & Interests:", reg.skills_interests)
+  }
+}
+
+// ─── Share Certificate (Legacy support) ───────────────────────────────────
 
 export async function generateShareCertificate(
   cert: ShareCertificate,
@@ -378,112 +592,91 @@ export async function generateShareCertificate(
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
-  let banglaFont: PDFFont | null = null
-  const origin = requestOrigin ?? 'https://buildbarguna-worker.rahmatullahzisan01.workers.dev'
-  const fontBytes = await fetchAsset(origin, '/fonts/NotoSansBengali.ttf')
-  if (fontBytes) {
-    try {
-      banglaFont = await pdfDoc.embedFont(fontBytes, { subset: true })
-    } catch (e) {
-      console.warn('Failed to embed Bangla font:', e)
-    }
-  }
-
   let logoImage = null
+  const origin = requestOrigin ?? 'https://buildbarguna-worker.rahmatullahzisan01.workers.dev'
   const logoBuf = logoBuffer ?? await fetchAsset(origin, '/bbi%20logo.jpg')
   if (logoBuf) {
-    try { logoImage = await pdfDoc.embedJpg(logoBuf) } catch { /* ignore */ }
+    try {
+      logoImage = await pdfDoc.embedJpg(logoBuf)
+    } catch { /* ignore */ }
   }
 
   const page = pdfDoc.addPage([PAGE_W, PAGE_H])
-  const black = rgb(0, 0, 0)
-  const gray = rgb(0.5, 0.5, 0.5)
-  const darkBlue = rgb(0.12, 0.22, 0.45)
+  
+  // Background
+  page.drawRectangle({
+    x: 0,
+    y: 0,
+    width: PAGE_W,
+    height: PAGE_H,
+    color: COLORS.cream,
+  })
 
-  let y = MARGIN
+  let y = MARGIN + 20
 
+  // Logo
   if (logoImage) {
-    page.drawImage(logoImage, { x: MARGIN, y: ty(y + 55), width: 55, height: 55 })
-    page.drawImage(logoImage, { x: (PAGE_W - 200) / 2, y: ty((PAGE_H + 200) / 2), width: 200, height: 200, opacity: 0.07 })
+    const logoSize = 60
+    page.drawImage(logoImage, {
+      x: (PAGE_W - logoSize) / 2,
+      y: ty(y + logoSize),
+      width: logoSize,
+      height: logoSize,
+    })
+    y += logoSize + 15
   }
 
-  const headerX = MARGIN + 65
-  function centeredText(t: string, yOff: number, font: PDFFont, size: number, color = black) {
-    const w = font.widthOfTextAtSize(t, size)
-    const x = headerX + (PAGE_W - headerX - MARGIN - w) / 2
-    page.drawText(t, { x, y: ty(y + yOff + size * 0.8), font, size, color })
-  }
+  // Title
+  const title = 'SHARE CERTIFICATE'
+  const titleSize = 20
+  const titleW = helveticaBold.widthOfTextAtSize(title, titleSize)
+  page.drawText(title, {
+    x: (PAGE_W - titleW) / 2,
+    y: ty(y + titleSize),
+    font: helveticaBold,
+    size: titleSize,
+    color: COLORS.navy,
+  })
+  y += titleSize + 30
 
-  centeredText('Build Barguna Initiative (BBI)', 4, helveticaBold, 15)
-  centeredText('Barguna Sadar, Barguna', 22, helvetica, 10)
-  centeredText('Email: bbi.official2025@gmail.com  |  Mobile: 01971951960', 34, helvetica, 10)
+  // Certificate ID
+  page.drawText(`Certificate ID: ${cert.certificate_id}`, {
+    x: MARGIN + 30,
+    y: ty(y + 10),
+    font: helvetica,
+    size: 10,
+    color: COLORS.gray,
+  })
+  y += 25
 
-  y += 62
-  page.drawLine({ start: { x: MARGIN, y: ty(y) }, end: { x: PAGE_W - MARGIN, y: ty(y) }, thickness: 1, color: black })
-  y += 12
-
-  const titleText = 'Share Purchase Certificate'
-  const titleW = helveticaBold.widthOfTextAtSize(titleText, 16)
-  page.drawText(titleText, { x: (PAGE_W - titleW) / 2, y: ty(y + 16), font: helveticaBold, size: 16, color: darkBlue })
-  y += 22
-
-  const certIdText = `Certificate No: ${cert.certificate_id}`
-  const certIdW = helvetica.widthOfTextAtSize(certIdText, 11)
-  page.drawText(certIdText, { x: (PAGE_W - certIdW) / 2, y: ty(y + 11), font: helvetica, size: 11, color: gray })
+  // Project
+  page.drawText('Project:', { x: MARGIN + 30, y: ty(y + 10), font: helveticaBold, size: 11, color: COLORS.navy })
+  page.drawText(cert.project_name, { x: MARGIN + 100, y: ty(y + 10), font: helvetica, size: 11, color: COLORS.black })
   y += 18
 
-  page.drawLine({ start: { x: MARGIN, y: ty(y) }, end: { x: PAGE_W - MARGIN, y: ty(y) }, thickness: 0.8, color: darkBlue })
+  // Member
+  page.drawText('Member:', { x: MARGIN + 30, y: ty(y + 10), font: helveticaBold, size: 11, color: COLORS.navy })
+  page.drawText(cert.user_name, { x: MARGIN + 100, y: ty(y + 10), font: helvetica, size: 11, color: COLORS.black })
   y += 18
 
-  const col1 = MARGIN + 10
-  const col2 = MARGIN + 175
-  const rowH = 26
+  // Shares
+  const sharesText = `Share Quantity: ${cert.share_quantity} shares`
+  page.drawText(sharesText, { x: MARGIN + 30, y: ty(y + 10), font: helveticaBold, size: 11, color: COLORS.navy })
+  y += 18
 
-  function row(label: string, value: string) {
-    page.drawText(`${label}:`, { x: col1, y: ty(y + 11), font: helveticaBold, size: 11, color: black })
-    const vFont = (banglaFont && /[\u0980-\u09FF]/.test(value)) ? banglaFont : helvetica
-    page.drawText(value, { x: col2, y: ty(y + 11), font: vFont, size: 11, color: darkBlue })
-    y += rowH
-  }
+  // Amount
+  const amountTaka = Math.floor(cert.total_amount_paisa / 100)
+  const amountText = `Total Amount: ৳${amountTaka.toLocaleString('en-US')}`
+  page.drawText(amountText, { x: MARGIN + 30, y: ty(y + 10), font: helvetica, size: 11, color: COLORS.black })
+  y += 18
 
-  row('Project', cert.project_name)
-  row('Shares', cert.share_quantity.toString())
-  row('Total Investment', `BDT ${(cert.total_amount_paisa / 100).toFixed(2)}`)
-  row('Purchase Date', new Date(cert.purchase_date).toLocaleDateString('en-GB'))
-  row('Payment Method', cert.payment_method === 'bkash' ? 'bKash' : 'Manual/Cash')
-  row('Member Name', cert.user_name)
-  row('Phone', cert.user_phone)
-  if (cert.form_number) row('Member Form No', cert.form_number)
+  // Date
+  const dateText = `Purchase Date: ${new Date(cert.purchase_date).toLocaleDateString('en-GB')}`
+  page.drawText(dateText, { x: MARGIN + 30, y: ty(y + 10), font: helvetica, size: 10, color: COLORS.gray })
+  y += 18
 
-  y += 6
-  page.drawLine({ start: { x: MARGIN, y: ty(y) }, end: { x: PAGE_W - MARGIN, y: ty(y) }, thickness: 0.5, color: gray })
-  y += 14
-
-  page.drawText('Terms & Conditions:', { x: col1, y: ty(y + 10), font: helveticaBold, size: 10, color: black })
-  y += 16
-  const terms = [
-    'This certificate is valid only after payment verification by BBI admin.',
-    'Share allocation is subject to project terms and conditions.',
-    'Profit distribution will be as per project guidelines.',
-    'BBI reserves the right to modify terms with prior notice.',
-  ]
-  for (const t of terms) {
-    page.drawText(`\u2022  ${t}`, { x: col1 + 5, y: ty(y + 9), font: helvetica, size: 9, color: black })
-    y += 14
-  }
-
-  const sigY = Math.max(y + 20, PAGE_H - 120)
-  const sigLen = 160
-  page.drawLine({ start: { x: MARGIN + 10, y: ty(sigY) }, end: { x: MARGIN + 10 + sigLen, y: ty(sigY) }, thickness: 0.7, color: black })
-  page.drawLine({ start: { x: PAGE_W - MARGIN - 10 - sigLen, y: ty(sigY) }, end: { x: PAGE_W - MARGIN - 10, y: ty(sigY) }, thickness: 0.7, color: black })
-  page.drawText('For Build Barguna Initiative (BBI)', { x: MARGIN + 10, y: ty(sigY + 11), font: helvetica, size: 9, color: black })
-  page.drawText('Member Signature', { x: PAGE_W - MARGIN - 10 - sigLen, y: ty(sigY + 11), font: helvetica, size: 9, color: black })
-  page.drawText('Authorized Signature (With Seal)', { x: MARGIN + 10, y: ty(sigY + 22), font: helvetica, size: 8, color: gray })
-
-  page.drawLine({ start: { x: MARGIN, y: ty(PAGE_H - MARGIN - 5) }, end: { x: PAGE_W - MARGIN, y: ty(PAGE_H - MARGIN - 5) }, thickness: 0.4, color: gray })
-  const footerText = `Generated on ${new Date().toLocaleString('en-GB')}`
-  const footerW = helvetica.widthOfTextAtSize(footerText, 8)
-  page.drawText(footerText, { x: (PAGE_W - footerW) / 2, y: ty(PAGE_H - MARGIN + 5), font: helvetica, size: 8, color: gray })
+  // Payment
+  page.drawText(`Payment Method: ${cert.payment_method}`, { x: MARGIN + 30, y: ty(y + 10), font: helvetica, size: 10, color: COLORS.gray })
 
   return await pdfDoc.save()
 }
