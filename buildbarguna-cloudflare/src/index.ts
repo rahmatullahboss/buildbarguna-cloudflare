@@ -26,21 +26,19 @@ const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 // Run migrations on startup (before any requests)
 // This ensures DB schema is always up to date
 app.use('*', async (c, next) => {
-  // Only check migrations on first request after deployment
+  // Only check migrations if flag is explicitly set to 'true' (set after deployment)
   const needsMigration = await c.env.SESSIONS.get('needs_migration')
   
-  if (needsMigration !== 'false') {
+  if (needsMigration === 'true') {
     console.log('[Startup] Migration flag detected, running migrations...')
     const result = await runMigrations(c.env)
     
     if (!result.success) {
       console.error('[Startup] Migration failed:', result.error)
-      // Log error but don't block requests
-      // In production, you might want to return 503 for critical failures
     } else {
       console.log('[Startup] Migrations complete:', result.applied)
-      // Clear migration flag
-      await c.env.SESSIONS.put('needs_migration', 'false', { expirationTtl: 86400 }) // 24 hours
+      // Clear migration flag after successful run
+      await c.env.SESSIONS.put('needs_migration', 'false', { expirationTtl: 86400 })
     }
   }
   
