@@ -182,7 +182,7 @@ rewardsRoutes.get('/my-redemptions', async (c) => {
   const redemptions = await c.env.DB.prepare(
     `SELECT rr.*, r.name as reward_name, r.description as reward_description
      FROM reward_redemptions rr
-     JOIN rewards r ON rr.reward_id = r.id
+     LEFT JOIN rewards r ON rr.reward_id = r.id
      WHERE rr.user_id = ?
      ORDER BY rr.redeemed_at DESC`
   ).bind(userId).all()
