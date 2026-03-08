@@ -66,7 +66,7 @@ app.get('/api/health/migrations', async (c) => {
 })
 
 // Global middleware
-app.use('*', logger())
+app.use('/api/*', logger())
 app.use('/api/*', async (c, next) => {
   await ensureMigrations(c.env)
   await next()
@@ -166,16 +166,19 @@ app.get('/api/download/app', (c) => {
   return c.redirect(apkUrl, 302)
 })
 
-// Favicon — return empty 204 to prevent 500 from static asset handler
+// Favicon — serve empty 204
 app.get('/favicon.ico', (c) => new Response(null, { status: 204 }))
 
-// 404 for unmatched API routes
+// 404 for unmatched API routes only
+// Non-API routes are handled by Workers Static Assets (wrangler.toml)
 app.notFound((c) => {
+  // Only handle API 404s
   if (c.req.path.startsWith('/api/')) {
     return c.json({ success: false, error: 'রুট পাওয়া যায়নি' }, 404)
   }
-  // For non-API routes, let Workers Static Assets handle SPA fallback
-  return c.notFound()
+  // For non-API routes, pass through to static assets
+  // Returning 404 allows Workers Static Assets to serve index.html (SPA mode)
+  return new Response('Not Found', { status: 404 })
 })
 
 // Export: fetch handler + scheduled (Cron Trigger)

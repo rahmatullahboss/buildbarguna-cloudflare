@@ -42,6 +42,11 @@ export default function DailyTasks() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tasks'] })
       qc.invalidateQueries({ queryKey: ['points'] })
+    },
+    onError: (error: any) => {
+      // Show error message from backend
+      const msg = error?.response?.data?.error || error?.message || 'সমস্যা হয়েছে'
+      alert(msg)
     }
   })
 

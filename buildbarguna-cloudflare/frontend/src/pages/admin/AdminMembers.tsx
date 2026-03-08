@@ -81,13 +81,13 @@ export default function AdminMembers() {
   // Fetch members with pagination
   const { data: membersData, isLoading: membersLoading, refetch } = useQuery({
     queryKey: ['member-list', activeTab, currentPage],
-    queryFn: () => memberApi.getMemberList(activeTab, currentPage, limit)
+    queryFn: () => memberApi.getMemberList(activeTab, 'all', currentPage, limit)
   })
 
   // Stats query
   const { data: allMembersData } = useQuery({
     queryKey: ['member-list', 'all', 1, 1000],
-    queryFn: () => memberApi.getMemberList('all', 1, 1000)
+    queryFn: () => memberApi.getMemberList('all', 'all', 1, 1000)
   })
 
   const members = membersData?.success ? membersData.data.members : []

@@ -131,6 +131,7 @@ async function logAuditEvent(
       userAgent
     ).run()
   } catch (error) {
+    // Silently fail - don't break the main flow
     console.error('Failed to log audit event:', error)
   }
 }
@@ -327,9 +328,9 @@ memberRoutes.post('/admin/members/:id/verify',
       await logAuditEvent(
         c,
         'payment_verified',
-        registration?.user_id || null,
+        (registration?.user_id as number | null) ?? null,
         memberId,
-        registration?.form_number || null,
+        (registration?.form_number as string | null) ?? null,
         { admin_id: adminId, note: body.note || null }
       )
 
@@ -345,9 +346,9 @@ memberRoutes.post('/admin/members/:id/verify',
       await logAuditEvent(
         c,
         'payment_rejected',
-        registration?.user_id || null,
+        (registration?.user_id as number | null) ?? null,
         memberId,
-        registration?.form_number || null,
+        (registration?.form_number as string | null) ?? null,
         { admin_id: adminId, note: body.note || null }
       )
 
@@ -381,51 +382,62 @@ memberRoutes.get('/certificate/:formNumber', authMiddleware, async (c) => {
   }
 
   try {
-    // Try to get logo from R2
+    // Try to get logo from static assets (via request origin) then R2
     let logoBuffer: ArrayBuffer | undefined
     try {
-      if (c.env.FILES) { const logoObject = await c.env.FILES.get('assets/bbi-logo.jpg')
-      if (logoObject) {
-        logoBuffer = await logoObject.arrayBuffer() }
+      // First try: self-fetch from the worker's static assets (bbi logo.jpg is in dist/)
+      const origin = new URL(c.req.url).origin
+      const logoRes = await fetch(`${origin}/bbi%20logo.jpg`)
+      if (logoRes.ok) {
+        logoBuffer = await logoRes.arrayBuffer()
       }
-    } catch (e) {
-      console.warn('Logo not found in R2, generating certificate without logo:', e)
+    } catch (_) { /* ignore */ }
+    if (!logoBuffer) {
+      try {
+        if (c.env.FILES) {
+          const logoObject = await c.env.FILES.get('assets/bbi-logo.jpg')
+          if (logoObject) logoBuffer = await logoObject.arrayBuffer()
+        }
+      } catch (e) {
+        console.warn('Logo not found in R2:', e)
+      }
     }
 
     // Generate PDF certificate
     const pdfBuffer = await generateMemberCertificate(
       {
-        form_number: registration.form_number,
-        name_english: registration.name_english,
-        name_bangla: registration.name_bangla,
-        father_name: registration.father_name,
-        mother_name: registration.mother_name,
-        date_of_birth: registration.date_of_birth,
-        blood_group: registration.blood_group,
-        present_address: registration.present_address,
-        permanent_address: registration.permanent_address,
-        facebook_id: registration.facebook_id,
-        mobile_whatsapp: registration.mobile_whatsapp,
-        emergency_contact: registration.emergency_contact,
-        email: registration.email,
-        skills_interests: registration.skills_interests,
-        created_at: registration.created_at
+        form_number: registration.form_number as string,
+        name_english: registration.name_english as string,
+        name_bangla: registration.name_bangla as string | undefined,
+        father_name: registration.father_name as string,
+        mother_name: registration.mother_name as string,
+        date_of_birth: registration.date_of_birth as string,
+        blood_group: registration.blood_group as string | undefined,
+        present_address: registration.present_address as string,
+        permanent_address: registration.permanent_address as string,
+        facebook_id: registration.facebook_id as string | undefined,
+        mobile_whatsapp: registration.mobile_whatsapp as string,
+        emergency_contact: registration.emergency_contact as string | undefined,
+        email: registration.email as string | undefined,
+        skills_interests: registration.skills_interests as string | undefined,
+        created_at: registration.created_at as string
       },
-      logoBuffer
+      logoBuffer,
+      new URL(c.req.url).origin
     )
 
     // Log audit event for certificate download
     await logAuditEvent(
       c,
       'certificate_downloaded',
-      registration.user_id,
-      registration.id,
+      registration.user_id as number | null,
+      registration.id as number | null,
       formNumber,
       { user_role: userRole }
     )
 
-    // Return PDF as binary response
-    return c.body(pdfBuffer, 200, {
+    // Return PDF as binary response — convert Uint8Array to ArrayBuffer for Hono
+    return c.body(pdfBuffer.buffer as ArrayBuffer, 200, {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="BBI_Certificate_${formNumber}.pdf"`
     })
@@ -460,51 +472,59 @@ memberRoutes.get('/certificate/:formNumber/preview', authMiddleware, async (c) =
   }
 
   try {
-    // Try to get logo from R2
+    // Try to get logo from static assets (via request origin) then R2
     let logoBuffer: ArrayBuffer | undefined
     try {
-      if (c.env.FILES) { const logoObject = await c.env.FILES.get('assets/bbi-logo.jpg')
-      if (logoObject) {
-        logoBuffer = await logoObject.arrayBuffer() }
+      const origin = new URL(c.req.url).origin
+      const logoRes = await fetch(`${origin}/bbi%20logo.jpg`)
+      if (logoRes.ok) logoBuffer = await logoRes.arrayBuffer()
+    } catch (_) { /* ignore */ }
+    if (!logoBuffer) {
+      try {
+        if (c.env.FILES) {
+          const logoObject = await c.env.FILES.get('assets/bbi-logo.jpg')
+          if (logoObject) logoBuffer = await logoObject.arrayBuffer()
+        }
+      } catch (e) {
+        console.warn('Logo not found in R2:', e)
       }
-    } catch (e) {
-      console.warn('Logo not found in R2, generating certificate without logo:', e)
     }
 
     // Generate PDF certificate
     const pdfBuffer = await generateMemberCertificate(
       {
-        form_number: registration.form_number,
-        name_english: registration.name_english,
-        name_bangla: registration.name_bangla,
-        father_name: registration.father_name,
-        mother_name: registration.mother_name,
-        date_of_birth: registration.date_of_birth,
-        blood_group: registration.blood_group,
-        present_address: registration.present_address,
-        permanent_address: registration.permanent_address,
-        facebook_id: registration.facebook_id,
-        mobile_whatsapp: registration.mobile_whatsapp,
-        emergency_contact: registration.emergency_contact,
-        email: registration.email,
-        skills_interests: registration.skills_interests,
-        created_at: registration.created_at
+        form_number: registration.form_number as string,
+        name_english: registration.name_english as string,
+        name_bangla: registration.name_bangla as string | undefined,
+        father_name: registration.father_name as string,
+        mother_name: registration.mother_name as string,
+        date_of_birth: registration.date_of_birth as string,
+        blood_group: registration.blood_group as string | undefined,
+        present_address: registration.present_address as string,
+        permanent_address: registration.permanent_address as string,
+        facebook_id: registration.facebook_id as string | undefined,
+        mobile_whatsapp: registration.mobile_whatsapp as string,
+        emergency_contact: registration.emergency_contact as string | undefined,
+        email: registration.email as string | undefined,
+        skills_interests: registration.skills_interests as string | undefined,
+        created_at: registration.created_at as string
       },
-      logoBuffer
+      logoBuffer,
+      new URL(c.req.url).origin
     )
 
     // Log audit event for certificate preview
     await logAuditEvent(
       c,
       'certificate_previewed',
-      registration.user_id,
-      registration.id,
+      registration.user_id as number | null,
+      registration.id as number | null,
       formNumber,
       { user_role: userRole }
     )
 
-    // Return PDF as inline response for preview
-    return c.body(pdfBuffer, 200, {
+    // Return PDF as inline response for preview — convert Uint8Array to ArrayBuffer for Hono
+    return c.body(pdfBuffer.buffer as ArrayBuffer, 200, {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="BBI_Certificate_${formNumber}.pdf"`
     })
@@ -549,21 +569,21 @@ memberRoutes.post('/admin/certificates/bulk', authMiddleware, adminMiddleware, a
       try {
         const pdfBuffer = await generateMemberCertificate(
           {
-            form_number: registration.form_number,
-            name_english: registration.name_english,
-            name_bangla: registration.name_bangla,
-            father_name: registration.father_name,
-            mother_name: registration.mother_name,
-            date_of_birth: registration.date_of_birth,
-            blood_group: registration.blood_group,
-            present_address: registration.present_address,
-            permanent_address: registration.permanent_address,
-            facebook_id: registration.facebook_id,
-            mobile_whatsapp: registration.mobile_whatsapp,
-            emergency_contact: registration.emergency_contact,
-            email: registration.email,
-            skills_interests: registration.skills_interests,
-            created_at: registration.created_at
+            form_number: registration.form_number as string,
+            name_english: registration.name_english as string,
+            name_bangla: registration.name_bangla as string | undefined,
+            father_name: registration.father_name as string,
+            mother_name: registration.mother_name as string,
+            date_of_birth: registration.date_of_birth as string,
+            blood_group: registration.blood_group as string | undefined,
+            present_address: registration.present_address as string,
+            permanent_address: registration.permanent_address as string,
+            facebook_id: registration.facebook_id as string | undefined,
+            mobile_whatsapp: registration.mobile_whatsapp as string,
+            emergency_contact: registration.emergency_contact as string | undefined,
+            email: registration.email as string | undefined,
+            skills_interests: registration.skills_interests as string | undefined,
+            created_at: registration.created_at as string
           },
           logoBuffer
         )
@@ -572,8 +592,8 @@ memberRoutes.post('/admin/certificates/bulk', authMiddleware, adminMiddleware, a
         // Each member can download their certificate individually when needed
 
         generatedCertificates.push({
-          form_number: registration.form_number,
-          user_name: registration.user_name
+          form_number: registration.form_number as string,
+          user_name: registration.user_name as string
         })
       } catch (error) {
         console.error(`Failed to generate certificate for ${registration.form_number}:`, error)
@@ -608,40 +628,44 @@ memberRoutes.post('/admin/certificates/bulk', authMiddleware, adminMiddleware, a
 
 // GET /api/admin/members/list - Get all member registrations (admin)
 memberRoutes.get('/admin/list', authMiddleware, adminMiddleware, async (c) => {
-  const status = c.req.query('status') || 'all'
+  const status = c.req.query('status') || 'all'  // payment_status filter
+  const membershipStatus = c.req.query('membership_status') || 'all'  // active/cancelled filter
   const page = parseInt(c.req.query('page') || '1')
   const limit = parseInt(c.req.query('limit') || '20')
   const offset = (page - 1) * limit
 
-  let query: string
-  let countQuery: string
+  let whereClause = '1=1'
+  const params: any[] = []
 
-  if (status === 'all') {
-    query = `SELECT mr.*, u.name as user_name, u.phone as user_phone, admin.name as verified_by_name
-             FROM member_registrations mr
-             JOIN users u ON mr.user_id = u.id
-             LEFT JOIN users admin ON mr.verified_by = admin.id
-             ORDER BY mr.created_at DESC LIMIT ? OFFSET ?`
-    countQuery = `SELECT COUNT(*) as count FROM member_registrations`
-  } else {
-    query = `SELECT mr.*, u.name as user_name, u.phone as user_phone, admin.name as verified_by_name
-             FROM member_registrations mr
-             JOIN users u ON mr.user_id = u.id
-             LEFT JOIN users admin ON mr.verified_by = admin.id
-             WHERE mr.payment_status = ?
-             ORDER BY mr.created_at DESC LIMIT ? OFFSET ?`
-    countQuery = `SELECT COUNT(*) as count FROM member_registrations WHERE payment_status = ?`
+  // Filter by payment_status (pending, verified, rejected)
+  if (status !== 'all') {
+    whereClause += ' AND mr.payment_status = ?'
+    params.push(status)
   }
 
-  const [results, countResult] = status === 'all'
-    ? await Promise.all([
-        c.env.DB.prepare(query).bind(limit, offset).all(),
-        c.env.DB.prepare(countQuery).first<{ count: number }>()
-      ])
-    : await Promise.all([
-        c.env.DB.prepare(query).bind(status, limit, offset).all(),
-        c.env.DB.prepare(countQuery).bind(status).first<{ count: number }>()
-      ])
+  // Filter by membership_status (active, cancelled)
+  if (membershipStatus !== 'all') {
+    whereClause += ' AND mr.status = ?'
+    params.push(membershipStatus)
+  }
+
+  const query = `SELECT mr.*, u.name as user_name, u.phone as user_phone, admin.name as verified_by_name,
+                 cancelled_admin.name as cancelled_by_name
+          FROM member_registrations mr
+          JOIN users u ON mr.user_id = u.id
+          LEFT JOIN users admin ON mr.verified_by = admin.id
+          LEFT JOIN users cancelled_admin ON mr.cancelled_by = cancelled_admin.id
+          WHERE ${whereClause}
+          ORDER BY mr.created_at DESC LIMIT ? OFFSET ?`
+
+  const countQuery = `SELECT COUNT(*) as count FROM member_registrations mr WHERE ${whereClause}`
+
+  params.push(limit, offset)
+
+  const [results, countResult] = await Promise.all([
+    c.env.DB.prepare(query).bind(...params).all(),
+    c.env.DB.prepare(countQuery).bind(...params.slice(0, -2)).first<{ count: number }>()
+  ])
 
   return ok(c, {
     members: results.results,
@@ -651,5 +675,291 @@ memberRoutes.get('/admin/list', authMiddleware, adminMiddleware, async (c) => {
       total: countResult?.count || 0,
       hasMore: (page * limit) < (countResult?.count || 0)
     }
+  })
+})
+
+// ============================================
+// NEW: Member Edit, Cancel, Reapply Endpoints
+// ============================================
+
+// PUT /api/member - Update own registration (only if active)
+memberRoutes.put('/', authMiddleware, async (c) => {
+  const userId = c.get('userId')
+  
+  // First check if user has a registration and if it's active
+  const existing = await c.env.DB.prepare(
+    'SELECT id, status, payment_status FROM member_registrations WHERE user_id = ?'
+  ).bind(userId).first()
+
+  if (!existing) {
+    return err(c, 'কোনো মেম্বারশিপ রেজিস্ট্রেশন পাওয়া যায়নি', 404)
+  }
+
+  if (existing.status !== 'active') {
+    return err(c, 'শুধুমাত্র সক্রিয় মেম্বাররা তথ্য আপডেট করতে পারে', 400)
+  }
+
+  // Parse and validate the update data
+  const body = await c.req.json()
+  
+  // Build dynamic update query
+  const allowedFields = [
+    'name_english', 'name_bangla', 'father_name', 'mother_name',
+    'date_of_birth', 'blood_group', 'present_address', 'permanent_address',
+    'facebook_id', 'mobile_whatsapp', 'emergency_contact', 'email',
+    'skills_interests'
+  ]
+
+  // Only allow payment info update if payment is still pending
+  if (existing.payment_status === 'pending') {
+    allowedFields.push('payment_method', 'bkash_number', 'bkash_trx_id', 'payment_note')
+  }
+
+  const updates: string[] = []
+  const values: any[] = []
+
+  for (const field of allowedFields) {
+    if (body[field] !== undefined) {
+      updates.push(`${field} = ?`)
+      values.push(body[field])
+    }
+  }
+
+  if (updates.length === 0) {
+    return err(c, 'কোনো তথ্য আপডেট করা হয়নি', 400)
+  }
+
+  updates.push('updated_at = datetime("now")')
+  values.push(userId) // for WHERE clause
+
+  const query = `UPDATE member_registrations SET ${updates.join(', ')} WHERE user_id = ?`
+  
+  try {
+    await c.env.DB.prepare(query).bind(...values).run()
+
+    // Log audit event
+    await logAuditEvent(
+      c,
+      'member_updated',
+      userId,
+      existing.id as number | null,
+      null,
+      { updated_fields: Object.keys(body).filter(k => allowedFields.includes(k)) }
+    )
+
+    return ok(c, { message: 'তথ্য আপডেট সফল হয়েছে' })
+  } catch (error: any) {
+    console.error('Member update error:', error)
+    return err(c, 'আপডেট ব্যর্থ হয়েছে। আবার চেষ্টা করুন।', 500)
+  }
+})
+
+// POST /api/member/cancel - Cancel own membership
+const cancelSchema = z.object({
+  cancellation_reason: z.string().min(10, 'কারণ কমপক্ষে ১০ অক্ষর হতে হবে')
+})
+
+memberRoutes.post('/cancel', 
+  authMiddleware, 
+  zValidator('json', cancelSchema, zodErrorHook),
+  async (c) => {
+    const userId = c.get('userId')
+    const body = c.req.valid('json')
+
+    // Check if user has an active registration
+    const existing = await c.env.DB.prepare(
+      'SELECT id, status, form_number FROM member_registrations WHERE user_id = ?'
+    ).bind(userId).first()
+
+    if (!existing) {
+      return err(c, 'কোনো মেম্বারশিপ রেজিস্ট্রেশন পাওয়া যায়নি', 404)
+    }
+
+    if (existing.status !== 'active') {
+      return err(c, 'আপনার মেম্বারশিপ ইতিমধ্যে বাতিল বা অন্যান্য অবস্থায় আছে', 400)
+    }
+
+    try {
+      await c.env.DB.prepare(
+        `UPDATE member_registrations 
+         SET status = 'cancelled', 
+             cancelled_at = datetime('now'), 
+             cancelled_by = ?,
+             cancellation_reason = ?
+         WHERE user_id = ?`
+      ).bind(userId, body.cancellation_reason, userId).run()
+
+      // Log audit event
+      await logAuditEvent(
+        c,
+        'member_cancelled',
+        userId,
+        existing.id as number | null,
+        existing.form_number as string | null,
+        { reason: body.cancellation_reason }
+      )
+
+      return ok(c, { 
+        message: 'মেম্বারশিপ বাতিল হয়েছে',
+        status: 'cancelled'
+      })
+    } catch (error: any) {
+      console.error('Member cancel error:', error)
+      return err(c, 'বাতিল করা যায়নি। আবার চেষ্টা করুন।', 500)
+    }
+  }
+)
+
+// POST /api/member/reapply - Reapply after cancellation
+memberRoutes.post('/reapply', authMiddleware, async (c) => {
+  const userId = c.get('userId')
+  const body = await c.req.json().catch(() => ({}))
+
+  // Check if user has any registration
+  const existing = await c.env.DB.prepare(
+    'SELECT id, form_number, status, payment_status FROM member_registrations WHERE user_id = ?'
+  ).bind(userId).first()
+
+  if (!existing) {
+    return err(c, 'কোনো মেম্বারশিপ রেজিস্ট্রেশন পাওয়া যায়নি। আপনি আবেদন করেননি।', 404)
+  }
+
+  // If already active or pending, don't allow reapply
+  if (existing.status === 'active' || existing.status === 'pending') {
+    return err(c, `আপনার ইতিমধ্যে একটি ${existing.status === 'active' ? 'সক্রিয়' : 'মূল্যায়নাধীন'} মেম্বারশিপ আছে`, 400)
+  }
+
+  // If cancelled, reactivate by updating status to active
+  if (existing.status === 'cancelled') {
+    try {
+      // Generate new form number for reapplication
+      const year = new Date().getFullYear()
+      const countResult = await c.env.DB.prepare(
+        `SELECT COUNT(*) as count FROM member_registrations WHERE form_number LIKE ?`
+      ).bind(`BBI-${year}-%`).first<{ count: number }>()
+      
+      const nextNumber = ((countResult?.count || 0) + 1).toString().padStart(4, '0')
+      const newFormNumber = `BBI-${year}-${nextNumber}`
+
+      // Update the cancelled registration to active (payment still pending)
+      await c.env.DB.prepare(
+        `UPDATE member_registrations 
+         SET status = 'active',
+             payment_status = 'pending',
+             form_number = ?,
+             previous_registration_id = id,
+             cancelled_at = NULL,
+             cancelled_by = NULL,
+             cancellation_reason = NULL,
+             created_at = datetime('now')
+         WHERE user_id = ? AND status = 'cancelled'`
+      ).bind(newFormNumber, userId).run()
+
+      // Log audit event
+      await logAuditEvent(
+        c,
+        'member_reapplied',
+        userId,
+        existing.id as number | null,
+        newFormNumber,
+        { previous_form_number: existing.form_number }
+      )
+
+      return ok(c, { 
+        message: 'পুনরায় আবেদন সফল হয়েছে। পেমেন্ট যাচাইয়ের অপেক্ষায় আছে।',
+        form_number: newFormNumber,
+        payment_status: 'pending',
+        status: 'active'
+      })
+    } catch (error: any) {
+      console.error('Member reapply error:', error)
+      return err(c, 'পুনরায় আবেদন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।', 500)
+    }
+  }
+
+  // If rejected, allow new application
+  if (existing.status === 'rejected') {
+    try {
+      // Generate new form number
+      const year = new Date().getFullYear()
+      const countResult = await c.env.DB.prepare(
+        `SELECT COUNT(*) as count FROM member_registrations WHERE form_number LIKE ?`
+      ).bind(`BBI-${year}-%`).first<{ count: number }>()
+      
+      const nextNumber = ((countResult?.count || 0) + 1).toString().padStart(4, '0')
+      const newFormNumber = `BBI-${year}-${nextNumber}`
+
+      // Update to active (payment pending)
+      await c.env.DB.prepare(
+        `UPDATE member_registrations 
+         SET status = 'active',
+             payment_status = 'pending',
+             form_number = ?,
+             previous_registration_id = id,
+             verified_by = NULL,
+             verified_at = NULL,
+             payment_note = NULL
+         WHERE user_id = ?`
+      ).bind(newFormNumber, userId).run()
+
+      // Log audit event
+      await logAuditEvent(
+        c,
+        'member_reapplied',
+        userId,
+        existing.id as number | null,
+        newFormNumber,
+        { previous_form_number: existing.form_number }
+      )
+
+      return ok(c, { 
+        message: 'পুনরায় আবেদন সফল হয়েছে। পেমেন্ট যাচাইয়ের অপেক্ষায় আছে।',
+        form_number: newFormNumber,
+        payment_status: 'pending',
+        status: 'active'
+      })
+    } catch (error: any) {
+      console.error('Member reapply error:', error)
+      return err(c, 'পুনরায় আবেদন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।', 500)
+    }
+  }
+
+  return err(c, 'আবেদন করা সম্ভব নয়', 400)
+})
+
+// GET /api/member/status-detail - Get detailed status including cancellation info
+memberRoutes.get('/status-detail', authMiddleware, async (c) => {
+  const userId = c.get('userId')
+
+  const registration = await c.env.DB.prepare(
+    `SELECT mr.*, 
+            u.name as user_name, 
+            u.phone as user_phone,
+            prev.form_number as previous_form_number
+     FROM member_registrations mr
+     JOIN users u ON mr.user_id = u.id
+     LEFT JOIN member_registrations prev ON mr.previous_registration_id = prev.id
+     WHERE mr.user_id = ?`
+  ).bind(userId).first()
+
+  if (!registration) {
+    return ok(c, { registered: false })
+  }
+
+  return ok(c, {
+    registered: true,
+    id: registration.id,
+    form_number: registration.form_number,
+    name_english: registration.name_english,
+    name_bangla: registration.name_bangla,
+    status: registration.status,
+    payment_status: registration.payment_status,
+    payment_method: registration.payment_method,
+    payment_amount: registration.payment_amount,
+    created_at: registration.created_at,
+    verified_at: registration.verified_at,
+    cancelled_at: registration.cancelled_at,
+    cancellation_reason: registration.cancellation_reason,
+    previous_form_number: registration.previous_form_number
   })
 })

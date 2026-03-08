@@ -18,6 +18,22 @@ rewardsRoutes.get('/', async (c) => {
   return ok(c, rewards.results)
 })
 
+// GET /api/rewards/my-redemptions - User's redemption history
+// IMPORTANT: Must come BEFORE /:id to avoid being matched as a reward ID
+rewardsRoutes.get('/my-redemptions', async (c) => {
+  const userId = c.get('userId')
+  
+  const redemptions = await c.env.DB.prepare(
+    `SELECT rr.*, r.name as reward_name, r.description as reward_description
+     FROM reward_redemptions rr
+     LEFT JOIN rewards r ON rr.reward_id = r.id
+     WHERE rr.user_id = ?
+     ORDER BY rr.redeemed_at DESC`
+  ).bind(userId).all()
+  
+  return ok(c, redemptions.results)
+})
+
 // GET /api/rewards/:id - Get specific reward details
 rewardsRoutes.get('/:id', async (c) => {
   const rewardId = parseInt(c.req.param('id'))
@@ -173,19 +189,4 @@ rewardsRoutes.post('/:id/redeem', async (c) => {
     
     return err(c, 'রিওয়ার্ড রিডিম করতে সমস্যা হচ্ছে', 500)
   }
-})
-
-// GET /api/rewards/my-redemptions - User's redemption history
-rewardsRoutes.get('/my-redemptions', async (c) => {
-  const userId = c.get('userId')
-  
-  const redemptions = await c.env.DB.prepare(
-    `SELECT rr.*, r.name as reward_name, r.description as reward_description
-     FROM reward_redemptions rr
-     LEFT JOIN rewards r ON rr.reward_id = r.id
-     WHERE rr.user_id = ?
-     ORDER BY rr.redeemed_at DESC`
-  ).bind(userId).all()
-  
-  return ok(c, redemptions.results)
 })

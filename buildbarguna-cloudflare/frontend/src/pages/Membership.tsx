@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { memberApi } from '../lib/api'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { memberApi, getToken } from '../lib/api'
 import { formatDate } from '../lib/auth'
 import { 
   FileText, 
@@ -19,7 +19,12 @@ import {
   BadgeCheck,
   Building2,
   ChevronRight,
-  CreditCard
+  CreditCard,
+  Edit,
+  X,
+  Send,
+  ArrowLeftRight,
+  Settings
 } from 'lucide-react'
 
 interface MyRegistrationDetails {
@@ -47,6 +52,23 @@ interface MyRegistrationDetails {
   verified_by_name?: string
 }
 
+interface MemberStatusDetail {
+  registered: boolean
+  id?: number
+  form_number?: string
+  name_english?: string
+  name_bangla?: string
+  status?: string
+  payment_status?: string
+  payment_method?: string
+  payment_amount?: number
+  created_at?: string
+  verified_at?: string
+  cancelled_at?: string
+  cancellation_reason?: string
+  previous_form_number?: string
+}
+
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: any; desc: string }> = {
   pending: { 
     label: 'অপেক্ষায়', 
@@ -68,12 +90,31 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; i
     bg: 'bg-red-100', 
     icon: XCircle,
     desc: 'অনুগ্রহ করে অ্যাডমিনের সাথে যোগাযোগ করুন'
+  },
+  active: { 
+    label: 'সক্রিয়', 
+    color: 'text-green-600', 
+    bg: 'bg-green-100', 
+    icon: BadgeCheck,
+    desc: 'আপনার মেম্বারশিপ সক্রিয়'
+  },
+  cancelled: { 
+    label: 'বাতিল', 
+    color: 'text-red-600', 
+    bg: 'bg-red-100', 
+    icon: XCircle,
+    desc: 'আপনার মেম্বারশিপ বাতিল হয়েছে'
   }
 }
 
 export default function Membership() {
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState('')
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [editForm, setEditForm] = useState<Partial<MyRegistrationDetails>>({})
+  const [cancelReason, setCancelReason] = useState('')
+  const queryClient = useQueryClient()
 
   // Fetch membership details
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -82,13 +123,53 @@ export default function Membership() {
     staleTime: 30_000
   })
 
+  // Fetch detailed status (includes cancellation info)
+  const { data: statusDetail } = useQuery({
+    queryKey: ['member-status-detail'],
+    queryFn: () => memberApi.getStatusDetail(),
+    staleTime: 30_000
+  })
+
+  const memberStatus = statusDetail?.success ? statusDetail.data : null as MemberStatusDetail | null
+
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => memberApi.updateRegistration(data as any),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-registration'] })
+      queryClient.invalidateQueries({ queryKey: ['member-status-detail'] })
+      setShowEditModal(false)
+      setEditForm({})
+    }
+  })
+
+  // Cancel membership mutation
+  const cancelMutation = useMutation({
+    mutationFn: (reason: string) => memberApi.cancelMembership(reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-registration'] })
+      queryClient.invalidateQueries({ queryKey: ['member-status-detail'] })
+      setShowCancelModal(false)
+      setCancelReason('')
+    }
+  })
+
+  // Reapply mutation
+  const reapplyMutation = useMutation({
+    mutationFn: () => memberApi.reapply(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-registration'] })
+      queryClient.invalidateQueries({ queryKey: ['member-status-detail'] })
+    }
+  })
+
   const registration = (data?.success ? data.data : null) as MyRegistrationDetails | null
 
   async function handleDownloadCertificate(formNumber: string) {
     setDownloading(true)
     setDownloadError('')
     try {
-      const token = localStorage.getItem('token')
+      const token = getToken()
       const response = await fetch(`/api/member/certificate/${formNumber}`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -456,6 +537,273 @@ export default function Membership() {
           <span className="text-sm text-gray-600">মোবাইল: 01971951960</span>
         </div>
       </div>
+
+      {/* Edit / Cancel / Reapply Buttons */}
+      {memberStatus && memberStatus.registered && memberStatus.status === 'active' && (
+        <div className="card">
+          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <Settings size={18} />
+            মেম্বারশিপ পরিচালনা
+          </h3>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => {
+                setEditForm({
+                  name_english: registration?.name_english,
+                  name_bangla: registration?.name_bangla,
+                  father_name: registration?.father_name,
+                  mother_name: registration?.mother_name,
+                  date_of_birth: registration?.date_of_birth,
+                  blood_group: registration?.blood_group,
+                  present_address: registration?.present_address,
+                  permanent_address: registration?.permanent_address,
+                  facebook_id: registration?.facebook_id,
+                  mobile_whatsapp: registration?.mobile_whatsapp,
+                  emergency_contact: registration?.emergency_contact,
+                  email: registration?.email,
+                  skills_interests: registration?.skills_interests
+                })
+                setShowEditModal(true)
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+            >
+              <Edit size={18} />
+              তথ্য সম্পাদনা
+            </button>
+            <button
+              onClick={() => setShowCancelModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+            >
+              <X size={18} />
+              মেম্বারশিপ বাতিল
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Reapply Button for Cancelled Members */}
+      {memberStatus && memberStatus.registered && memberStatus.status === 'cancelled' && (
+        <div className="card border-2 border-red-200">
+          <div className="text-center py-4">
+            <XCircle size={48} className="text-red-500 mx-auto mb-3" />
+            <h3 className="font-bold text-gray-900 mb-2">মেম্বারশিপ বাতিল হয়েছে</h3>
+            <p className="text-gray-600 mb-4">
+              বাতিলের কারণ: {memberStatus.cancellation_reason || 'উল্লেখ নেই'}
+            </p>
+            {memberStatus.previous_form_number && (
+              <p className="text-sm text-gray-500 mb-4">
+                পূর্বের ফর্ম নাম্বার: {memberStatus.previous_form_number}
+              </p>
+            )}
+            <button
+              onClick={() => reapplyMutation.mutate()}
+              disabled={reapplyMutation.isPending}
+              className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 mx-auto"
+            >
+              <Send size={18} />
+              {reapplyMutation.isPending ? 'আবেদন হচ্ছে...' : 'পুনরায় আবেদন করুন'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">তথ্য সম্পাদনা</h2>
+                <button onClick={() => setShowEditModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">নাম (ইংরেজি)</label>
+                  <input
+                    type="text"
+                    value={editForm.name_english || ''}
+                    onChange={(e) => setEditForm({ ...editForm, name_english: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">নাম (বাংলা)</label>
+                  <input
+                    type="text"
+                    value={editForm.name_bangla || ''}
+                    onChange={(e) => setEditForm({ ...editForm, name_bangla: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">পিতার নাম</label>
+                  <input
+                    type="text"
+                    value={editForm.father_name || ''}
+                    onChange={(e) => setEditForm({ ...editForm, father_name: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">মাতার নাম</label>
+                  <input
+                    type="text"
+                    value={editForm.mother_name || ''}
+                    onChange={(e) => setEditForm({ ...editForm, mother_name: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">জন্ম তারিখ</label>
+                  <input
+                    type="text"
+                    value={editForm.date_of_birth || ''}
+                    onChange={(e) => setEditForm({ ...editForm, date_of_birth: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">রক্তের গ্রুপ</label>
+                  <input
+                    type="text"
+                    value={editForm.blood_group || ''}
+                    onChange={(e) => setEditForm({ ...editForm, blood_group: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">বর্তমান ঠিকানা</label>
+                  <input
+                    type="text"
+                    value={editForm.present_address || ''}
+                    onChange={(e) => setEditForm({ ...editForm, present_address: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">স্থায়ী ঠিকানা</label>
+                  <input
+                    type="text"
+                    value={editForm.permanent_address || ''}
+                    onChange={(e) => setEditForm({ ...editForm, permanent_address: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">মোবাইল (WhatsApp)</label>
+                  <input
+                    type="text"
+                    value={editForm.mobile_whatsapp || ''}
+                    onChange={(e) => setEditForm({ ...editForm, mobile_whatsapp: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">জরুরি যোগাযোগ</label>
+                  <input
+                    type="text"
+                    value={editForm.emergency_contact || ''}
+                    onChange={(e) => setEditForm({ ...editForm, emergency_contact: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ইমেইল</label>
+                  <input
+                    type="email"
+                    value={editForm.email || ''}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Facebook ID</label>
+                  <input
+                    type="text"
+                    value={editForm.facebook_id || ''}
+                    onChange={(e) => setEditForm({ ...editForm, facebook_id: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">দক্ষতা ও আগ্রহ</label>
+                  <textarea
+                    value={editForm.skills_interests || ''}
+                    onChange={(e) => setEditForm({ ...editForm, skills_interests: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                    rows={3}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="p-6 border-t flex justify-end gap-3">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-6 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                বাতিল
+              </button>
+              <button
+                onClick={() => updateMutation.mutate(editForm)}
+                disabled={updateMutation.isPending}
+                className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+              >
+                {updateMutation.isPending ? 'সংরক্ষণ হচ্ছে...' : 'সংরক্ষণ করুন'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full">
+            <div className="p-6 border-b">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-red-600">মেম্বারশিপ বাতিল</h2>
+                <button onClick={() => setShowCancelModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-600 mb-4">
+                আপনি কি নিশ্চিত যে আপনি মেম্বারশিপ বাতিল করতে চান?
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">বাতিলের কারণ (কমপক্ষে ১০ অক্ষর)</label>
+                <textarea
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg"
+                  rows={4}
+                  placeholder="আপনি কেন মেম্বারশিপ বাতিল করতে চান?"
+                />
+              </div>
+            </div>
+            <div className="p-6 border-t flex justify-end gap-3">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="px-6 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                না, রাখুন
+              </button>
+              <button
+                onClick={() => cancelMutation.mutate(cancelReason)}
+                disabled={cancelReason.length < 10 || cancelMutation.isPending}
+                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {cancelMutation.isPending ? 'বাতিল হচ্ছে...' : 'হ্যাঁ, বাতিল করুন'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

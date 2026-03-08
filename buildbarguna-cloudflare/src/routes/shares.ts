@@ -171,17 +171,22 @@ shareRoutes.get('/certificate/:purchaseId', authMiddleware, async (c) => {
   }
 
   try {
-    // Try to get logo from R2
+    // Try to get logo from static assets first, then R2
     let logoBuffer: ArrayBuffer | undefined
+    const origin = new URL(c.req.url).origin
     try {
-      if (c.env.FILES) {
-        const logoObject = await c.env.FILES.get('assets/bbi-logo.jpg')
-        if (logoObject) {
-          logoBuffer = await logoObject.arrayBuffer()
+      const logoRes = await fetch(`${origin}/bbi%20logo.jpg`)
+      if (logoRes.ok) logoBuffer = await logoRes.arrayBuffer()
+    } catch (_) { /* ignore */ }
+    if (!logoBuffer) {
+      try {
+        if (c.env.FILES) {
+          const logoObject = await c.env.FILES.get('assets/bbi-logo.jpg')
+          if (logoObject) logoBuffer = await logoObject.arrayBuffer()
         }
+      } catch (e) {
+        console.warn('Logo not found in R2:', e)
       }
-    } catch (e) {
-      console.warn('Logo not found in R2, generating certificate without logo:', e)
     }
 
     // Generate certificate ID: BBI-SHARE-YYYY-NNNN
@@ -200,11 +205,12 @@ shareRoutes.get('/certificate/:purchaseId', authMiddleware, async (c) => {
         user_phone: purchase.user_phone,
         payment_method: purchase.payment_method
       },
-      logoBuffer
+      logoBuffer,
+      origin
     )
 
     // Return PDF as binary response
-    return c.body(pdfBuffer, 200, {
+    return c.body(pdfBuffer.buffer as ArrayBuffer, 200, {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="BBI_Share_Certificate_${certId}.pdf"`
     })
@@ -244,17 +250,22 @@ shareRoutes.get('/certificate/:purchaseId/preview', authMiddleware, async (c) =>
   }
 
   try {
-    // Try to get logo from R2
+    // Try to get logo from static assets first, then R2
     let logoBuffer: ArrayBuffer | undefined
+    const origin = new URL(c.req.url).origin
     try {
-      if (c.env.FILES) {
-        const logoObject = await c.env.FILES.get('assets/bbi-logo.jpg')
-        if (logoObject) {
-          logoBuffer = await logoObject.arrayBuffer()
+      const logoRes = await fetch(`${origin}/bbi%20logo.jpg`)
+      if (logoRes.ok) logoBuffer = await logoRes.arrayBuffer()
+    } catch (_) { /* ignore */ }
+    if (!logoBuffer) {
+      try {
+        if (c.env.FILES) {
+          const logoObject = await c.env.FILES.get('assets/bbi-logo.jpg')
+          if (logoObject) logoBuffer = await logoObject.arrayBuffer()
         }
+      } catch (e) {
+        console.warn('Logo not found in R2:', e)
       }
-    } catch (e) {
-      console.warn('Logo not found in R2, generating certificate without logo:', e)
     }
 
     // Generate certificate ID
@@ -273,11 +284,12 @@ shareRoutes.get('/certificate/:purchaseId/preview', authMiddleware, async (c) =>
         user_phone: purchase.user_phone,
         payment_method: purchase.payment_method
       },
-      logoBuffer
+      logoBuffer,
+      origin
     )
 
     // Return PDF as inline response for preview
-    return c.body(pdfBuffer, 200, {
+    return c.body(pdfBuffer.buffer as ArrayBuffer, 200, {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="BBI_Share_Certificate_${certId}.pdf"`
     })

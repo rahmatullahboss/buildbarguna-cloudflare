@@ -907,13 +907,48 @@ export const memberApi = {
       method: 'POST',
       body: JSON.stringify({ action, note })
     }),
-  getMemberList: (status: 'all' | 'pending' | 'verified' | 'rejected' = 'all', page = 1, limit = 20) =>
+  getMemberList: (status: 'all' | 'pending' | 'verified' | 'rejected' = 'all', membershipStatus: 'all' | 'active' | 'cancelled' = 'all', page = 1, limit = 20) =>
     request<{ members: any[]; pagination: { page: number; limit: number; total: number; hasMore: boolean } }>(
-      `/member/admin/list?status=${status}&page=${page}&limit=${limit}`
+      `/member/admin/list?status=${status}&membership_status=${membershipStatus}&page=${page}&limit=${limit}`
     ),
   bulkGenerateCertificates: () =>
     request<{ message: string; total_count: number; generated_count: number; certificates: Array<{ form_number: string; user_name: string }> }>(
       '/member/admin/certificates/bulk',
       { method: 'POST' }
-    )
+    ),
+    
+  // Member self-management APIs (NEW)
+  getStatusDetail: () => request<{
+    registered: boolean;
+    id?: number;
+    form_number?: string;
+    name_english?: string;
+    name_bangla?: string;
+    status?: string;
+    payment_status?: string;
+    payment_method?: string;
+    payment_amount?: number;
+    created_at?: string;
+    verified_at?: string;
+    cancelled_at?: string;
+    cancellation_reason?: string;
+    previous_form_number?: string;
+  }>('/member/status-detail'),
+    
+  updateRegistration: (body: Partial<MemberRegistrationForm>) =>
+    request<{ message: string }>('/member', {
+      method: 'PUT',
+      body: JSON.stringify(body)
+    }),
+    
+  cancelMembership: (cancellation_reason: string) =>
+    request<{ message: string; status: string }>('/member/cancel', {
+      method: 'POST',
+      body: JSON.stringify({ cancellation_reason })
+    }),
+    
+  reapply: () =>
+    request<{ message: string; form_number: string; payment_status: string; status: string }>('/member/reapply', {
+      method: 'POST'
+    })
 }

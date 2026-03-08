@@ -1,21 +1,21 @@
 /**
- * PDF Generation Utility for BBI Member Registration Certificates
- * Generates PDF certificates matching the BBI Member Registration Form design
+ * PDF Certificate Generator — Cloudflare Workers compatible
  *
- * Issue: 3.4 - PDF Bangla text rendering - need to configure Bangla-compatible font
- * Solution: Use Hind Siliguri font for Bangla text support
- * 
- * Why Hind Siliguri?
- * - Modern, clean Bengali typeface designed by Google
- * - Excellent readability for formal documents
- * - Professional appearance perfect for certificates
- * - Good weight variants (Regular, Bold, SemiBold, etc.)
+ * Uses pdf-lib + @pdf-lib/fontkit for full Unicode (Bangla) support.
+ * Matches the BBI Member Registration Form design exactly.
+ *
+ * Font strategy:
+ *  - Latin text: Helvetica (built-in, no embedding needed)
+ *  - Bangla text: Noto Sans Bengali TTF fetched from static assets
+ *  - Logo: JPEG fetched from static assets or passed as buffer
  */
 
-import PDFDocument from 'pdfkit'
-import { FontKitFont } from 'pdfkit'
+import { PDFDocument, PDFFont, rgb, StandardFonts, degrees } from 'pdf-lib'
+import fontkit from '@pdf-lib/fontkit'
 
-interface MemberRegistration {
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface MemberRegistration {
   form_number: string
   name_english: string
   name_bangla?: string
@@ -33,7 +33,7 @@ interface MemberRegistration {
   created_at: string
 }
 
-interface ShareCertificate {
+export interface ShareCertificate {
   certificate_id: string
   project_name: string
   share_quantity: number
@@ -45,448 +45,445 @@ interface ShareCertificate {
   form_number?: string
 }
 
-/**
- * Register Bangla font with PDFKit
- * Uses Hind Siliguri for proper Bangla text rendering
- * Font files should be placed in src/lib/pdf/fonts/ directory
- */
-function registerBanglaFont(doc: PDFDocument) {
+// ─── Asset helpers ─────────────────────────────────────────────────────────────
+
+async function fetchAsset(origin: string, path: string): Promise<ArrayBuffer | null> {
   try {
-    // Try to register Hind Siliguri fonts
-    // Modern Bengali font designed by Google for proper Bangla script rendering
-    const fontPath = './src/lib/pdf/fonts/'
-
-    // Register regular and bold variants
-    doc.font('HindSiliguri', `${fontPath}HindSiliguri-Regular.ttf`)
-    doc.font('HindSiliguri-Bold', `${fontPath}HindSiliguri-Bold.ttf`)
-
-    return true
-  } catch (error) {
-    console.warn('Bangla font not found, falling back to Helvetica for Bangla text:', error)
-    return false
+    const res = await fetch(`${origin}${path}`)
+    if (!res.ok) return null
+    return await res.arrayBuffer()
+  } catch {
+    return null
   }
 }
 
-/**
- * Check if text contains Bangla characters
- */
-function hasBanglaText(text: string): boolean {
-  // Unicode range for Bengali script: U+0980 to U+09FF
-  const bengaliRegex = /[\u0980-\u09FF]/
-  return bengaliRegex.test(text)
+// ─── Point helpers ─────────────────────────────────────────────────────────────
+
+// pdf-lib uses bottom-left origin. Page height = 841.89 (A4).
+// We work top-down and convert at draw time.
+const PAGE_H = 841.89
+const PAGE_W = 595.28
+const MARGIN = 45
+
+function ty(y: number): number {
+  return PAGE_H - y
 }
 
-/**
- * Generate a PDF certificate for a member registration
- * @param registration - Member registration data
- * @param logoBuffer - Optional BBI logo buffer (JPEG)
- * @returns PDF buffer as Uint8Array
- */
+// ─── Member Registration Certificate ─────────────────────────────────────────
+
 export async function generateMemberCertificate(
-  registration: MemberRegistration,
-  logoBuffer?: ArrayBuffer
+  reg: MemberRegistration,
+  logoBuffer?: ArrayBuffer,
+  requestOrigin?: string
 ): Promise<Uint8Array> {
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({
-      size: 'A4',
-      margins: {
-        top: 50,
-        bottom: 50,
-        left: 50,
-        right: 50
-      }
+  const pdfDoc = await PDFDocument.create()
+  pdfDoc.registerFontkit(fontkit)
+
+  // ── Fonts ──────────────────────────────────────────────────────────────────
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+
+  // Try to load Noto Sans Bengali for Bangla text
+  let banglaFont: PDFFont | null = null
+  const origin = requestOrigin ?? 'https://buildbarguna-worker.rahmatullahzisan01.workers.dev'
+  const fontBytes = await fetchAsset(origin, '/fonts/NotoSansBengali.ttf')
+  if (fontBytes) {
+    try {
+      banglaFont = await pdfDoc.embedFont(fontBytes, { subset: true })
+    } catch (e) {
+      console.warn('Failed to embed Bangla font:', e)
+    }
+  }
+
+  // ── Logo ───────────────────────────────────────────────────────────────────
+  let logoImage = null
+  const logoBuf = logoBuffer ?? await fetchAsset(origin, '/bbi%20logo.jpg')
+  if (logoBuf) {
+    try {
+      logoImage = await pdfDoc.embedJpg(logoBuf)
+    } catch { /* ignore */ }
+  }
+
+  // ── Page ───────────────────────────────────────────────────────────────────
+  const page = pdfDoc.addPage([PAGE_W, PAGE_H])
+
+  const black = rgb(0, 0, 0)
+  const gray = rgb(0.5, 0.5, 0.5)
+  const lightGray = rgb(0.8, 0.8, 0.8)
+
+  // ── Logo placement ─────────────────────────────────────────────────────────
+  let y = MARGIN
+
+  if (logoImage) {
+    // Top-left logo: 55x55 pt
+    page.drawImage(logoImage, {
+      x: MARGIN,
+      y: ty(y + 55),
+      width: 55,
+      height: 55,
     })
 
-    const chunks: Uint8Array[] = []
-    doc.on('data', (chunk: Uint8Array) => chunks.push(chunk))
-    doc.on('end', () => {
-      const result = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0))
-      let offset = 0
-      for (const chunk of chunks) {
-        result.set(chunk, offset)
-        offset += chunk.length
-      }
-      resolve(result)
+    // Center watermark — faded
+    page.drawImage(logoImage, {
+      x: (PAGE_W - 200) / 2,
+      y: ty((PAGE_H + 200) / 2),
+      width: 200,
+      height: 200,
+      opacity: 0.07,
     })
-    doc.on('error', reject)
+  }
 
-    // Register Bangla font if available
-    const hasBanglaFont = registerBanglaFont(doc)
+  // ── Org header ─────────────────────────────────────────────────────────────
+  const headerX = MARGIN + 65  // right of logo
 
-    // Draw watermark (faded logo in background)
-    if (logoBuffer) {
-      try {
-        const logo = doc.image(Buffer.from(logoBuffer) as any, {
-          fit: [400, 400],
-          align: 'center',
-          valign: 'center',
-          opacity: 0.1
-        } as any)
-        // Logo is already positioned by image() call
-      } catch (e) {
-        console.warn('Failed to add watermark:', e)
-      }
-    }
+  function centeredText(text: string, ty_y: number, font: PDFFont, size: number) {
+    const w = font.widthOfTextAtSize(text, size)
+    const x = headerX + (PAGE_W - headerX - MARGIN - w) / 2
+    page.drawText(text, { x, y: ty(ty_y + size * 0.8), font, size, color: black })
+  }
 
-    // Header with logo and organization info
-    const pageWidth = doc.page.width
-    const pageHeight = doc.page.height
+  centeredText('Build Barguna Initiative (BBI)', y + 4, helveticaBold, 15)
+  centeredText('Barguna Sadar, Barguna', y + 22, helvetica, 10)
+  centeredText('Email:bbi.official2025@gmail.com', y + 34, helvetica, 10)
+  centeredText('Mobile:01971951960', y + 46, helvetica, 10)
 
-    // Draw logo at top left
-    if (logoBuffer) {
-      try {
-        doc.image(Buffer.from(logoBuffer) as any, 50, 50, {
-          width: 80,
-          height: 80
-        } as any)
-      } catch (e) {
-        console.warn('Failed to add header logo:', e)
-      }
-    }
+  y = MARGIN + 62
 
-    // Organization name and details (centered)
-    doc.fontSize(18)
-      .font('Helvetica-Bold')
-      .text('Build Barguna Initiative (BBI)', 140, 55, {
-        align: 'left'
-      })
+  // Thick horizontal rule
+  page.drawLine({ start: { x: MARGIN, y: ty(y) }, end: { x: PAGE_W - MARGIN, y: ty(y) }, thickness: 1, color: black })
+  y += 10
 
-    doc.fontSize(12)
-      .font('Helvetica')
-      .text('Barguna Sadar, Barguna', 140, 75, { align: 'left' })
-      .text('Email:bbi.official2025@gmail.com', 140, 90, { align: 'left' })
-      .text('Mobile:01971951960', 140, 105, { align: 'left' })
+  // Title
+  const titleText = 'Member  Registration Form'
+  const titleSize = 14
+  const titleW = helveticaBold.widthOfTextAtSize(titleText, titleSize)
+  const titleX = (PAGE_W - titleW) / 2
+  page.drawText(titleText, { x: titleX, y: ty(y + titleSize), font: helveticaBold, size: titleSize, color: black })
 
-    // Horizontal line
-    doc.moveTo(50, 125)
-      .lineTo(pageWidth - 50, 125)
-      .stroke()
-
-    // Title
-    doc.fontSize(16)
-      .font('Helvetica-Bold')
-      .text('Member Registration Form', 0, 145, {
-        align: 'center'
-      })
-
-    // Another horizontal line
-    doc.moveTo(50, 165)
-      .lineTo(pageWidth - 50, 165)
-      .stroke()
-
-    // Form fields
-    let yPos = 190
-    const labelX = 50
-    const valueX = 180
-    const lineHeight = 20
-
-    doc.fontSize(11).font('Helvetica-Bold')
-
-    // Form Number and Date
-    doc.text(`Form NO: [ ${registration.form_number} ]`, labelX, yPos)
-    doc.text(`Date: ${new Date(registration.created_at).toLocaleDateString('en-BD')}`, pageWidth - 150, yPos)
-    yPos += lineHeight + 5
-
-    // Name fields
-    doc.text('Name (English):', labelX, yPos)
-    doc.font('Helvetica').text(registration.name_english, valueX, yPos, { width: 450, underline: true })
-    yPos += lineHeight + 5
-
-    // Name (Bangla) - Use Bangla font if available and text contains Bangla
-    doc.font('Helvetica-Bold').text('Name (Bangla):', labelX, yPos)
-    if (registration.name_bangla && hasBanglaText(registration.name_bangla) && hasBanglaFont) {
-      try {
-        doc.font('HindSiliguri').text(registration.name_bangla, valueX, yPos, { width: 450, underline: true })
-      } catch (e) {
-        doc.font('Helvetica').text(registration.name_bangla || '____________', valueX, yPos, { width: 450, underline: true })
-      }
-    } else {
-      doc.font('Helvetica').text(registration.name_bangla || '____________', valueX, yPos, { width: 450, underline: true })
-    }
-    yPos += lineHeight + 5
-
-    // Parents names
-    doc.font('Helvetica-Bold').text("Father's Name:", labelX, yPos)
-    doc.font('Helvetica').text(registration.father_name, valueX, yPos, { width: 450, underline: true })
-    yPos += lineHeight + 5
-
-    doc.font('Helvetica-Bold').text("Mother's Name:", labelX, yPos)
-    doc.font('Helvetica').text(registration.mother_name, valueX, yPos, { width: 450, underline: true })
-    yPos += lineHeight + 5
-
-    // Date of Birth and Blood Group
-    doc.font('Helvetica-Bold').text('Date of Birth:', labelX, yPos)
-    doc.font('Helvetica').text(registration.date_of_birth, valueX, yPos, { width: 200, underline: true })
-    doc.font('Helvetica-Bold').text('Blood Group:', 380, yPos)
-    doc.font('Helvetica').text(registration.blood_group || '____________', 490, yPos, { width: 150, underline: true })
-    yPos += lineHeight + 10
-
-    // Skills & Interests
-    doc.font('Helvetica-Bold').text('Skills & Interests:', labelX, yPos)
-    yPos += lineHeight
-    doc.font('Helvetica').text(registration.skills_interests || '____________', labelX, yPos, { width: 500, underline: true })
-    yPos += lineHeight + 10
-
-    // Address fields
-    doc.font('Helvetica-Bold').text('Present Address:', labelX, yPos)
-    yPos += lineHeight
-    doc.font('Helvetica').text(registration.present_address, labelX, yPos, { width: 500, underline: true })
-    yPos += lineHeight + 5
-
-    doc.font('Helvetica-Bold').text('Permanent Address:', labelX, yPos)
-    yPos += lineHeight
-    doc.font('Helvetica').text(registration.permanent_address, labelX, yPos, { width: 500, underline: true })
-    yPos += lineHeight + 5
-
-    // Facebook ID
-    doc.font('Helvetica-Bold').text('Facebook ID Name:', labelX, yPos)
-    doc.font('Helvetica').text(registration.facebook_id || '____________', valueX, yPos, { width: 450, underline: true })
-    yPos += lineHeight + 5
-
-    // Mobile and Emergency contact
-    doc.font('Helvetica-Bold').text('Mobile No (WhatsApp):', labelX, yPos)
-    doc.font('Helvetica').text(registration.mobile_whatsapp, valueX, yPos, { width: 200, underline: true })
-    doc.font('Helvetica-Bold').text('(Guardian/Emergency):', 380, yPos)
-    doc.font('Helvetica').text(registration.emergency_contact || '____________', 490, yPos, { width: 150, underline: true })
-    yPos += lineHeight + 5
-
-    // Email
-    doc.font('Helvetica-Bold').text('E-mail:', labelX, yPos)
-    doc.font('Helvetica').text(registration.email || '____________', valueX, yPos, { width: 450, underline: true })
-    yPos += lineHeight + 15
-
-    // Undertaking & Declaration
-    doc.font('Helvetica-Bold').fontSize(11)
-      .text('Undertaking & Declaration:', labelX, yPos)
-    yPos += 15
-
-    doc.font('Helvetica').fontSize(10)
-      .text('I certify that the information provided is correct. As a member of Build Barguna Initiative (BBI), I pledge to:', labelX, yPos, { width: 500 })
-    yPos += 20
-
-    const pledges = [
-      "Follow the organization's rules, regulations, and decisions.",
-      'Maintain the highest ethical standards and discipline.',
-      'Grant permission to BBI to use my photographs/videos for promotional purposes.',
-      'Accept that the Governing Body has the full authority to terminate my membership for misconduct.'
-    ]
-
-    doc.fontSize(10)
-    for (const pledge of pledges) {
-      doc.text('• ' + pledge, labelX + 10, yPos, { width: 500 })
-      yPos += 15
-    }
-
-    // Signature lines at bottom
-    yPos = pageHeight - 80
-    doc.font('Helvetica-Bold').fontSize(11)
-      .text("Authority's Signature", labelX, yPos)
-      .text("Applicant's Signature", pageWidth - 200, yPos)
-
-    doc.end()
+  // Underline the title
+  page.drawLine({
+    start: { x: titleX, y: ty(y + titleSize + 3) },
+    end: { x: titleX + titleW, y: ty(y + titleSize + 3) },
+    thickness: 0.8,
+    color: black,
   })
+
+  y += titleSize + 8
+  page.drawLine({ start: { x: MARGIN, y: ty(y) }, end: { x: PAGE_W - MARGIN, y: ty(y) }, thickness: 0.4, color: gray })
+  y += 10
+
+  // ── Field layout helpers ───────────────────────────────────────────────────
+  const labelSize = 10
+  const valueSize = 9.5
+  const rowH = 20
+  const underlineRight = PAGE_W - MARGIN
+
+  // Detect if a string contains Bangla characters
+  function hasBangla(s: string): boolean {
+    return /[\u0980-\u09FF]/.test(s)
+  }
+
+  // Choose font for a string
+  function fontFor(s: string, bold = false): PDFFont {
+    if (banglaFont && hasBangla(s)) return banglaFont
+    return bold ? helveticaBold : helvetica
+  }
+
+  /**
+   * Draw a label + value on the same row, with an underline.
+   * @param label   Bold label text
+   * @param value   Value text (Bangla-aware)
+   * @param labelX  X position of label
+   * @param valueX  X position where value starts / underline starts
+   * @param endX    X position where underline ends
+   */
+  function drawField(label: string, value: string | undefined | null, labelX: number, valueX: number, endX: number) {
+    // Label
+    page.drawText(`${label}:`, {
+      x: labelX,
+      y: ty(y + labelSize),
+      font: helveticaBold,
+      size: labelSize,
+      color: black,
+    })
+
+    // Value (if present)
+    if (value) {
+      const vFont = fontFor(value)
+      // Clip value width to available space
+      const maxW = endX - valueX - 4
+      let displayValue = value
+      while (displayValue.length > 0 && vFont.widthOfTextAtSize(displayValue, valueSize) > maxW) {
+        displayValue = displayValue.slice(0, -1)
+      }
+      page.drawText(displayValue, {
+        x: valueX,
+        y: ty(y + valueSize),
+        font: vFont,
+        size: valueSize,
+        color: black,
+      })
+    }
+
+    // Underline (dashed line below the field)
+    page.drawLine({
+      start: { x: valueX, y: ty(y + rowH - 4) },
+      end: { x: endX, y: ty(y + rowH - 4) },
+      thickness: 0.4,
+      color: lightGray,
+      dashArray: [2, 2],
+    })
+  }
+
+  // ── Form fields ─────────────────────────────────────────────────────────────
+
+  // Form No + Date row (no underline, just text)
+  const dateStr = new Date(reg.created_at).toLocaleDateString('en-GB')
+  page.drawText(`Form NO: [ ${reg.form_number} ]`, {
+    x: MARGIN, y: ty(y + labelSize), font: helveticaBold, size: labelSize, color: black,
+  })
+  const dateLabelW = helveticaBold.widthOfTextAtSize('Date:', labelSize)
+  const dateValW = helvetica.widthOfTextAtSize(dateStr, labelSize)
+  page.drawText('Date:', {
+    x: underlineRight - dateLabelW - dateValW - 4,
+    y: ty(y + labelSize), font: helveticaBold, size: labelSize, color: black,
+  })
+  page.drawText(dateStr, {
+    x: underlineRight - dateValW,
+    y: ty(y + labelSize), font: helvetica, size: labelSize, color: black,
+  })
+  y += rowH
+
+  drawField("Name (English)", reg.name_english, MARGIN, MARGIN + 110, underlineRight)
+  y += rowH
+
+  drawField("Name (Bangla)", reg.name_bangla, MARGIN, MARGIN + 105, underlineRight)
+  y += rowH
+
+  drawField("Father's Name", reg.father_name, MARGIN, MARGIN + 102, underlineRight)
+  y += rowH
+
+  drawField("Mother's Name", reg.mother_name, MARGIN, MARGIN + 102, underlineRight)
+  y += rowH
+
+  // Date of Birth + Blood Group on same row
+  const midX = MARGIN + 290
+  drawField("Date of Birth", reg.date_of_birth, MARGIN, MARGIN + 88, midX - 6)
+  drawField("Blood Group", reg.blood_group, midX, midX + 85, underlineRight)
+  y += rowH
+
+  // Skills & Interests (multiline)
+  page.drawText('Skills & Interests:', {
+    x: MARGIN, y: ty(y + labelSize), font: helveticaBold, size: labelSize, color: black,
+  })
+  y += 16
+
+  const skills = reg.skills_interests || ''
+  const skillFont = fontFor(skills)
+  const maxLineW = underlineRight - MARGIN - 4
+  const skillWords = skills.split(' ')
+  let skillLine = ''
+  const skillLines: string[] = []
+  for (const w of skillWords) {
+    const test = skillLine ? `${skillLine} ${w}` : w
+    if (skillFont.widthOfTextAtSize(test, valueSize) > maxLineW) {
+      if (skillLine) skillLines.push(skillLine)
+      skillLine = w
+    } else {
+      skillLine = test
+    }
+  }
+  if (skillLine) skillLines.push(skillLine)
+  if (skillLines.length === 0) skillLines.push('')
+
+  for (let i = 0; i < Math.max(skillLines.length, 1); i++) {
+    const sl = skillLines[i] || ''
+    if (sl) {
+      page.drawText(sl, { x: MARGIN, y: ty(y + valueSize), font: skillFont, size: valueSize, color: black })
+    }
+    page.drawLine({ start: { x: MARGIN, y: ty(y + 15) }, end: { x: underlineRight, y: ty(y + 15) }, thickness: 0.4, color: lightGray, dashArray: [2, 2] })
+    y += 16
+  }
+
+  y += 4
+  page.drawLine({ start: { x: MARGIN, y: ty(y) }, end: { x: PAGE_W - MARGIN, y: ty(y) }, thickness: 0.4, color: gray })
+  y += 8
+
+  drawField("Present Address", reg.present_address, MARGIN, MARGIN + 112, underlineRight)
+  y += rowH
+
+  drawField("Permanent Address", reg.permanent_address, MARGIN, MARGIN + 120, underlineRight)
+  y += rowH
+
+  drawField("Facebook ID Name", reg.facebook_id, MARGIN, MARGIN + 118, underlineRight)
+  y += rowH
+
+  // Mobile + Emergency on same row
+  const mid2X = MARGIN + 315
+  drawField("Mobile No (WhatsApp)", reg.mobile_whatsapp, MARGIN, MARGIN + 138, mid2X - 6)
+  drawField("(Guardian/Emergency)", reg.emergency_contact, mid2X, mid2X + 142, underlineRight)
+  y += rowH
+
+  drawField("E-mail", reg.email, MARGIN, MARGIN + 52, underlineRight)
+  y += rowH + 6
+
+  // ── Declaration ────────────────────────────────────────────────────────────
+  // "Undertaking & Declaration:" bold + rest normal
+  const uLabel = 'Undertaking & Declaration: '
+  const uLabelW = helveticaBold.widthOfTextAtSize(uLabel, 10)
+  page.drawText(uLabel, { x: MARGIN, y: ty(y + 10), font: helveticaBold, size: 10, color: black })
+  page.drawText('I certify that the information provided is correct. As a member of', {
+    x: MARGIN + uLabelW, y: ty(y + 10), font: helvetica, size: 10, color: black,
+  })
+  y += 13
+  page.drawText('Build Barguna Initiative (BBI)', { x: MARGIN, y: ty(y + 10), font: helveticaBold, size: 10, color: black })
+  const bbiW = helveticaBold.widthOfTextAtSize('Build Barguna Initiative (BBI)', 10)
+  page.drawText(', I pledge to:', { x: MARGIN + bbiW, y: ty(y + 10), font: helvetica, size: 10, color: black })
+  y += 13
+
+  const pledges = [
+    "Follow the organization's rules, regulations, and decisions.",
+    'Maintain the highest ethical standards and discipline.',
+    'Grant permission to BBI to use my photographs/videos for promotional purposes.',
+    'Accept that the Governing Body has the full authority to terminate my membership for misconduct.',
+  ]
+  for (const p of pledges) {
+    page.drawText(`\u2022  ${p}`, { x: MARGIN + 10, y: ty(y + 9.5), font: helvetica, size: 9.5, color: black })
+    y += 13
+  }
+
+  // ── Signature lines ────────────────────────────────────────────────────────
+  const sigY = Math.max(y + 18, PAGE_H - 80)
+  const sigLineLen = 155
+
+  page.drawLine({ start: { x: MARGIN, y: ty(sigY) }, end: { x: MARGIN + sigLineLen, y: ty(sigY) }, thickness: 0.7, color: black })
+  page.drawLine({ start: { x: PAGE_W - MARGIN - sigLineLen, y: ty(sigY) }, end: { x: PAGE_W - MARGIN, y: ty(sigY) }, thickness: 0.7, color: black })
+
+  page.drawText("Authority's  Signature", { x: MARGIN, y: ty(sigY + 13), font: helvetica, size: 10, color: black })
+  page.drawText("Applicant's Signature", { x: PAGE_W - MARGIN - sigLineLen, y: ty(sigY + 13), font: helvetica, size: 10, color: black })
+
+  return await pdfDoc.save()
 }
 
-/**
- * Generate a PDF certificate for a share purchase
- * @param certificate - Share certificate data
- * @param logoBuffer - Optional BBI logo buffer (JPEG)
- * @returns PDF buffer as Uint8Array
- */
+// ─── Share Certificate ─────────────────────────────────────────────────────────
+
 export async function generateShareCertificate(
-  certificate: ShareCertificate,
-  logoBuffer?: ArrayBuffer
+  cert: ShareCertificate,
+  logoBuffer?: ArrayBuffer,
+  requestOrigin?: string
 ): Promise<Uint8Array> {
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({
-      size: 'A4',
-      margins: {
-        top: 50,
-        bottom: 50,
-        left: 50,
-        right: 50
-      }
-    })
+  const pdfDoc = await PDFDocument.create()
+  pdfDoc.registerFontkit(fontkit)
 
-    const chunks: Uint8Array[] = []
-    doc.on('data', (chunk: Uint8Array) => chunks.push(chunk))
-    doc.on('end', () => {
-      const result = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0))
-      let offset = 0
-      for (const chunk of chunks) {
-        result.set(chunk, offset)
-        offset += chunk.length
-      }
-      resolve(result)
-    })
-    doc.on('error', reject)
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
-    // Register Bangla font if available
-    registerBanglaFont(doc)
-
-    const pageWidth = doc.page.width
-    const pageHeight = doc.page.height
-
-    // Draw watermark (faded logo in background)
-    if (logoBuffer) {
-      try {
-        doc.image(Buffer.from(logoBuffer) as any, {
-          fit: [400, 400],
-          align: 'center',
-          valign: 'center',
-          opacity: 0.08
-        } as any)
-      } catch (e) {
-        console.warn('Failed to add watermark:', e)
-      }
+  let banglaFont: PDFFont | null = null
+  const origin = requestOrigin ?? 'https://buildbarguna-worker.rahmatullahzisan01.workers.dev'
+  const fontBytes = await fetchAsset(origin, '/fonts/NotoSansBengali.ttf')
+  if (fontBytes) {
+    try {
+      banglaFont = await pdfDoc.embedFont(fontBytes, { subset: true })
+    } catch (e) {
+      console.warn('Failed to embed Bangla font:', e)
     }
+  }
 
-    // Draw logo at top left
-    if (logoBuffer) {
-      try {
-        doc.image(Buffer.from(logoBuffer) as any, 50, 50, {
-          width: 60,
-          height: 60
-        } as any)
-      } catch (e) {
-        console.warn('Failed to add header logo:', e)
-      }
-    }
+  let logoImage = null
+  const logoBuf = logoBuffer ?? await fetchAsset(origin, '/bbi%20logo.jpg')
+  if (logoBuf) {
+    try { logoImage = await pdfDoc.embedJpg(logoBuf) } catch { /* ignore */ }
+  }
 
-    // Organization name and details
-    doc.fontSize(16)
-      .font('Helvetica-Bold')
-      .text('Build Barguna Initiative (BBI)', 120, 55, {
-        align: 'left'
-      })
+  const page = pdfDoc.addPage([PAGE_W, PAGE_H])
+  const black = rgb(0, 0, 0)
+  const gray = rgb(0.5, 0.5, 0.5)
+  const darkBlue = rgb(0.12, 0.22, 0.45)
 
-    doc.fontSize(10)
-      .font('Helvetica')
-      .text('Barguna Sadar, Barguna', 120, 72, { align: 'left' })
-      .text('Email: bbi.official2025@gmail.com', 120, 85, { align: 'left' })
-      .text('Mobile: 01971951960', 120, 98, { align: 'left' })
+  let y = MARGIN
 
-    // Horizontal line
-    doc.moveTo(50, 120)
-      .lineTo(pageWidth - 50, 120)
-      .stroke()
+  if (logoImage) {
+    page.drawImage(logoImage, { x: MARGIN, y: ty(y + 55), width: 55, height: 55 })
+    page.drawImage(logoImage, { x: (PAGE_W - 200) / 2, y: ty((PAGE_H + 200) / 2), width: 200, height: 200, opacity: 0.07 })
+  }
 
-    // Certificate title
-    doc.fontSize(18)
-      .font('Helvetica-Bold')
-      .text('Share Purchase Certificate', 0, 140, {
-        align: 'center'
-      })
+  const headerX = MARGIN + 65
+  function centeredText(t: string, yOff: number, font: PDFFont, size: number, color = black) {
+    const w = font.widthOfTextAtSize(t, size)
+    const x = headerX + (PAGE_W - headerX - MARGIN - w) / 2
+    page.drawText(t, { x, y: ty(y + yOff + size * 0.8), font, size, color })
+  }
 
-    // Certificate ID
-    doc.fontSize(12)
-      .font('Helvetica')
-      .text(`Certificate ID: ${certificate.certificate_id}`, 0, 165, {
-        align: 'center'
-      })
+  centeredText('Build Barguna Initiative (BBI)', 4, helveticaBold, 15)
+  centeredText('Barguna Sadar, Barguna', 22, helvetica, 10)
+  centeredText('Email: bbi.official2025@gmail.com  |  Mobile: 01971951960', 34, helvetica, 10)
 
-    // Horizontal line
-    doc.moveTo(50, 185)
-      .lineTo(pageWidth - 50, 185)
-      .stroke()
+  y += 62
+  page.drawLine({ start: { x: MARGIN, y: ty(y) }, end: { x: PAGE_W - MARGIN, y: ty(y) }, thickness: 1, color: black })
+  y += 12
 
-    // Certificate content
-    let yPos = 205
-    const labelX = 60
-    const valueX = 200
+  const titleText = 'Share Purchase Certificate'
+  const titleW = helveticaBold.widthOfTextAtSize(titleText, 16)
+  page.drawText(titleText, { x: (PAGE_W - titleW) / 2, y: ty(y + 16), font: helveticaBold, size: 16, color: darkBlue })
+  y += 22
 
-    doc.fontSize(11)
+  const certIdText = `Certificate No: ${cert.certificate_id}`
+  const certIdW = helvetica.widthOfTextAtSize(certIdText, 11)
+  page.drawText(certIdText, { x: (PAGE_W - certIdW) / 2, y: ty(y + 11), font: helvetica, size: 11, color: gray })
+  y += 18
 
-    // Project Name
-    doc.font('Helvetica-Bold').text('Project:', labelX, yPos)
-    doc.font('Helvetica').text(certificate.project_name, valueX, yPos, { width: 350 })
-    yPos += 25
+  page.drawLine({ start: { x: MARGIN, y: ty(y) }, end: { x: PAGE_W - MARGIN, y: ty(y) }, thickness: 0.8, color: darkBlue })
+  y += 18
 
-    // Share Quantity
-    doc.font('Helvetica-Bold').text('Number of Shares:', labelX, yPos)
-    doc.font('Helvetica').text(certificate.share_quantity.toString(), valueX, yPos)
-    yPos += 25
+  const col1 = MARGIN + 10
+  const col2 = MARGIN + 175
+  const rowH = 26
 
-    // Total Amount
-    doc.font('Helvetica-Bold').text('Total Investment:', labelX, yPos)
-    const amountTaka = (certificate.total_amount_paisa / 100).toFixed(2)
-    doc.font('Helvetica').text(`৳${amountTaka}`, valueX, yPos)
-    yPos += 25
+  function row(label: string, value: string) {
+    page.drawText(`${label}:`, { x: col1, y: ty(y + 11), font: helveticaBold, size: 11, color: black })
+    const vFont = (banglaFont && /[\u0980-\u09FF]/.test(value)) ? banglaFont : helvetica
+    page.drawText(value, { x: col2, y: ty(y + 11), font: vFont, size: 11, color: darkBlue })
+    y += rowH
+  }
 
-    // Purchase Date
-    doc.font('Helvetica-Bold').text('Purchase Date:', labelX, yPos)
-    doc.font('Helvetica').text(new Date(certificate.purchase_date).toLocaleDateString('en-BD'), valueX, yPos)
-    yPos += 25
+  row('Project', cert.project_name)
+  row('Shares', cert.share_quantity.toString())
+  row('Total Investment', `BDT ${(cert.total_amount_paisa / 100).toFixed(2)}`)
+  row('Purchase Date', new Date(cert.purchase_date).toLocaleDateString('en-GB'))
+  row('Payment Method', cert.payment_method === 'bkash' ? 'bKash' : 'Manual/Cash')
+  row('Member Name', cert.user_name)
+  row('Phone', cert.user_phone)
+  if (cert.form_number) row('Member Form No', cert.form_number)
 
-    // Payment Method
-    doc.font('Helvetica-Bold').text('Payment Method:', labelX, yPos)
-    doc.font('Helvetica').text(certificate.payment_method === 'bkash' ? 'bKash' : 'Manual/Cash', valueX, yPos)
-    yPos += 25
+  y += 6
+  page.drawLine({ start: { x: MARGIN, y: ty(y) }, end: { x: PAGE_W - MARGIN, y: ty(y) }, thickness: 0.5, color: gray })
+  y += 14
 
-    // Member Name
-    doc.font('Helvetica-Bold').text('Member Name:', labelX, yPos)
-    doc.font('Helvetica').text(certificate.user_name, valueX, yPos)
-    yPos += 25
+  page.drawText('Terms & Conditions:', { x: col1, y: ty(y + 10), font: helveticaBold, size: 10, color: black })
+  y += 16
+  const terms = [
+    'This certificate is valid only after payment verification by BBI admin.',
+    'Share allocation is subject to project terms and conditions.',
+    'Profit distribution will be as per project guidelines.',
+    'BBI reserves the right to modify terms with prior notice.',
+  ]
+  for (const t of terms) {
+    page.drawText(`\u2022  ${t}`, { x: col1 + 5, y: ty(y + 9), font: helvetica, size: 9, color: black })
+    y += 14
+  }
 
-    // Member Phone
-    doc.font('Helvetica-Bold').text('Phone Number:', labelX, yPos)
-    doc.font('Helvetica').text(certificate.user_phone, valueX, yPos)
-    yPos += 25
+  const sigY = Math.max(y + 20, PAGE_H - 120)
+  const sigLen = 160
+  page.drawLine({ start: { x: MARGIN + 10, y: ty(sigY) }, end: { x: MARGIN + 10 + sigLen, y: ty(sigY) }, thickness: 0.7, color: black })
+  page.drawLine({ start: { x: PAGE_W - MARGIN - 10 - sigLen, y: ty(sigY) }, end: { x: PAGE_W - MARGIN - 10, y: ty(sigY) }, thickness: 0.7, color: black })
+  page.drawText('For Build Barguna Initiative (BBI)', { x: MARGIN + 10, y: ty(sigY + 11), font: helvetica, size: 9, color: black })
+  page.drawText('Member Signature', { x: PAGE_W - MARGIN - 10 - sigLen, y: ty(sigY + 11), font: helvetica, size: 9, color: black })
+  page.drawText('Authorized Signature (With Seal)', { x: MARGIN + 10, y: ty(sigY + 22), font: helvetica, size: 8, color: gray })
 
-    // Member Form Number (if available)
-    if (certificate.form_number) {
-      doc.font('Helvetica-Bold').text('Member Form No:', labelX, yPos)
-      doc.font('Helvetica').text(certificate.form_number, valueX, yPos)
-      yPos += 25
-    }
+  page.drawLine({ start: { x: MARGIN, y: ty(PAGE_H - MARGIN - 5) }, end: { x: PAGE_W - MARGIN, y: ty(PAGE_H - MARGIN - 5) }, thickness: 0.4, color: gray })
+  const footerText = `Generated on ${new Date().toLocaleString('en-GB')}`
+  const footerW = helvetica.widthOfTextAtSize(footerText, 8)
+  page.drawText(footerText, { x: (PAGE_W - footerW) / 2, y: ty(PAGE_H - MARGIN + 5), font: helvetica, size: 8, color: gray })
 
-    yPos += 20
-
-    // Terms and conditions
-    doc.fontSize(10)
-      doc.font('Helvetica-Bold').text('Terms & Conditions:', labelX, yPos)
-    yPos += 18
-
-    doc.font('Helvetica').fontSize(9)
-    const terms = [
-      'This certificate is valid only after payment verification by BBI admin.',
-      'Share allocation is subject to project terms and conditions.',
-      'Profit distribution will be made as per project guidelines.',
-      'BBI reserves the right to modify terms with prior notice.'
-    ]
-
-    for (const term of terms) {
-      doc.text('• ' + term, labelX + 10, yPos, { width: 480 })
-      yPos += 14
-    }
-
-    // Signature section
-    yPos = pageHeight - 100
-
-    doc.fontSize(11)
-    doc.font('Helvetica-Bold')
-      .text("For Build Barguna Initiative (BBI)", labelX, yPos)
-      .text("Member Signature", pageWidth - 180, yPos)
-
-    // Signature lines
-    yPos += 8
-    doc.font('Helvetica').fontSize(9)
-    doc.text('_________________________', labelX, yPos)
-    doc.text('_________________________', pageWidth - 180, yPos)
-
-    yPos += 15
-    doc.text('Authorized Signature', labelX, yPos, { width: 150 })
-    doc.text('(With Seal)', pageWidth - 180, yPos, { width: 150 })
-
-    // Footer
-    doc.fontSize(8)
-    doc.text(
-      `This certificate was generated on ${new Date().toLocaleString('en-BD')}`,
-      0,
-      pageHeight - 30,
-      { align: 'center' }
-    )
-
-    doc.end()
-  })
+  return await pdfDoc.save()
 }
