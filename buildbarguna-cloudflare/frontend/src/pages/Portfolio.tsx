@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { earningsApi, sharesApi } from '../lib/api'
+import { earningsApi, sharesApi, getToken } from '../lib/api'
 import { formatTaka, formatDate } from '../lib/auth'
 import type { ProjectPortfolioItem } from '../lib/api'
 import {
@@ -69,18 +69,29 @@ function StatusBadge({ status }: { status: string }) {
 function ProjectCard({ item, purchases }: { item: ProjectPortfolioItem; purchases: any[] }) {
   const [expanded, setExpanded] = useState(false)
   const [downloading, setDownloading] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   // Get approved purchases for this project
   const projectPurchases = purchases?.filter(p => p.project_id === item.project_id && p.status === 'approved') || []
 
   async function handleDownload(purchaseId: number) {
     setDownloading(purchaseId)
+    setError(null)
     try {
-      const token = localStorage.getItem('token')
+      const token = getToken()
+      if (!token) {
+        setError('সেশন expire হয়েছে। আবার লগইন করুন।')
+        return
+      }
+      
       const response = await fetch(`/api/shares/certificate/${purchaseId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      if (!response.ok) throw new Error('Download failed')
+      
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Download failed')
+      }
       
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
@@ -89,8 +100,9 @@ function ProjectCard({ item, purchases }: { item: ProjectPortfolioItem; purchase
       link.download = `BBI_Share_Certificate_${purchaseId}.pdf`
       link.click()
       window.URL.revokeObjectURL(url)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Download error:', err)
+      setError(err.message || 'ডাউনলোড ব্যর্থ হয়েছে')
     } finally {
       setDownloading(null)
     }
@@ -190,11 +202,14 @@ function ProjectCard({ item, purchases }: { item: ProjectPortfolioItem; purchase
                     <div>
                       <p className="text-sm font-medium">{purchase.quantity} শেয়ার • {formatTaka(purchase.total_amount)}</p>
                       <p className="text-xs text-gray-500">{formatDate(purchase.created_at)} তারিখে ক্রয়</p>
+                      {error && downloading === purchase.id && (
+                        <p className="text-red-500 text-xs mt-1">{error}</p>
+                      )}
                     </div>
                     <button
                       onClick={() => handleDownload(purchase.id)}
                       disabled={downloading === purchase.id}
-                      className="flex items-center gap-1 text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-sm font-medium"
+                      className="flex items-center gap-1 text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
                     >
                       <Download size={14} />
                       {downloading === purchase.id ? 'ডাউনলোড হচ্ছে...' : 'সার্টিফিকেট'}

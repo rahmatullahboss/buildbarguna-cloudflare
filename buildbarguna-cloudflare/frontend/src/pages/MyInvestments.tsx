@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { sharesApi } from '../lib/api'
+import { sharesApi, getToken } from '../lib/api'
 import { formatTaka, formatDate } from '../lib/auth'
 import { PieChart, Download } from 'lucide-react'
 import { useState } from 'react'
@@ -12,15 +12,26 @@ export default function MyInvestments() {
   const { data: shares, isLoading: sharesLoading } = useQuery({ queryKey: ['my-shares'], queryFn: () => sharesApi.my() })
   const { data: requests, isLoading: reqLoading } = useQuery({ queryKey: ['share-requests'], queryFn: () => sharesApi.requests() })
   const [downloading, setDownloading] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleDownload(purchaseId: number) {
     setDownloading(purchaseId)
+    setError(null)
     try {
-      const token = localStorage.getItem('token')
+      const token = getToken()
+      if (!token) {
+        setError('সেশন expire হয়েছে। আবার লগইন করুন।')
+        return
+      }
+      
       const response = await fetch(`/api/shares/certificate/${purchaseId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      if (!response.ok) throw new Error('Download failed')
+      
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Download failed')
+      }
       
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
@@ -29,8 +40,9 @@ export default function MyInvestments() {
       link.download = `BBI_Share_Certificate_${purchaseId}.pdf`
       link.click()
       window.URL.revokeObjectURL(url)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Download error:', err)
+      setError(err.message || 'ডাউনলোড ব্যর্থ হয়েছে')
     } finally {
       setDownloading(null)
     }
@@ -126,14 +138,19 @@ export default function MyInvestments() {
                 
                 {/* Download certificate button for approved purchases */}
                 {r.status === 'approved' && (
-                  <button
-                    onClick={() => handleDownload(r.id)}
-                    disabled={downloading === r.id}
-                    className="mt-3 flex items-center gap-1 text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-sm font-medium"
-                  >
-                    <Download size={14} />
-                    {downloading === r.id ? 'ডাউনলোড হচ্ছে...' : 'সার্টিফিকেট ডাউনলোড'}
-                  </button>
+                  <div className="mt-3">
+                    <button
+                      onClick={() => handleDownload(r.id)}
+                      disabled={downloading === r.id}
+                      className="flex items-center gap-1 text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
+                    >
+                      <Download size={14} />
+                      {downloading === r.id ? 'ডাউনলোড হচ্ছে...' : 'সার্টিফিকেট ডাউনলোড'}
+                    </button>
+                    {error && downloading === r.id && (
+                      <p className="text-red-500 text-xs mt-1">{error}</p>
+                    )}
+                  </div>
                 )}
               </div>
             ))}
