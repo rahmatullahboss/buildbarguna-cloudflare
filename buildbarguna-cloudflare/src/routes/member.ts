@@ -463,11 +463,8 @@ memberRoutes.post('/admin/certificates/bulk', authMiddleware, adminMiddleware, a
           logoBuffer
         )
 
-        // Store certificate in R2
-        const r2Key = `certificates/${registration.form_number}.pdf`
-        await c.env.FILES.put(r2Key, pdfBuffer, {
-          httpMetadata: { contentType: 'application/pdf' }
-        })
+        // Generate on-the-fly - do NOT save to R2
+        // Each member can download their certificate individually when needed
 
         generatedCertificates.push({
           form_number: registration.form_number,
