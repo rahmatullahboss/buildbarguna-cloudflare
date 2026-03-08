@@ -805,7 +805,7 @@ export async function generateShareCertificate(
   y += projectSize + 25
 
   // ── Share Details Section ─────────────────────────────────────────
-  drawShareDetails(page, cert, helvetica, helveticaBold, y)
+  drawShareDetails(page, cert, helvetica, helveticaBold, banglaFont, y)
 
   y = PAGE_H - 180
 
@@ -900,14 +900,28 @@ function drawShareDetails(
   cert: ShareCertificate,
   helvetica: PDFFont,
   helveticaBold: PDFFont,
+  banglaFont: PDFFont | null,
   startY: number
 ) {
   let y = startY
   const labelCol = MARGIN + 50
   const valueCol = MARGIN + 180
   
+  // Helper to detect Bangla
+  function hasBangla(s: string): boolean {
+    return /[\u0980-\u09FF]/.test(s)
+  }
+  
+  // Helper to choose font
+  function fontFor(s: string, bold = false): PDFFont {
+    if (banglaFont && hasBangla(s)) return banglaFont
+    return bold ? helveticaBold : helvetica
+  }
+  
   // Helper to draw a field
   function drawField(label: string, value: string) {
+    const valueFont = fontFor(value)
+    
     page.drawText(label, {
       x: labelCol,
       y: ty(y + 10),
@@ -919,7 +933,7 @@ function drawShareDetails(
     page.drawText(value, {
       x: valueCol,
       y: ty(y + 10),
-      font: helvetica,
+      font: valueFont,
       size: 10,
       color: COLORS.black,
     })
