@@ -920,6 +920,7 @@ function drawShareDetails(
   
   // Helper to draw a field
   function drawField(label: string, value: string) {
+    if (!value) return  // Skip null/undefined/empty
     const valueFont = fontFor(value)
     
     page.drawText(label, {
@@ -954,10 +955,11 @@ function drawShareDetails(
   drawField('Share Quantity:', sharesText)
 
   const amountTaka = Math.floor(cert.total_amount_paisa / 100)
-  const amountText = `৳${amountTaka.toLocaleString('en-US')} (${cert.total_amount_paisa} paisa)`
+  // Use BDT instead of ৳ symbol - ASCII safe, works without Bangla font
+  const amountText = `BDT ${amountTaka.toLocaleString('en-US')} (${cert.total_amount_paisa} paisa)`
   drawField('Total Investment:', amountText)
 
-  drawField('Payment Method:', cert.payment_method || 'N/A')
+  drawField('Payment Method:', (cert.payment_method && cert.payment_method.trim()) || 'N/A')
 
   if (cert.form_number) {
     drawField('Form Number:', cert.form_number)
