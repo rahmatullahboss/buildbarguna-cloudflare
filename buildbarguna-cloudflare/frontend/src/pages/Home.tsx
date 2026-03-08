@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { TrendingUp, Users, Shield, CheckCircle, ArrowRight, Star, Download, Bell, BarChart2, Zap, Lock, BookOpen } from 'lucide-react'
 import { isLoggedIn } from '../lib/auth'
 
-const APK_URL = '/api/download/app'
+const APK_URL = 'https://pub-ab7b08208848418f9562358e8b65ad06.r2.dev/builds/android/buildbarguna-latest-release.apk'
 
 const features = [
   {
