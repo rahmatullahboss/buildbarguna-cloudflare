@@ -912,9 +912,13 @@ function drawShareDetails(
     return /[\u0980-\u09FF]/.test(s)
   }
   
-  // Helper to choose font
+  // Helper to choose font - only use Bangla font if actually available
   function fontFor(s: string, bold = false): PDFFont {
-    if (banglaFont && hasBangla(s)) return banglaFont
+    // Only use Bangla font if it's actually loaded (not null)
+    if (banglaFont && hasBangla(s)) {
+      return banglaFont
+    }
+    // If text has Bangla but no font, use fallback (helvetica) - will show garbled but won't crash
     return bold ? helveticaBold : helvetica
   }
   
