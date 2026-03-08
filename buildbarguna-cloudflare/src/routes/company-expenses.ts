@@ -224,7 +224,60 @@ companyExpenseRoutes.get('/admin/list', async (c) => {
 })
 
 // ──────────────────────────────────────────────────────────────
-// 4. GET EXPENSE DETAILS WITH ALLOCATIONS
+// 4. GET EXPENSE SUMMARY (Dashboard) - MUST be before /:id
+// ──────────────────────────────────────────────────────────────
+
+companyExpenseRoutes.get('/admin/summary', async (c) => {
+  const period = c.req.query('period') || 'month' // month, year, all
+
+  let dateFilter = ''
+  if (period === 'month') {
+    dateFilter = "AND expense_date >= date('now', '-30 days')"
+  } else if (period === 'year') {
+    dateFilter = "AND expense_date >= date('now', '-365 days')"
+  }
+
+  // Get totals
+  const totals = await c.env.DB.prepare(
+    `SELECT 
+       COALESCE(SUM(amount), 0) as total_expenses,
+       COALESCE(SUM(CASE WHEN is_allocated = 1 THEN amount ELSE 0 END), 0) as total_allocated,
+       COALESCE(SUM(CASE WHEN is_allocated = 0 THEN amount ELSE 0 END), 0) as pending_allocation,
+       COUNT(*) as expenses_count
+     FROM company_expenses 
+     WHERE 1=1 ${dateFilter}`
+  ).first<{
+    total_expenses: number
+    total_allocated: number
+    pending_allocation: number
+    expenses_count: number
+  }>()
+
+  // Get by category
+  const byCategory = await c.env.DB.prepare(
+    `SELECT 
+       category_name,
+       COALESCE(SUM(amount), 0) as total_amount,
+       COUNT(*) as count
+     FROM company_expenses
+     WHERE 1=1 ${dateFilter}
+     GROUP BY category_name
+     ORDER BY total_amount DESC`
+  ).all<{ category_name: string; total_amount: number; count: number }>()
+
+  const summary: CompanyExpenseSummary = {
+    total_expenses: totals?.total_expenses ?? 0,
+    total_allocated: totals?.total_allocated ?? 0,
+    pending_allocation: totals?.pending_allocation ?? 0,
+    expenses_count: totals?.expenses_count ?? 0,
+    by_category: byCategory.results
+  }
+
+  return ok(c, summary)
+})
+
+// ──────────────────────────────────────────────────────────────
+// 5. GET EXPENSE DETAILS WITH ALLOCATIONS
 // ──────────────────────────────────────────────────────────────
 
 companyExpenseRoutes.get('/admin/:id', async (c) => {
@@ -284,7 +337,19 @@ companyExpenseRoutes.delete('/admin/:id', async (c) => {
 })
 
 // ──────────────────────────────────────────────────────────────
-// 6. GET EXPENSE CATEGORIES
+// 3. GET CATEGORIES - before /:id to avoid route conflict
+// ──────────────────────────────────────────────────────────────
+
+companyExpenseRoutes.get('/categories', async (c) => {
+  const categories = await c.env.DB.prepare(
+    'SELECT * FROM company_expense_categories WHERE is_active = 1 ORDER BY name'
+  ).all<CompanyExpenseCategory>()
+
+  return ok(c, categories.results)
+})
+
+// ──────────────────────────────────────────────────────────────
+// 4. GET EXPENSE SUMMARY (Dashboard) - before /:id
 // ──────────────────────────────────────────────────────────────
 
 companyExpenseRoutes.get('/categories', async (c) => {
@@ -349,7 +414,7 @@ companyExpenseRoutes.get('/admin/summary', async (c) => {
 })
 
 // ──────────────────────────────────────────────────────────────
-// 8. GET PROJECT EXPENSE SUMMARY (for project finance view)
+// 6. GET PROJECT EXPENSE SUMMARY - before /:id
 // ──────────────────────────────────────────────────────────────
 
 companyExpenseRoutes.get('/project-summary/:projectId', async (c) => {
