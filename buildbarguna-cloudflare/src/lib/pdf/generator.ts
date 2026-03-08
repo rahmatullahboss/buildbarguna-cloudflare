@@ -35,6 +35,14 @@ export interface MemberRegistration {
   created_at: string
   verified_at?: string
   verified_by_name?: string
+  // Payment related fields
+  declaration_accepted?: number
+  payment_method?: string
+  payment_amount?: number
+  payment_status?: string
+  bkash_number?: string
+  bkash_trx_id?: string
+  payment_note?: string
 }
 
 export interface ShareCertificate {
@@ -45,7 +53,7 @@ export interface ShareCertificate {
   purchase_date: string
   user_name: string
   user_phone: string
-  payment_method: string
+  payment_method?: string
   form_number?: string
 }
 
@@ -122,7 +130,22 @@ export async function generateMemberCertificate(
 
   // ── Logo ───────────────────────────────────────────────────────────────
   let logoImage = null
-  const logoBuf = logoBuffer ?? await fetchAsset(origin, '/bbi%20logo.jpg')
+  // Try local logo first, then fallback to remote
+  let logoBuf = logoBuffer
+  if (!logoBuf) {
+    try {
+      // Try to read from local fonts folder
+      const logoPath = './src/lib/pdf/fonts/bbi-logo.jpg'
+      const logoData = await fetchAsset(origin, '/fonts/bbi-logo.jpg')
+      if (logoData) {
+        logoBuf = logoData
+      }
+    } catch { /* ignore */ }
+  }
+  // Fallback to remote URL
+  if (!logoBuf) {
+    logoBuf = await fetchAsset(origin, '/fonts/bbi-logo.jpg')
+  }
   if (logoBuf) {
     try {
       logoImage = await pdfDoc.embedJpg(logoBuf)
@@ -577,9 +600,59 @@ function drawMemberDetails(
     y += 5
     drawField("Skills & Interests:", reg.skills_interests)
   }
+  
+  // Payment & Membership Details
+  y += 10
+  page.drawLine({
+    start: { x: MARGIN + 30, y: ty(y) },
+    end: { x: PAGE_W - MARGIN - 30, y: ty(y) },
+    thickness: 0.5,
+    color: COLORS.gold,
+  })
+  y += 12
+  
+  // Membership Info Header
+  page.drawText('MEMBERSHIP INFORMATION', {
+    x: MARGIN + 30,
+    y: ty(y + 11),
+    font: helveticaBold,
+    size: 11,
+    color: COLORS.navy,
+  })
+  y += 20
+  
+  // Payment Details
+  drawField("Payment Method:", reg.payment_method)
+  if (reg.payment_amount) {
+    const amountText = `৳${(reg.payment_amount / 100).toLocaleString('en-US')}`
+    drawField("Membership Fee:", amountText)
+  }
+  drawField("Payment Status:", reg.payment_status ? reg.payment_status.charAt(0).toUpperCase() + reg.payment_status.slice(1) : undefined)
+  
+  if (reg.bkash_number) {
+    drawField("bKash Number:", reg.bkash_number)
+  }
+  if (reg.bkash_trx_id) {
+    drawField("bKash Transaction ID:", reg.bkash_trx_id)
+  }
+  if (reg.payment_note) {
+    drawField("Payment Note:", reg.payment_note)
+  }
+  
+  // Declaration
+  if (reg.declaration_accepted) {
+    y += 5
+    page.drawText('[x] Declaration Accepted', {
+      x: MARGIN + 30,
+      y: ty(y + 10),
+      font: helveticaBold,
+      size: 10,
+      color: COLORS.forest,
+    })
+  }
 }
 
-// ─── Share Certificate (Legacy support) ───────────────────────────────────
+// ─── Share Certificate (High Quality Design) ───────────────────────────────────
 
 export async function generateShareCertificate(
   cert: ShareCertificate,
@@ -592,9 +665,24 @@ export async function generateShareCertificate(
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
-  let logoImage = null
+  // Try to load Noto Sans Bengali for Bangla text
+  let banglaFont: PDFFont | null = null
   const origin = requestOrigin ?? 'https://buildbarguna-worker.rahmatullahzisan01.workers.dev'
-  const logoBuf = logoBuffer ?? await fetchAsset(origin, '/bbi%20logo.jpg')
+  const fontBytes = await fetchAsset(origin, '/fonts/NotoSansBengali.ttf')
+  if (fontBytes) {
+    try {
+      banglaFont = await pdfDoc.embedFont(fontBytes, { subset: true })
+    } catch (e) {
+      console.warn('Failed to embed Bangla font:', e)
+    }
+  }
+
+  // Logo
+  let logoImage = null
+  let logoBuf = logoBuffer
+  if (!logoBuf) {
+    logoBuf = await fetchAsset(origin, '/fonts/bbi-logo.jpg')
+  }
   if (logoBuf) {
     try {
       logoImage = await pdfDoc.embedJpg(logoBuf)
@@ -612,71 +700,278 @@ export async function generateShareCertificate(
     color: COLORS.cream,
   })
 
-  let y = MARGIN + 20
+  // Decorative Border
+  drawDecorativeBorder(page)
 
-  // Logo
+  let y = MARGIN + 25
+
+  // Logo (centered)
   if (logoImage) {
-    const logoSize = 60
+    const logoSize = 65
     page.drawImage(logoImage, {
       x: (PAGE_W - logoSize) / 2,
       y: ty(y + logoSize),
       width: logoSize,
       height: logoSize,
     })
-    y += logoSize + 15
+    y += logoSize + 12
   }
 
-  // Title
-  const title = 'SHARE CERTIFICATE'
-  const titleSize = 20
-  const titleW = helveticaBold.widthOfTextAtSize(title, titleSize)
-  page.drawText(title, {
-    x: (PAGE_W - titleW) / 2,
-    y: ty(y + titleSize),
+  // Organization Name
+  const orgName = 'Build Barguna Initiative (BBI)'
+  const orgSize = 22
+  const orgW = helveticaBold.widthOfTextAtSize(orgName, orgSize)
+  page.drawText(orgName, {
+    x: (PAGE_W - orgW) / 2,
+    y: ty(y + orgSize),
     font: helveticaBold,
-    size: titleSize,
+    size: orgSize,
     color: COLORS.navy,
   })
-  y += titleSize + 30
+  y += orgSize + 5
 
-  // Certificate ID
-  page.drawText(`Certificate ID: ${cert.certificate_id}`, {
-    x: MARGIN + 30,
-    y: ty(y + 10),
+  // Tagline
+  const tagline = 'Barguna Sadar, Barguna, Bangladesh'
+  const taglineSize = 10
+  const taglineW = helvetica.widthOfTextAtSize(tagline, taglineSize)
+  page.drawText(tagline, {
+    x: (PAGE_W - taglineW) / 2,
+    y: ty(y + taglineSize),
     font: helvetica,
-    size: 10,
+    size: taglineSize,
     color: COLORS.gray,
   })
-  y += 25
+  y += taglineSize + 20
 
-  // Project
-  page.drawText('Project:', { x: MARGIN + 30, y: ty(y + 10), font: helveticaBold, size: 11, color: COLORS.navy })
-  page.drawText(cert.project_name, { x: MARGIN + 100, y: ty(y + 10), font: helvetica, size: 11, color: COLORS.black })
-  y += 18
+  // ── Certificate Title ───────────────────────────────────────────────
+  const certTitle = 'SHARE CERTIFICATE'
+  const certTitleSize = 20
+  const certTitleW = helveticaBold.widthOfTextAtSize(certTitle, certTitleSize)
+  page.drawText(certTitle, {
+    x: (PAGE_W - certTitleW) / 2,
+    y: ty(y + certTitleSize),
+    font: helveticaBold,
+    size: certTitleSize,
+    color: COLORS.darkGold,
+  })
+  y += certTitleSize + 8
 
-  // Member
-  page.drawText('Member:', { x: MARGIN + 30, y: ty(y + 10), font: helveticaBold, size: 11, color: COLORS.navy })
-  page.drawText(cert.user_name, { x: MARGIN + 100, y: ty(y + 10), font: helvetica, size: 11, color: COLORS.black })
-  y += 18
+  // Certificate ID
+  const certNo = `Certificate No: ${cert.certificate_id}`
+  const certNoSize = 10
+  const certNoW = helvetica.widthOfTextAtSize(certNo, certNoSize)
+  page.drawText(certNo, {
+    x: (PAGE_W - certNoW) / 2,
+    y: ty(y + certNoSize),
+    font: helvetica,
+    size: certNoSize,
+    color: COLORS.gray,
+  })
+  y += certNoSize + 20
 
-  // Shares
-  const sharesText = `Share Quantity: ${cert.share_quantity} shares`
-  page.drawText(sharesText, { x: MARGIN + 30, y: ty(y + 10), font: helveticaBold, size: 11, color: COLORS.navy })
-  y += 18
+  // ── Divider Line ──────────────────────────────────────────────────
+  page.drawLine({
+    start: { x: MARGIN + 50, y: ty(y) },
+    end: { x: PAGE_W - MARGIN - 50, y: ty(y) },
+    thickness: 1,
+    color: COLORS.gold,
+  })
+  y += 15
 
-  // Amount
-  const amountTaka = Math.floor(cert.total_amount_paisa / 100)
-  const amountText = `Total Amount: ৳${amountTaka.toLocaleString('en-US')}`
-  page.drawText(amountText, { x: MARGIN + 30, y: ty(y + 10), font: helvetica, size: 11, color: COLORS.black })
-  y += 18
+  // ── Certificate Body ──────────────────────────────────────────────
+  const introText = 'This is to certify that'
+  const introSize = 11
+  const introW = helvetica.widthOfTextAtSize(introText, introSize)
+  page.drawText(introText, {
+    x: (PAGE_W - introW) / 2,
+    y: ty(y + introSize),
+    font: helvetica,
+    size: introSize,
+    color: COLORS.darkGray,
+  })
+  y += introSize + 12
 
-  // Date
+  // Member Name
+  const memberName = cert.user_name
+  const nameSize = 22
+  const nameW = helveticaBold.widthOfTextAtSize(memberName, nameSize)
+  page.drawText(memberName, {
+    x: (PAGE_W - nameW) / 2,
+    y: ty(y + nameSize),
+    font: helveticaBold,
+    size: nameSize,
+    color: COLORS.black,
+  })
+  y += nameSize + 12
+
+  // has purchased shares
+  const shareText = 'has purchased share(s) in'
+  const shareTextSize = 11
+  const shareTextW = helvetica.widthOfTextAtSize(shareText, shareTextSize)
+  page.drawText(shareText, {
+    x: (PAGE_W - shareTextW) / 2,
+    y: ty(y + shareTextSize),
+    font: helvetica,
+    size: shareTextSize,
+    color: COLORS.darkGray,
+  })
+  y += shareTextSize + 10
+
+  // Project Name
+  const projectName = cert.project_name
+  const projectSize = 16
+  const projectW = helveticaBold.widthOfTextAtSize(projectName, projectSize)
+  page.drawText(projectName, {
+    x: (PAGE_W - projectW) / 2,
+    y: ty(y + projectSize),
+    font: helveticaBold,
+    size: projectSize,
+    color: COLORS.navy,
+  })
+  y += projectSize + 25
+
+  // ── Share Details Section ─────────────────────────────────────────
+  drawShareDetails(page, cert, helvetica, helveticaBold, y)
+
+  y = PAGE_H - 180
+
+  // ── Footer Section ────────────────────────────────────────────────
+  page.drawLine({
+    start: { x: MARGIN + 50, y: ty(y) },
+    end: { x: PAGE_W - MARGIN - 50, y: ty(y) },
+    thickness: 0.5,
+    color: COLORS.lightGray,
+  })
+  y += 15
+
+  // Purchase Date
   const dateText = `Purchase Date: ${new Date(cert.purchase_date).toLocaleDateString('en-GB')}`
-  page.drawText(dateText, { x: MARGIN + 30, y: ty(y + 10), font: helvetica, size: 10, color: COLORS.gray })
-  y += 18
+  const dateSize = 9
+  const dateW = helvetica.widthOfTextAtSize(dateText, dateSize)
+  page.drawText(dateText, {
+    x: (PAGE_W - dateW) / 2,
+    y: ty(y + dateSize),
+    font: helvetica,
+    size: dateSize,
+    color: COLORS.gray,
+  })
+  y += dateSize + 20
 
-  // Payment
-  page.drawText(`Payment Method: ${cert.payment_method}`, { x: MARGIN + 30, y: ty(y + 10), font: helvetica, size: 10, color: COLORS.gray })
+  // ── Signature Section ───────────────────────────────────────────
+  const sigY = y
+  
+  // Member signature area
+  page.drawLine({
+    start: { x: MARGIN + 30, y: ty(sigY) },
+    end: { x: MARGIN + 150, y: ty(sigY) },
+    thickness: 0.5,
+    color: COLORS.lightGray,
+  })
+  page.drawText('Investor Signature', {
+    x: MARGIN + 30,
+    y: ty(sigY + 5),
+    font: helvetica,
+    size: 8,
+    color: COLORS.gray,
+  })
+
+  // Authorized signature area
+  page.drawLine({
+    start: { x: PAGE_W - MARGIN - 150, y: ty(sigY) },
+    end: { x: PAGE_W - MARGIN - 30, y: ty(sigY) },
+    thickness: 0.5,
+    color: COLORS.lightGray,
+  })
+  page.drawText('Authorized Signature', {
+    x: PAGE_W - MARGIN - 120,
+    y: ty(sigY + 5),
+    font: helvetica,
+    size: 8,
+    color: COLORS.gray,
+  })
+
+  // Seal placeholder
+  const sealX = PAGE_W / 2 - 20
+  page.drawCircle({
+    x: sealX,
+    y: ty(sigY + 12),
+    size: 18,
+    borderWidth: 1,
+    borderColor: COLORS.darkGold,
+    color: undefined,
+  })
+  page.drawText('OFFICIAL', {
+    x: sealX - 15,
+    y: ty(sigY + 14),
+    font: helveticaBold,
+    size: 5,
+    color: COLORS.darkGold,
+  })
+
+  // ── Bottom Border ────────────────────────────────────────────────
+  page.drawLine({
+    start: { x: MARGIN, y: ty(PAGE_H - 20) },
+    end: { x: PAGE_W - MARGIN, y: ty(PAGE_H - 20) },
+    thickness: 2,
+    color: COLORS.gold,
+  })
 
   return await pdfDoc.save()
+}
+
+// ─── Helper: Draw Share Details ───────────────────────────────────
+
+function drawShareDetails(
+  page: any, 
+  cert: ShareCertificate,
+  helvetica: PDFFont,
+  helveticaBold: PDFFont,
+  startY: number
+) {
+  let y = startY
+  const labelCol = MARGIN + 50
+  const valueCol = MARGIN + 180
+  
+  // Helper to draw a field
+  function drawField(label: string, value: string) {
+    page.drawText(label, {
+      x: labelCol,
+      y: ty(y + 10),
+      font: helveticaBold,
+      size: 10,
+      color: COLORS.navy,
+    })
+    
+    page.drawText(value, {
+      x: valueCol,
+      y: ty(y + 10),
+      font: helvetica,
+      size: 10,
+      color: COLORS.black,
+    })
+    
+    // Underline
+    page.drawLine({
+      start: { x: valueCol, y: ty(y + 7) },
+      end: { x: valueCol + 250, y: ty(y + 7) },
+      thickness: 0.3,
+      color: COLORS.lightGray,
+    })
+    
+    y += 18
+  }
+
+  // Share Details
+  const sharesText = `${cert.share_quantity} Share(s)`
+  drawField('Share Quantity:', sharesText)
+
+  const amountTaka = Math.floor(cert.total_amount_paisa / 100)
+  const amountText = `৳${amountTaka.toLocaleString('en-US')} (${cert.total_amount_paisa} paisa)`
+  drawField('Total Investment:', amountText)
+
+  drawField('Payment Method:', cert.payment_method || 'N/A')
+
+  if (cert.form_number) {
+    drawField('Form Number:', cert.form_number)
+  }
 }
