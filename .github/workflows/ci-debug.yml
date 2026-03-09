@@ -1,0 +1,49 @@
+name: CI Debug Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug-build:
+    name: 🔍 Debug Frontend Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: buildbarguna-cloudflare/frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: buildbarguna-cloudflare/frontend/package-lock.json
+
+      - name: Environment info
+        run: |
+          echo "Node version: $(node -v)"
+          echo "npm version: $(npm -v)"
+          echo "Working directory: $(pwd)"
+          echo "VITE_R2_PUBLIC_URL: ${VITE_R2_PUBLIC_URL:-'NOT SET'}"
+
+      - name: Install dependencies
+        run: |
+          echo "Installing dependencies..."
+          npm ci 2>&1 | tail -20
+
+      - name: Build with verbose output
+        run: |
+          echo "Starting build..."
+          npm run build 2>&1 || {
+            echo "❌ Build failed!"
+            exit 1
+          }
+
+      - name: Verify build output
+        run: |
+          echo "Build output:"
+          ls -lh dist/ || echo "No dist folder"
+          ls -lh ../dist/ || echo "No parent dist folder"
