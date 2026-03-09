@@ -240,43 +240,14 @@ taskRoutes.post('/:id/complete', async (c) => {
     }
 
     // Initialize user_points if not exists (use INSERT OR IGNORE to prevent race condition)
-    // Also update current_month if needed to ensure the record is ready for points
     await c.env.DB.prepare(
-      `INSERT INTO user_points (user_id, available_points, lifetime_earned, lifetime_redeemed, monthly_earned, monthly_redeemed, current_month, updated_at)
-       VALUES (?, 0, 0, 0, 0, 0, strftime('%Y-%m', 'now'), datetime('now'))
-       ON CONFLICT(user_id) DO UPDATE SET current_month = strftime('%Y-%m', 'now')`
+      `INSERT OR IGNORE INTO user_points (user_id, available_points, lifetime_earned, lifetime_redeemed, monthly_earned, monthly_redeemed, current_month, updated_at)
+       VALUES (?, 0, 0, 0, 0, 0, strftime('%Y-%m', 'now'), datetime('now'))`
     ).bind(userId).run()
 
-    // Add points to user balance - fetch current points first to ensure record exists
-    const currentPoints = await c.env.DB.prepare(
-      'SELECT available_points FROM user_points WHERE user_id = ?'
-    ).bind(userId).first<{ available_points: number }>()
-
-    // Now update with guaranteed existence
-    const pointsUpdate = await c.env.DB.prepare(
-      `UPDATE user_points SET 
-         available_points = available_points + ?,
-         lifetime_earned = lifetime_earned + ?,
-         monthly_earned = monthly_earned + ?,
-         updated_at = datetime('now')
-       WHERE user_id = ?`
-    ).bind(pointsToAward, pointsToAward, pointsToAward, userId).run()
-
-    // Check if points update succeeded
-    if (!pointsUpdate.meta.changes || pointsUpdate.meta.changes === 0) {
-      // Rollback the task completion since points couldn't be added
-      await c.env.DB.prepare(
-        `UPDATE task_completions SET completed_at = NULL, points_earned = 0 
-         WHERE user_id = ? AND task_id = ? AND task_date = ?`
-      ).bind(userId, taskId, today).run()
-      
-      return err(c, 'পয়েন্ট যোগ করতে সমস্যা হচ্ছে। আবার চেষ্টা করুন।', 500)
-    }
-
-    // Get the updated points for response
-    const updatedPoints = await c.env.DB.prepare(
-      'SELECT available_points FROM user_points WHERE user_id = ?'
-    ).bind(userId).first<{ available_points: number }>()
+    // Insert point_transaction — the update_user_points_on_transaction trigger
+    // will automatically update available_points, lifetime_earned and monthly_earned.
+    // Do NOT also manually UPDATE user_points — that was causing double-counting.
 
     // Create transaction record with metadata
     await c.env.DB.prepare(

@@ -12,8 +12,11 @@
  * - Both English and Bangla font support
  */
 
-import { PDFDocument, PDFFont, rgb, StandardFonts, degrees, rgbColor } from 'pdf-lib'
+import { PDFDocument, PDFFont, rgb, StandardFonts, degrees } from 'pdf-lib'
 import fontkit from '@pdf-lib/fontkit'
+// Bengali font bundled directly in the Worker via wrangler module rules (type = "Data")
+// This avoids unreliable self-fetch which fails in Cloudflare Workers runtime
+import notoSansBengaliFontData from './fonts/NotoSansBengali.ttf'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -116,16 +119,14 @@ export async function generateMemberCertificate(
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
   const helveticaItalic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
   
-  // Try to load Noto Sans Bengali for Bangla text
+  // Load Noto Sans Bengali font from bundled module (bundled at build time via wrangler rules)
   let banglaFont: PDFFont | null = null
   const origin = requestOrigin ?? 'https://buildbarguna-worker.rahmatullahzisan01.workers.dev'
-  const fontBytes = await fetchAsset(origin, '/fonts/NotoSansBengali.ttf')
-  if (fontBytes) {
-    try {
-      banglaFont = await pdfDoc.embedFont(fontBytes, { subset: true })
-    } catch (e) {
-      console.warn('Failed to embed Bangla font:', e)
-    }
+  try {
+    // Use full font embedding (not subset) for reliable Unicode/Bengali support
+    banglaFont = await pdfDoc.embedFont(notoSansBengaliFontData as ArrayBuffer)
+  } catch (e) {
+    console.warn('Failed to embed Bangla font:', e)
   }
 
   // ── Logo ───────────────────────────────────────────────────────────────
@@ -134,10 +135,10 @@ export async function generateMemberCertificate(
   let logoBuf = logoBuffer
   if (!logoBuf) {
     // Try root path first (dist/bbi logo.jpg)
-    logoBuf = await fetchAsset(origin, '/bbi%20logo.jpg')
+    logoBuf = await fetchAsset(origin, '/bbi%20logo.jpg') ?? undefined
     // Fallback to fonts path
     if (!logoBuf) {
-      logoBuf = await fetchAsset(origin, '/fonts/bbi-logo.jpg')
+      logoBuf = await fetchAsset(origin, '/fonts/bbi-logo.jpg') ?? undefined
     }
   }
   if (logoBuf) {
@@ -621,16 +622,15 @@ export async function generateShareCertificate(
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
-  // Try to load Noto Sans Bengali for Bangla text
+  // Load Noto Sans Bengali font from bundled module (bundled at build time via wrangler rules)
   let banglaFont: PDFFont | null = null
   const origin = requestOrigin ?? 'https://buildbarguna-worker.rahmatullahzisan01.workers.dev'
-  const fontBytes = await fetchAsset(origin, '/fonts/NotoSansBengali.ttf')
-  if (fontBytes) {
-    try {
-      banglaFont = await pdfDoc.embedFont(fontBytes, { subset: true })
-    } catch (e) {
-      console.warn('Failed to embed Bangla font:', e)
-    }
+  try {
+    // Use full font embedding (not subset) for reliable Unicode/Bengali support in Workers
+    banglaFont = await pdfDoc.embedFont(notoSansBengaliFontData as ArrayBuffer)
+    console.log('[PDF] Bangla font embedded successfully from bundled module')
+  } catch (e) {
+    console.error('[PDF] Failed to embed Bangla font:', e)
   }
 
   // Logo - check multiple paths since dist has "bbi logo.jpg" (with space)
@@ -638,10 +638,10 @@ export async function generateShareCertificate(
   let logoBuf = logoBuffer
   if (!logoBuf) {
     // Try root path first (dist/bbi logo.jpg)
-    logoBuf = await fetchAsset(origin, '/bbi%20logo.jpg')
+    logoBuf = await fetchAsset(origin, '/bbi%20logo.jpg') ?? undefined
     // Fallback to fonts path
     if (!logoBuf) {
-      logoBuf = await fetchAsset(origin, '/fonts/bbi-logo.jpg')
+      logoBuf = await fetchAsset(origin, '/fonts/bbi-logo.jpg') ?? undefined
     }
   }
   if (logoBuf) {
@@ -669,10 +669,41 @@ export async function generateShareCertificate(
     return /[\u0980-\u09FF]/.test(s)
   }
 
-  // Helper to choose font
+  // Helper to choose font - with safety check
   function fontFor(s: string, bold = false): PDFFont {
-    if (banglaFont && hasBangla(s)) return banglaFont
+    const textHasBangla = hasBangla(s)
+    if (textHasBangla) {
+      if (banglaFont) {
+        return banglaFont
+      }
+      // CRITICAL: Text has Bangla but no Bangla font available
+      // This will cause WinAnsi encoding error - log and use fallback
+      console.error('[PDF] WARNING: Text contains Bangla but no Bangla font loaded. Text:', s.substring(0, 50))
+      // We must still return a font, but this will likely cause an encoding error
+      // The real fix is to ensure the font is loaded before reaching here
+    }
     return bold ? helveticaBold : helvetica
+  }
+  
+  // Pre-check: if user_name or project_name has Bangla but font failed to load,
+  // strip Bangla characters and show a Latin-only fallback rather than crashing with 500.
+  function stripBangla(s: string): string {
+    // Replace Bengali Unicode block (U+0980–U+09FF) with empty string
+    const stripped = s.replace(/[\u0980-\u09FF]+/g, '').replace(/\s+/g, ' ').trim()
+    // Return stripped version (may be empty string) — do NOT fall back to original Bengali
+    // An empty/placeholder is safer than passing Bengali to WinAnsi Helvetica font
+    return stripped || '[Name]'
+  }
+
+  let displayUserName = cert.user_name
+  let displayProjectName = cert.project_name
+
+  if (!banglaFont) {
+    if (hasBangla(cert.user_name))    displayUserName    = stripBangla(cert.user_name)
+    if (hasBangla(cert.project_name)) displayProjectName = stripBangla(cert.project_name)
+    if (displayUserName !== cert.user_name || displayProjectName !== cert.project_name) {
+      console.warn('[PDF] Bangla font unavailable — Bengali stripped from name/project for share cert')
+    }
   }
 
   let y = MARGIN + 25
@@ -764,8 +795,8 @@ export async function generateShareCertificate(
   y += introSize + 12
 
   // Member Name - check for Bangla
-  const memberFont = fontFor(cert.user_name, true)
-  const memberName = cert.user_name
+  const memberFont = fontFor(displayUserName, true)
+  const memberName = displayUserName
   const nameSize = 22
   const nameW = memberFont.widthOfTextAtSize(memberName, nameSize)
   page.drawText(memberName, {
@@ -791,8 +822,8 @@ export async function generateShareCertificate(
   y += shareTextSize + 10
 
   // Project Name - check for Bangla
-  const projectFont = fontFor(cert.project_name, true)
-  const projectName = cert.project_name
+  const projectFont = fontFor(displayProjectName, true)
+  const projectName = displayProjectName
   const projectSize = 16
   const projectW = projectFont.widthOfTextAtSize(projectName, projectSize)
   page.drawText(projectName, {

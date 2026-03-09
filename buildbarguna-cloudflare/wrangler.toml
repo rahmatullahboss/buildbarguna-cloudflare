@@ -4,6 +4,12 @@ compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 minify = true
 
+# ── Module rules: bundle binary assets directly into the Worker ───────────────
+# Importing a .ttf file gives an ArrayBuffer — no network fetch needed at runtime
+[[rules]]
+type = "Data"
+globs = ["**/*.ttf"]
+
 # ── Observability: Worker Logs & Traces ──────────────────────────────────────
 # View at: Cloudflare Dashboard → Workers → buildbarguna-worker → Logs
 [observability]
