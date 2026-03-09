@@ -171,27 +171,27 @@ shareRoutes.get('/certificate/:purchaseId', authMiddleware, async (c) => {
   }
 
   try {
-    // Try to get logo from static assets first, then R2
+    // Try to get logo from static assets first
     let logoBuffer: ArrayBuffer | undefined
     const origin = new URL(c.req.url).origin
     try {
       const logoRes = await fetch(`${origin}/bbi%20logo.jpg`)
-      if (logoRes.ok) logoBuffer = await logoRes.arrayBuffer()
-    } catch (_) { /* ignore */ }
-    if (!logoBuffer) {
-      try {
-        if (c.env.FILES) {
-          const logoObject = await c.env.FILES.get('assets/bbi-logo.jpg')
-          if (logoObject) logoBuffer = await logoObject.arrayBuffer()
-        }
-      } catch (e) {
-        console.warn('Logo not found in R2:', e)
+      if (logoRes.ok) {
+        logoBuffer = await logoRes.arrayBuffer()
+        console.log('[Certificate] Logo loaded from static assets')
       }
+    } catch (e) {
+      console.warn('[Certificate] Failed to fetch logo from static assets:', e)
     }
+    
+    // R2 binding is disabled - skip R2 logo fetch to avoid errors
+    // if (!logoBuffer && c.env.FILES) { ... }
 
     // Generate certificate ID: BBI-SHARE-YYYY-NNNN
     const year = new Date(purchase.created_at).getFullYear()
     const certId = `BBI-SHARE-${year}-${purchase.id.toString().padStart(4, '0')}`
+
+    console.log('[Certificate] Generating PDF for purchase:', purchaseId, 'certId:', certId)
 
     // Generate PDF certificate
     const pdfBuffer = await generateShareCertificate(
@@ -215,7 +215,8 @@ shareRoutes.get('/certificate/:purchaseId', authMiddleware, async (c) => {
       'Content-Disposition': `attachment; filename="BBI_Share_Certificate_${certId}.pdf"`
     })
   } catch (error: any) {
-    console.error('Share certificate generation error:', error)
+    console.error('[Certificate] Generation error:', error)
+    console.error('[Certificate] Error stack:', error.stack)
     return err(c, 'সার্টিফিকেট তৈরি করা যায়নি। আবার চেষ্টা করুন।', 500)
   }
 })
@@ -250,27 +251,26 @@ shareRoutes.get('/certificate/:purchaseId/preview', authMiddleware, async (c) =>
   }
 
   try {
-    // Try to get logo from static assets first, then R2
+    // Try to get logo from static assets first
     let logoBuffer: ArrayBuffer | undefined
     const origin = new URL(c.req.url).origin
     try {
       const logoRes = await fetch(`${origin}/bbi%20logo.jpg`)
-      if (logoRes.ok) logoBuffer = await logoRes.arrayBuffer()
-    } catch (_) { /* ignore */ }
-    if (!logoBuffer) {
-      try {
-        if (c.env.FILES) {
-          const logoObject = await c.env.FILES.get('assets/bbi-logo.jpg')
-          if (logoObject) logoBuffer = await logoObject.arrayBuffer()
-        }
-      } catch (e) {
-        console.warn('Logo not found in R2:', e)
+      if (logoRes.ok) {
+        logoBuffer = await logoRes.arrayBuffer()
+        console.log('[Certificate Preview] Logo loaded from static assets')
       }
+    } catch (e) {
+      console.warn('[Certificate Preview] Failed to fetch logo from static assets:', e)
     }
+    
+    // R2 binding is disabled - skip R2 logo fetch to avoid errors
 
     // Generate certificate ID
     const year = new Date(purchase.created_at).getFullYear()
     const certId = `BBI-SHARE-${year}-${purchase.id.toString().padStart(4, '0')}`
+
+    console.log('[Certificate Preview] Generating PDF for purchase:', purchaseId, 'certId:', certId)
 
     // Generate PDF certificate
     const pdfBuffer = await generateShareCertificate(
@@ -294,7 +294,8 @@ shareRoutes.get('/certificate/:purchaseId/preview', authMiddleware, async (c) =>
       'Content-Disposition': `inline; filename="BBI_Share_Certificate_${certId}.pdf"`
     })
   } catch (error: any) {
-    console.error('Share certificate preview error:', error)
+    console.error('[Certificate Preview] Generation error:', error)
+    console.error('[Certificate Preview] Error stack:', error.stack)
     return err(c, 'সার্টিফিকেট প্রিভিউ করা যায়নি। আবার চেষ্টা করুন।', 500)
   }
 })

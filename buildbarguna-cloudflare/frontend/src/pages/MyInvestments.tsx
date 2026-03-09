@@ -23,22 +23,42 @@ export default function MyInvestments() {
         setError('সেশন expire হয়েছে। আবার লগইন করুন।')
         return
       }
-      
+
       const response = await fetch(`/api/shares/certificate/${purchaseId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      
+
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Download failed')
+        // Try to parse error as JSON, fallback to text
+        let errorMessage = 'ডাউনলোড ব্যর্থ হয়েছে'
+        try {
+          const contentType = response.headers.get('content-type')
+          if (contentType?.includes('application/json')) {
+            const data = await response.json()
+            errorMessage = data.error || errorMessage
+          } else {
+            const text = await response.text()
+            errorMessage = text || errorMessage
+          }
+        } catch {
+          // Ignore parsing error
+        }
+        throw new Error(errorMessage)
+      }
+
+      const blob = await response.blob()
+      
+      if (!blob || blob.size === 0) {
+        throw new Error('খালি PDF ফাইল পাওয়া গেছে')
       }
       
-      const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
       link.download = `BBI_Share_Certificate_${purchaseId}.pdf`
+      document.body.appendChild(link)
       link.click()
+      document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
     } catch (err: any) {
       console.error('Download error:', err)
