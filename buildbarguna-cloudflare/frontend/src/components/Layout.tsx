@@ -3,7 +3,7 @@ import { authApi, clearToken } from '../lib/api'
 import { getUser, isAdmin } from '../lib/auth'
 import {
   Home, Briefcase, PieChart, TrendingUp,
-  LogOut, Settings, Menu, X, ChevronRight, BarChart2, ArrowDownCircle, Gift, Building2, BookOpen, FileText
+  LogOut, Settings, Menu, X, ChevronRight, BarChart2, ArrowDownCircle, Gift, Building2, BookOpen, FileText, CheckSquare, ListTodo
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -22,6 +22,7 @@ const memberNav = [
   { to: '/my-investments', label: 'আমার বিনিয়োগ', icon: PieChart },
   { to: '/earnings', label: 'মুনাফা', icon: TrendingUp },
   { to: '/rewards', label: 'রিওয়ার্ড', icon: Gift },
+  { to: '/tasks', label: 'টাস্ক', icon: Gift },
   { to: '/portfolio', label: 'পোর্টফোলিও', icon: BarChart2 },
   { to: '/membership', label: 'মেম্বারশিপ', icon: FileText },
   { to: '/withdraw', label: 'উত্তোলন', icon: ArrowDownCircle },
@@ -35,6 +36,7 @@ const adminNav = [
   { to: '/admin/projects', label: 'প্রজেক্ট ব্যবস্থাপনা', icon: Briefcase },
   { to: '/admin/shares', label: 'শেয়ার অনুমোদন', icon: PieChart },
   { to: '/admin/earnings', label: 'মুনাফা বিতরণ', icon: TrendingUp },
+  { to: '/admin/tasks', label: 'টাস্ক ব্যবস্থাপনা', icon: ListTodo },
   { to: '/admin/rewards', label: 'রিওয়ার্ড ব্যবস্থাপনা', icon: Gift },
   { to: '/admin/users', label: 'মেম্বার তালিকা', icon: Home },
   { to: '/admin/members', label: 'মেম্বারশিপ', icon: CheckSquare },

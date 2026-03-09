@@ -214,12 +214,18 @@ export const adminReferralsApi = {
 // Points (used by Rewards page)
 export const pointsApi = {
   getBalance: () => request<UserPoints>('/points'),
-  getHistory: (month?: string, limit = 50) => request<PointTransaction[]>(`/points/history?${month ? `month=${month}&` : ''}limit=${limit}`),
+  getHistory: (month?: string, page = 1, limit = 20) => request<Paginated<PointTransaction>>(`/points/history?${month ? `month=${month}&` : ''}page=${page}&limit=${limit}`),
   getMonthly: () => request<MonthlyPoints>('/points/monthly'),
   getLeaderboard: (timeframe = 'all', limit = 10) => request<LeaderboardEntry[]>(`/points/leaderboard?timeframe=${timeframe}&limit=${limit}`),
   requestExport: (type = 'point_history') => request(`/points/export?type=${type}`),
   getExportStatus: (id?: string) => request(`/points/export/status${id ? `?id=${id}` : ''}`),
-  getBadges: () => request<BadgeResponse>('/points/badges')
+  getBadges: () => request<BadgeResponse>('/points/badges'),
+  withdraw: (amount_points: number, bkash_number: string) =>
+    request<{ message: string; amount_points: number; amount_taka: number; status: string }>(
+      '/points/withdraw',
+      { method: 'POST', body: JSON.stringify({ amount_points, bkash_number }) }
+    ),
+  getWithdrawals: (page = 1) => request<Paginated<PointWithdrawal>>(`/points/withdrawals?page=${page}`)
 }
 
 // Notifications
@@ -237,6 +243,115 @@ export const rewardsApi = {
   getDetail: (id: number) => request<RewardItem>(`/rewards/${id}`),
   redeem: (id: number) => request(`/rewards/${id}/redeem`, { method: 'POST' }),
   myRedemptions: () => request<RewardRedemption[]>('/rewards/my-redemptions')
+}
+
+// Tasks
+export interface TaskListItem {
+  id: number
+  title: string
+  platform: 'facebook' | 'youtube' | 'telegram' | 'other'
+  destination_url: string
+  points: number
+  cooldown_seconds: number
+  is_one_time: boolean
+  completed_today: boolean
+  completed_ever: boolean
+  remaining_count: number
+}
+
+export interface TaskListResponse {
+  daily_tasks: TaskListItem[]
+  one_time_tasks: TaskListItem[]
+  user_points: {
+    available_points: number
+    lifetime_earned: number
+    monthly_earned: number
+  }
+}
+
+export interface TaskStartResponse {
+  task_id: number
+  destination_url: string
+  wait_seconds: number
+  started_at: string
+}
+
+export interface TaskCompleteResponse {
+  points_earned: number
+  total_points: number
+  completed_at: string
+}
+
+export interface TaskCompletionItem {
+  id: number
+  user_id: number
+  task_id: number
+  clicked_at: string | null
+  completed_at: string
+  task_date: string
+  points_earned: number
+  task_title: string
+  platform: string
+  points_awarded: number
+}
+
+export const tasksApi = {
+  list: () => request<TaskListResponse>('/tasks'),
+  getDetail: (id: number) => request<TaskListItem>(`/tasks/${id}`),
+  start: (id: number) => request<TaskStartResponse>(`/tasks/${id}/start`, { method: 'POST' }),
+  complete: (id: number) => request<TaskCompleteResponse>(`/tasks/${id}/complete`, { method: 'POST' }),
+  history: (page = 1) => request<Paginated<TaskCompletionItem>>(`/tasks/history?page=${page}`)
+}
+
+// Wallet
+export interface PointWallet {
+  balance: number
+  lifetime_added: number
+  lifetime_withdrawn: number
+  last_settled_at: string | null
+}
+
+export interface WalletResponse {
+  wallet: PointWallet
+  pending_withdrawals: Array<{
+    id: number
+    amount_points: number
+    amount_taka: number
+    requested_at: string
+  }>
+  available_for_withdrawal: number
+}
+
+export interface PointWithdrawal {
+  id: number
+  user_id: number
+  amount_points: number
+  amount_taka: number
+  bkash_number: string
+  status: 'pending' | 'approved' | 'rejected' | 'completed'
+  admin_note: string | null
+  approved_by: number | null
+  requested_at: string
+  processed_at: string | null
+  // Admin view fields
+  user_name?: string
+  user_phone?: string
+}
+
+export interface WalletSettings {
+  min_cashout_points: number
+  points_to_taka_rate: number
+}
+
+export const walletApi = {
+  get: () => request<WalletResponse>('/wallet'),
+  withdraw: (amount_points: number, bkash_number: string) =>
+    request<{ message: string; amount_points: number; amount_taka: number; status: string }>(
+      '/wallet/withdraw',
+      { method: 'POST', body: JSON.stringify({ amount_points, bkash_number }) }
+    ),
+  withdrawals: (page = 1) => request<Paginated<PointWithdrawal>>(`/wallet/withdrawals?page=${page}`),
+  settings: () => request<WalletSettings>('/wallet/settings')
 }
 
 // Admin
@@ -280,7 +395,17 @@ export const adminApi = {
   
   redemptions: (status = 'pending') => request<RedemptionItem[]>(`/admin/redemptions?status=${status}`),
   updateRedemptionStatus: (id: number, status: string, admin_note?: string) =>
-    request(`/admin/redemptions/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, admin_note }) })
+    request(`/admin/redemptions/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, admin_note }) }),
+
+  // Point Withdrawals
+  pointWithdrawals: (status?: string, page = 1) =>
+    request<Paginated<PointWithdrawal>>(`/admin/point-withdrawals?status=${status || ''}&page=${page}`),
+  approvePointWithdrawal: (id: number, admin_note?: string) =>
+    request(`/admin/point-withdrawals/${id}/approve`, { method: 'PATCH', body: JSON.stringify({ admin_note }) }),
+  rejectPointWithdrawal: (id: number, admin_note: string) =>
+    request(`/admin/point-withdrawals/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ admin_note }) }),
+  completePointWithdrawal: (id: number, bkash_txid: string) =>
+    request(`/admin/point-withdrawals/${id}/complete`, { method: 'PATCH', body: JSON.stringify({ bkash_txid }) })
 }
 
 // Types
