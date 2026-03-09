@@ -14,9 +14,25 @@
 
 import { PDFDocument, PDFFont, rgb, StandardFonts, degrees } from 'pdf-lib'
 import fontkit from '@pdf-lib/fontkit'
-// Bengali font bundled directly in the Worker via wrangler module rules (type = "Data")
-// This avoids unreliable self-fetch which fails in Cloudflare Workers runtime
-import notoSansBengaliFontData from './fonts/NotoSansBengali.ttf'
+
+// ─── Bangla Font Loading ─────────────────────────────────────────────────────
+// For Cloudflare Workers: use bundled font via wrangler module rules (type = "Data")
+// For tests (vitest/node): fall back to loading from file or skip
+let notoSansBengaliFontData: ArrayBuffer | null = null
+
+try {
+  // Dynamic import works in both Worker (bundled) and test environments
+  const fontModule = await import('./fonts/NotoSansBengali.ttf')
+  // Handle both default export and direct ArrayBuffer from wrangler bundling
+  const fontData = fontModule.default || fontModule
+  if (fontData && typeof fontData === 'object' && 'buffer' in fontData) {
+    notoSansBengaliFontData = (fontData as { buffer: ArrayBuffer }).buffer
+  } else if (fontData instanceof ArrayBuffer) {
+    notoSansBengaliFontData = fontData
+  }
+} catch (e) {
+  console.warn('[PDF] Could not load bundled Bangla font, will try fallback:', e)
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -122,11 +138,26 @@ export async function generateMemberCertificate(
   // Load Noto Sans Bengali font from bundled module (bundled at build time via wrangler rules)
   let banglaFont: PDFFont | null = null
   const origin = requestOrigin ?? 'https://buildbarguna-worker.rahmatullahzisan01.workers.dev'
-  try {
-    // Use full font embedding (not subset) for reliable Unicode/Bengali support
-    banglaFont = await pdfDoc.embedFont(notoSansBengaliFontData as ArrayBuffer)
-  } catch (e) {
-    console.warn('Failed to embed Bangla font:', e)
+  
+  // Try bundled font first (works in Workers)
+  if (notoSansBengaliFontData) {
+    try {
+      banglaFont = await pdfDoc.embedFont(notoSansBengaliFontData)
+    } catch (e) {
+      console.warn('[PDF] Failed to embed bundled Bangla font:', e)
+    }
+  }
+  
+  // Fallback: try to fetch from self (works in production Workers at runtime)
+  if (!banglaFont) {
+    try {
+      const fontBytes = await fetchAsset(origin, '/fonts/NotoSansBengali.ttf')
+      if (fontBytes) {
+        banglaFont = await pdfDoc.embedFont(fontBytes)
+      }
+    } catch (e) {
+      console.warn('[PDF] Failed to fetch Bangla font from self:', e)
+    }
   }
 
   // ── Logo ───────────────────────────────────────────────────────────────
@@ -622,15 +653,29 @@ export async function generateShareCertificate(
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
-  // Load Noto Sans Bengali font from bundled module (bundled at build time via wrangler rules)
+  // Load Noto Sans Bengali font - try bundled first, then fallback to self-fetch
   let banglaFont: PDFFont | null = null
   const origin = requestOrigin ?? 'https://buildbarguna-worker.rahmatullahzisan01.workers.dev'
-  try {
-    // Use full font embedding (not subset) for reliable Unicode/Bengali support in Workers
-    banglaFont = await pdfDoc.embedFont(notoSansBengaliFontData as ArrayBuffer)
-    console.log('[PDF] Bangla font embedded successfully from bundled module')
-  } catch (e) {
-    console.error('[PDF] Failed to embed Bangla font:', e)
+  
+  // Try bundled font first (works in Workers)
+  if (notoSansBengaliFontData) {
+    try {
+      banglaFont = await pdfDoc.embedFont(notoSansBengaliFontData)
+    } catch (e) {
+      console.warn('[PDF] Failed to embed bundled Bangla font:', e)
+    }
+  }
+  
+  // Fallback: try to fetch from self (works in production Workers at runtime)
+  if (!banglaFont) {
+    try {
+      const fontBytes = await fetchAsset(origin, '/fonts/NotoSansBengali.ttf')
+      if (fontBytes) {
+        banglaFont = await pdfDoc.embedFont(fontBytes)
+      }
+    } catch (e) {
+      console.warn('[PDF] Failed to fetch Bangla font from self:', e)
+    }
   }
 
   // Logo - check multiple paths since dist has "bbi logo.jpg" (with space)
