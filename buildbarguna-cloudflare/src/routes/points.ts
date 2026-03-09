@@ -1,8 +1,10 @@
 import { Hono } from 'hono'
 import { authMiddleware } from '../middleware/auth'
-import { ok, err } from '../lib/response'
-import { RATE_LIMITS, RATE_LIMIT_ENDPOINTS, EXPORT_TYPES, PAGINATION } from '../lib/constants'
+import { ok, err, getPagination, paginate } from '../lib/response'
+import { RATE_LIMITS, RATE_LIMIT_ENDPOINTS, EXPORT_TYPES, PAGINATION, POINTS_SYSTEM } from '../lib/constants'
 import type { Bindings, Variables } from '../types'
+import { z } from 'zod'
+import { zValidator } from '@hono/zod-validator'
 
 export const pointsRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -275,3 +277,158 @@ pointsRoutes.get('/badges', async (c) => {
     total_available: availableBadges.length
   })
 })
+
+// Validation schema for withdrawal
+const withdrawSchema = z.object({
+  amount_points: z.number().min(POINTS_SYSTEM.MIN_WITHDRAWAL_POINTS, `ন্যূনতম ${POINTS_SYSTEM.MIN_WITHDRAWAL_POINTS} পয়েন্ট প্রয়োজন`),
+  bkash_number: z.string().regex(/^01[3-9]\d{8}$/, 'সঠিক bKash নম্বর দিন (01XXXXXXXXX)')
+})
+
+// POST /api/points/withdraw - Request points withdrawal
+pointsRoutes.post('/withdraw', zValidator('json', withdrawSchema), async (c) => {
+  const userId = c.get('userId')
+  const { amount_points, bkash_number } = c.req.valid('json')
+  const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
+
+  // Rate limiting: Check hourly limit
+  const rateLimitCheck = await c.env.DB.prepare(
+    `INSERT INTO rate_limits (user_id, endpoint, request_count, window_start)
+     VALUES (?, ?, 1, datetime('now'))
+     ON CONFLICT(user_id, endpoint, window_start) DO UPDATE SET
+       request_count = request_count + 1
+     WHERE datetime('now') < datetime(window_start, '+1 hour')`
+  ).bind(userId, RATE_LIMIT_ENDPOINTS.POINTS_WITHDRAW).run()
+
+  const currentCount = await c.env.DB.prepare(
+    `SELECT request_count FROM rate_limits
+     WHERE user_id = ? AND endpoint = ?
+     AND datetime('now') < datetime(window_start, '+1 hour')`
+  ).bind(userId, RATE_LIMIT_ENDPOINTS.POINTS_WITHDRAW).first<{ request_count: number }>()
+
+  if ((currentCount?.request_count || 0) > RATE_LIMITS.POINTS_WITHDRAW.MAX_PER_HOUR) {
+    return err(c, 'প্রতি ঘণ্টায় সর্বোচ্চ ৩টি উত্তোলন করা যায়', 429)
+  }
+
+  // Check monthly withdrawal limit
+  const monthlyWithdrawals = await c.env.DB.prepare(
+    `SELECT COUNT(*) as count FROM point_withdrawals
+     WHERE user_id = ? AND strftime('%Y-%m', requested_at) = ?`
+  ).bind(userId, currentMonth).first<{ count: number }>()
+
+  if ((monthlyWithdrawals?.count || 0) >= POINTS_SYSTEM.MAX_WITHDRAWALS_PER_MONTH) {
+    return err(c, `প্রতি মাসে সর্বোচ্চ ${POINTS_SYSTEM.MAX_WITHDRAWALS_PER_MONTH}টি উত্তোলন করা যায়`, 400)
+  }
+
+  // Get user points with explicit type
+  const userPoints = await c.env.DB.prepare(
+    `SELECT available_points FROM user_points WHERE user_id = ?`
+  ).bind(userId).first<{ available_points: number }>()
+
+  const balance = userPoints?.available_points || 0
+
+  // Check minimum (also validated by schema, but double-check)
+  if (amount_points < POINTS_SYSTEM.MIN_WITHDRAWAL_POINTS) {
+    return err(c, `ন্যূনতম ${POINTS_SYSTEM.MIN_WITHDRAWAL_POINTS} পয়েন্ট প্রয়োজন`, 400)
+  }
+
+  // Check balance
+  if (balance < amount_points) {
+    return err(c, `পর্যাপ্ত পয়েন্ট নেই। আপনার আছে ${balance} পয়েন্ট`, 400)
+  }
+
+  // Check for pending withdrawal
+  const existingPending = await c.env.DB.prepare(
+    `SELECT id FROM point_withdrawals
+     WHERE user_id = ? AND status = 'pending'`
+  ).bind(userId).first()
+
+  if (existingPending) {
+    return err(c, 'আপনার একটি উত্তোলন অনুরোধ ইতিমধ্যে অপেক্ষমান', 400)
+  }
+
+  // Calculate taka (1 point = 1 taka)
+  const amount_taka = amount_points * POINTS_SYSTEM.POINTS_TO_TAKA_RATE
+
+  // CRITICAL FIX: Deduct points immediately to prevent double-spending
+  // This locks the points so they can't be used for rewards while withdrawal is pending
+  const deductResult = await c.env.DB.prepare(
+    `UPDATE user_points SET
+       available_points = available_points - ?,
+       lifetime_redeemed = lifetime_redeemed + ?,
+       updated_at = datetime('now')
+     WHERE user_id = ? AND available_points >= ?`
+  ).bind(amount_points, amount_points, userId, amount_points).run()
+
+  if (!deductResult.meta.changes || deductResult.meta.changes === 0) {
+    return err(c, 'পর্যাপ্ত পয়েন্ট নেই। অনুগ্রহ করে আবার চেষ্টা করুন।', 400)
+  }
+
+  try {
+    // Create withdrawal request
+    await c.env.DB.prepare(
+      `INSERT INTO point_withdrawals (user_id, amount_points, amount_taka, bkash_number, status)
+       VALUES (?, ?, ?, ?, 'pending')`
+    ).bind(userId, amount_points, amount_taka, bkash_number).run()
+
+    // Create transaction record for withdrawal
+    await c.env.DB.prepare(
+      `INSERT INTO point_transactions (user_id, points, transaction_type, description, month_year)
+       VALUES (?, ?, 'withdrawn', ?, ?)`
+    ).bind(userId, -amount_points, `Withdrawal request: ${amount_points} points to bKash`, currentMonth).run()
+
+    // Create notification for user
+    await c.env.DB.prepare(
+      `INSERT INTO notifications (user_id, type, title, message, reference_type)
+       VALUES (?, 'withdrawal_request', 'উত্তোলন অনুরোধ জমা দেওয়া হয়েছে', ?, 'point_withdrawal')`
+    ).bind(userId, `আপনার ${amount_points} পয়েন্ট (${amount_taka} টাকা) উত্তোলন অনুরোধ জমা দেওয়া হয়েছে।`).run()
+
+    // Notify admins
+    await c.env.DB.prepare(
+      `INSERT INTO notifications (user_id, type, title, message, reference_type)
+       SELECT id, 'new_withdrawal', 'নতুন পয়েন্ট উত্তোলন অনুরোধ',
+              ? || ' - ' || ? || ' পয়েন্ট', 'point_withdrawal'
+       FROM users WHERE role = 'admin' AND is_active = 1 LIMIT 5`
+    ).bind(bkash_number, amount_points.toString()).run()
+
+    return ok(c, {
+      message: 'উত্তোলন অনুরোধ সফলভাবে জমা দেওয়া হয়েছে!',
+      amount_points,
+      amount_taka,
+      status: 'pending'
+    }, 201)
+
+  } catch (error) {
+    console.error('Withdrawal creation error:', error)
+
+    // Rollback: restore points
+    await c.env.DB.prepare(
+      `UPDATE user_points SET
+         available_points = available_points + ?,
+         updated_at = datetime('now')
+       WHERE user_id = ?`
+    ).bind(amount_points, userId).run()
+
+    return err(c, 'উত্তোলন অনুরোধ তৈরি করতে সমস্যা হচ্ছে', 500)
+  }
+})
+
+// GET /api/points/withdrawals - Withdrawal history
+pointsRoutes.get('/withdrawals', async (c) => {
+  const userId = c.get('userId')
+  const { page, limit, offset } = getPagination(c.req.query())
+
+  const [countResult, historyResult] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT COUNT(*) as total FROM point_withdrawals WHERE user_id = ?`
+    ).bind(userId).first() as Promise<{ total: number }>,
+    c.env.DB.prepare(
+      `SELECT * FROM point_withdrawals
+       WHERE user_id = ?
+       ORDER BY requested_at DESC
+       LIMIT ? OFFSET ?`
+    ).bind(userId, limit, offset).all()
+  ])
+
+  return ok(c, paginate(historyResult.results, countResult.total, page, limit))
+})
+

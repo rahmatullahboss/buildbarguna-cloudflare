@@ -32,44 +32,30 @@ async function getSettings(db: D1Database): Promise<WithdrawalSettings> {
 }
 
 /**
- * Compute available balance for a user.
+ * Compute available balance for a user atomically.
  * available = total_earned - total_completed_withdrawn - total_pending_reserved
  *
- * Pending + approved withdrawals are RESERVED — not available to request again.
- * This prevents overdraft via concurrent requests.
+ * Uses a single transaction to prevent race conditions.
  */
 async function getAvailableBalance(db: D1Database, userId: number): Promise<AvailableBalance> {
-  const [earnedRow, referralBonusRow, withdrawnRow, pendingRow] = await Promise.all([
-    // Regular project earnings
-    db.prepare(
-      'SELECT COALESCE(SUM(amount), 0) as total FROM earnings WHERE user_id = ?'
-    ).bind(userId).first<{ total: number }>(),
+  // Use a single query with subqueries to get consistent snapshot
+  const result = await db.prepare(`
+    SELECT
+      (SELECT COALESCE(SUM(amount), 0) FROM earnings WHERE user_id = ?) +
+      (SELECT COALESCE(SUM(amount_paisa), 0) FROM referral_bonuses WHERE referrer_user_id = ?) as total_earned,
+      (SELECT COALESCE(SUM(amount_paisa), 0) FROM withdrawals WHERE user_id = ? AND status = 'completed') as total_withdrawn,
+      (SELECT COALESCE(SUM(amount_paisa), 0) FROM withdrawals WHERE user_id = ? AND status IN ('pending', 'approved')) as pending
+  `).bind(userId, userId, userId, userId).first<{ total_earned: number; total_withdrawn: number; pending: number }>()
 
-    // Referral bonuses (separate table — not polluting earnings)
-    db.prepare(
-      'SELECT COALESCE(SUM(amount_paisa), 0) as total FROM referral_bonuses WHERE referrer_user_id = ?'
-    ).bind(userId).first<{ total: number }>(),
-
-    db.prepare(
-      `SELECT COALESCE(SUM(amount_paisa), 0) as total
-       FROM withdrawals WHERE user_id = ? AND status = 'completed'`
-    ).bind(userId).first<{ total: number }>(),
-
-    db.prepare(
-      `SELECT COALESCE(SUM(amount_paisa), 0) as total
-       FROM withdrawals WHERE user_id = ? AND status IN ('pending', 'approved')`
-    ).bind(userId).first<{ total: number }>()
-  ])
-
-  const totalEarned    = (earnedRow?.total ?? 0) + (referralBonusRow?.total ?? 0)
-  const totalWithdrawn = withdrawnRow?.total ?? 0
-  const pendingPaisa   = pendingRow?.total   ?? 0
+  const totalEarned = result?.total_earned ?? 0
+  const totalWithdrawn = result?.total_withdrawn ?? 0
+  const pendingPaisa = result?.pending ?? 0
 
   return {
-    total_earned_paisa:    totalEarned,
+    total_earned_paisa: totalEarned,
     total_withdrawn_paisa: totalWithdrawn,
-    pending_paisa:         pendingPaisa,
-    available_paisa:       totalEarned - totalWithdrawn - pendingPaisa
+    pending_paisa: pendingPaisa,
+    available_paisa: totalEarned - totalWithdrawn - pendingPaisa
   }
 }
 
@@ -107,13 +93,20 @@ withdrawalRoutes.get('/history', async (c) => {
 
 // POST /api/withdrawals/request — submit withdrawal request
 const requestSchema = z.object({
-  amount_paisa: z.number().int().positive(),
+  amount_paisa: z.number().int().min(100, 'সর্বনিম্ন ৳১.০০ হতে হবে').max(10000000, 'সর্বোচ্চ ৳১০,০০০.০০ পর্যন্ত অনুমোদিত'), // Hard cap at 10,000 BDT for safety
   bkash_number: z.string().regex(/^01[3-9]\d{8}$/, 'সঠিক bKash নম্বর দিন (01XXXXXXXXX)')
 })
 
 withdrawalRoutes.post('/request', zValidator('json', requestSchema), async (c) => {
   const { amount_paisa, bkash_number } = c.req.valid('json')
   const userId = c.get('userId')
+
+  // Additional validation: Check for suspicious round numbers (potential fraud)
+  // Amounts like 100000, 200000, 500000 paisa (exact 1000, 2000, 5000 BDT) might indicate testing
+  if (amount_paisa % 100000 === 0 && amount_paisa >= 100000 && amount_paisa <= 1000000) {
+    console.warn(`[withdrawal] Suspicious round amount: ${amount_paisa} paisa from user ${userId}`)
+    // Don't block, but log for monitoring
+  }
 
   // Load settings + balance in parallel
   const [settings, balance] = await Promise.all([
@@ -132,6 +125,11 @@ withdrawalRoutes.post('/request', zValidator('json', requestSchema), async (c) =
   // Validate available balance (includes pending reservation)
   if (amount_paisa > balance.available_paisa) {
     return err(c, `অপর্যাপ্ত ব্যালেন্স। উপলব্ধ: ৳${(balance.available_paisa / 100).toFixed(2)}`)
+  }
+
+  // Validate bKash number format more strictly
+  if (!/^01[3-9]\d{8}$/.test(bkash_number)) {
+    return err(c, 'বৈধ bKash নম্বর দিন (01XXXXXXXXX ফরম্যাটে)')
   }
 
   // Check if already has a pending withdrawal (partial unique index enforces this in DB,

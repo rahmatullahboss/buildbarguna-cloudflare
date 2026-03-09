@@ -313,7 +313,7 @@ adminRoutes.post('/distribute-earnings', zValidator('json', z.object({ month: z.
 
 const taskSchema = z.object({
   title: z.string().min(2),
-  destination_url: z.string().url(),
+  destination_url: z.string().min(1),
   platform: z.enum(['facebook', 'youtube', 'telegram', 'other']).optional(),
   points: z.number().int().min(0).optional(),
   cooldown_seconds: z.number().int().min(0).optional(),
@@ -662,5 +662,247 @@ adminRoutes.get('/users/:id/points/history', async (c) => {
      LIMIT 100`
   ).bind(userId).all()
   
-  return ok(c, transactions.results)
+   return ok(c, transactions.results)
+})
+
+// ─── POINT WITHDRAWALS ─────────────────────────────────────────────────────────────
+
+// Validation schemas
+const approveSchema = z.object({
+  admin_note: z.string().optional()
+})
+
+const rejectSchema = z.object({
+  admin_note: z.string().min(1, 'Rejection reason required')
+})
+
+const completeSchema = z.object({
+  bkash_txid: z.string().min(5, 'Valid bKash transaction ID required')
+})
+
+// GET /api/admin/point-withdrawals - List withdrawals
+adminRoutes.get('/point-withdrawals', async (c) => {
+  const { page, limit, offset } = getPagination(c.req.query())
+  const status = c.req.query('status') as 'pending' | 'approved' | 'completed' | 'rejected' | undefined
+  
+  let whereClause = ''
+  const params: (string | number)[] = []
+  
+  if (status) {
+    whereClause = 'WHERE pw.status = ?'
+    params.push(status)
+  }
+  
+  const [rows, countRow] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT pw.*, u.name as user_name, u.phone as user_phone
+       FROM point_withdrawals pw
+       JOIN users u ON pw.user_id = u.id
+       ${whereClause}
+       ORDER BY pw.requested_at DESC
+       LIMIT ? OFFSET ?`
+    ).bind(...params, limit, offset).all(),
+    c.env.DB.prepare(
+      `SELECT COUNT(*) as total FROM point_withdrawals ${whereClause}`
+    ).bind(...params).first<{ total: number }>()
+  ])
+  
+  return ok(c, paginate(rows.results, countRow?.total ?? 0, page, limit))
+})
+
+// PATCH /api/admin/point-withdrawals/:id/approve
+adminRoutes.patch('/point-withdrawals/:id/approve', zValidator('json', approveSchema), async (c) => {
+  const adminUserId = c.get('userId')
+  const withdrawalId = parseInt(c.req.param('id'))
+  if (isNaN(withdrawalId)) return err(c, 'অকার্যক উত্তোলন আইডি', 400)
+
+  const { admin_note } = c.req.valid('json')
+
+  // Get withdrawal
+  const withdrawal = await c.env.DB.prepare(
+    `SELECT pw.*, u.name as user_name, u.phone as user_phone
+     FROM point_withdrawals pw
+     JOIN users u ON pw.user_id = u.id
+     WHERE pw.id = ? AND pw.status = 'pending'`
+  ).bind(withdrawalId).first<{
+    id: number
+    user_id: number
+    amount_points: number
+    amount_taka: number
+    bkash_number: string
+    user_name: string
+    user_phone: string
+  }>()
+
+  if (!withdrawal) {
+    return err(c, 'উত্তোলন পাওয়া যায়নি অথবা ইতিমধ্যে প্রসেস করা হয়েছে', 404)
+  }
+
+  // Update withdrawal status
+  await c.env.DB.prepare(
+    `UPDATE point_withdrawals SET
+       status = 'approved',
+       approved_by = ?,
+       admin_note = ?,
+       processed_at = datetime('now')
+     WHERE id = ?`
+  ).bind(adminUserId, admin_note || null, withdrawalId).run()
+
+  // Create audit log
+  await c.env.DB.prepare(
+    `INSERT INTO admin_audit_log (admin_user_id, action_type, target_type, target_id, details)
+     VALUES (?, 'withdrawal_approved', 'withdrawal', ?, ?)`
+  ).bind(adminUserId, withdrawalId, `Approved withdrawal of ${withdrawal.amount_points} points to ${withdrawal.bkash_number}`).run()
+
+  // Notify user (points already deducted, just confirming approval)
+  await c.env.DB.prepare(
+    `INSERT INTO notifications (user_id, type, title, message, reference_type)
+     VALUES (?, 'withdrawal_approved', 'উত্তোলন অনুমোদিত', ?, 'point_withdrawal')`
+  ).bind(withdrawal.user_id, `আপনার ${withdrawal.amount_points} পয়েন্ট (${withdrawal.amount_taka} টাকা) উত্তোলন অনুমোদিত হয়েছে। ${withdrawal.bkash_number} নম্বরে পাঠানো হবে।`).run()
+
+  return ok(c, {
+    message: 'উত্তোলন অনুমোদিত হয়েছে',
+    withdrawal_id: withdrawalId,
+    amount_points: withdrawal.amount_points,
+    amount_taka: withdrawal.amount_taka,
+    user_name: withdrawal.user_name,
+    user_phone: withdrawal.user_phone
+  })
+})
+
+// PATCH /api/admin/point-withdrawals/:id/reject
+adminRoutes.patch('/point-withdrawals/:id/reject', zValidator('json', rejectSchema), async (c) => {
+  const adminUserId = c.get('userId')
+  const withdrawalId = parseInt(c.req.param('id'))
+  if (isNaN(withdrawalId)) return err(c, 'অকার্যক উত্তোলন আইডি', 400)
+
+  const { admin_note } = c.req.valid('json')
+
+  // Get withdrawal
+  const withdrawal = await c.env.DB.prepare(
+    `SELECT pw.*, u.name as user_name, u.phone as user_phone
+     FROM point_withdrawals pw
+     JOIN users u ON pw.user_id = u.id
+     WHERE pw.id = ? AND pw.status = 'pending'`
+  ).bind(withdrawalId).first<{
+    id: number
+    user_id: number
+    amount_points: number
+    amount_taka: number
+    user_name: string
+    user_phone: string
+  }>()
+
+  if (!withdrawal) {
+    return err(c, 'উত্তোলন পাওয়া যায়নি অথবা ইতিমধ্যে প্রসেস করা হয়েছে', 404)
+  }
+
+  const currentMonth = new Date().toISOString().slice(0, 7)
+
+  // Refund points to user (since they were deducted on withdrawal request)
+  await c.env.DB.prepare(
+    `UPDATE user_points SET
+       available_points = available_points + ?,
+       updated_at = datetime('now')
+     WHERE user_id = ?`
+  ).bind(withdrawal.amount_points, withdrawal.user_id).run()
+
+  // Create transaction record for refund
+  await c.env.DB.prepare(
+    `INSERT INTO point_transactions (user_id, points, transaction_type, description, month_year)
+     VALUES (?, ?, 'refunded', ?, ?)`
+  ).bind(withdrawal.user_id, withdrawal.amount_points, `Withdrawal rejected - points refunded`, currentMonth).run()
+
+  // Update withdrawal status
+  await c.env.DB.prepare(
+    `UPDATE point_withdrawals SET
+       status = 'rejected',
+       admin_note = ?,
+       processed_at = datetime('now')
+     WHERE id = ?`
+  ).bind(admin_note, withdrawalId).run()
+
+  // Create audit log
+  await c.env.DB.prepare(
+    `INSERT INTO admin_audit_log (admin_user_id, action_type, target_type, target_id, details)
+     VALUES (?, 'withdrawal_rejected', 'withdrawal', ?, ?)`
+  ).bind(adminUserId, withdrawalId, `Rejected withdrawal of ${withdrawal.amount_points} points. Reason: ${admin_note}`).run()
+
+  // Notify user
+  await c.env.DB.prepare(
+    `INSERT INTO notifications (user_id, type, title, message, reference_type)
+     VALUES (?, 'withdrawal_rejected', 'উত্তোলন প্রত্যাখ্যাত', ?, 'point_withdrawal')`
+  ).bind(withdrawal.user_id, `আপনার ${withdrawal.amount_points} পয়েন্ট উত্তোলন প্রত্যাখ্যাত হয়েছে। কারণ: ${admin_note}। পয়েন্ট আপনার অ্যাকাউন্টে ফেরত দেওয়া হয়েছে।`).run()
+
+  return ok(c, {
+    message: 'উত্তোলন প্রত্যাখ্যাত হয়েছে',
+    withdrawal_id: withdrawalId,
+    amount_points: withdrawal.amount_points,
+    refunded: true,
+    user_name: withdrawal.user_name,
+    user_phone: withdrawal.user_phone
+  })
+})
+
+// PATCH /api/admin/point-withdrawals/:id/complete
+adminRoutes.patch('/point-withdrawals/:id/complete', zValidator('json', completeSchema), async (c) => {
+  const adminUserId = c.get('userId')
+  const withdrawalId = parseInt(c.req.param('id'))
+  if (isNaN(withdrawalId)) return err(c, 'অকার্যক উত্তোলন আইডি', 400)
+
+  const { bkash_txid } = c.req.valid('json')
+
+  // Get withdrawal
+  const withdrawal = await c.env.DB.prepare(
+    `SELECT pw.*, u.name as user_name, u.phone as user_phone
+     FROM point_withdrawals pw
+     JOIN users u ON pw.user_id = u.id
+     WHERE pw.id = ? AND pw.status = 'approved'`
+  ).bind(withdrawalId).first<{
+    id: number
+    user_id: number
+    amount_points: number
+    amount_taka: number
+    bkash_number: string
+    user_name: string
+    user_phone: string
+  }>()
+
+  if (!withdrawal) {
+    return err(c, 'উত্তোলন পাওয়া যায়নি অথবা এটি অনুমোদিত নয়', 404)
+  }
+
+  // Update withdrawal status
+  await c.env.DB.prepare(
+    `UPDATE point_withdrawals SET
+       status = 'completed',
+       completed_at = datetime('now'),
+       completed_by = ?,
+       payment_txid = ?,
+       admin_note = COALESCE(admin_note, '') || ' | Paid: ' || ?,
+       processed_at = datetime('now')
+     WHERE id = ?`
+  ).bind(adminUserId, bkash_txid, bkash_txid, withdrawalId).run()
+
+  // Create audit log
+  await c.env.DB.prepare(
+    `INSERT INTO admin_audit_log (admin_user_id, action_type, target_type, target_id, details)
+     VALUES (?, 'withdrawal_completed', 'withdrawal', ?, ?)`
+  ).bind(adminUserId, withdrawalId, `Completed withdrawal of ${withdrawal.amount_points} points to ${withdrawal.bkash_number}`).run()
+
+  // Notify user - CRITICAL FIX: Add withdrawal completion notification
+  await c.env.DB.prepare(
+    `INSERT INTO notifications (user_id, type, title, message, reference_type)
+     VALUES (?, 'withdrawal_completed', 'উত্তোলন সম্পন্ন হয়েছে', ?, 'point_withdrawal')`
+  ).bind(withdrawal.user_id, `আপনার ${withdrawal.amount_points} পয়েন্ট (${withdrawal.amount_taka} টাকা) উত্তোলন সম্পন্ন হয়েছে। ${withdrawal.bkash_number} নম্বরে পাঠানো হয়েছে। লেনদেন ID: ${bkash_txid}`).run()
+
+  return ok(c, {
+    message: 'উত্তোলন সম্পন্ন হয়েছে',
+    withdrawal_id: withdrawalId,
+    amount_points: withdrawal.amount_points,
+    amount_taka: withdrawal.amount_taka,
+    bkash_txid,
+    user_name: withdrawal.user_name,
+    user_phone: withdrawal.user_phone
+  })
 })

@@ -104,10 +104,11 @@ echo "Select an option:"
 echo "1. Check current migration status"
 echo "2. Run migration 009 (missing tables fix)"
 echo "3. Verify tables after migration"
-echo "4. Exit"
+echo "4. Run migration 015 (add missing triggers - points fix)"
+echo "5. Exit"
 echo ""
 
-read -p "Enter your choice (1-4): " choice
+read -p "Enter your choice (1-5): " choice
 
 case $choice in
     1)
@@ -144,6 +145,22 @@ case $choice in
         fi
         ;;
     4)
+        DB_ID=$(get_database_id)
+        if [ -n "$DB_ID" ]; then
+            echo -e "${GREEN}Database ID: $DB_ID${NC}"
+            echo ""
+            echo -e "${YELLOW}This will run migration 015_add_missing_triggers.sql (fixes points system)${NC}"
+            read -p "Are you sure? (y/N): " confirm
+            if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+                run_migration "$DB_ID" "src/db/migrations/015_add_missing_triggers.sql"
+            else
+                echo "Cancelled"
+            fi
+        else
+            echo -e "${RED}Could not find database ID${NC}"
+        fi
+        ;;
+    5)
         echo "Exiting..."
         exit 0
         ;;

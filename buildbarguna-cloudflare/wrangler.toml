@@ -34,11 +34,8 @@ binding = "SESSIONS"
 id = "0e5da409471743769c5e0fe9d2752bd8"
 
 # ── R2 Bucket (Certificate storage, file uploads) ─────────────────────────────
-# DISABLED: R2 bucket exists in different Cloudflare account
-# Certificate generation works without R2 (logo optional)
-# [[r2_buckets]]
-# binding = "FILES"
-# bucket_name = "buildbarguna"
+# R2 disabled - certificates generated on-demand without persistent storage
+# Logo optional, certificates work without R2 bucket
 
 # ── Cron: 1st of every month at BD midnight (UTC 18:00) ──────────────────────
 [triggers]

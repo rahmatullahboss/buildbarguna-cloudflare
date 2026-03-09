@@ -164,6 +164,71 @@ export type RewardRedemption = {
   updated_at: string
 }
 
+// ─── Task System Types ─────────────────────────────────────────────
+
+/** Task start session - tracks when user starts a task */
+export type TaskStartSession = {
+  id: number
+  user_id: number
+  task_id: number
+  clicked_at: string
+  session_date: string
+}
+
+/** Task list item for API response */
+export type TaskListItem = {
+  id: number
+  title: string
+  platform: 'facebook' | 'youtube' | 'telegram' | 'other'
+  destination_url: string
+  points: number
+  cooldown_seconds: number
+  is_one_time: boolean
+  completed_today: boolean
+  completed_ever: boolean
+  remaining_count: number
+}
+
+/** Task list response */
+export type TaskListResponse = {
+  daily_tasks: TaskListItem[]
+  one_time_tasks: TaskListItem[]
+  user_points: {
+    available_points: number
+    lifetime_earned: number
+    monthly_earned: number
+  }
+}
+
+/** Task start response */
+export type TaskStartResponse = {
+  task_id: number
+  destination_url: string
+  wait_seconds: number
+  started_at: string
+}
+
+/** Task complete response */
+export type TaskCompleteResponse = {
+  points_earned: number
+  total_points: number
+  completed_at: string
+}
+
+// ─── Point System Types ───────────────────────────────────────────
+
+/** User points balance */
+export type UserPoints = {
+  id: number
+  user_id: number
+  available_points: number
+  lifetime_earned: number
+  lifetime_redeemed: number
+  monthly_earned: number
+  monthly_redeemed: number
+  updated_at: string
+}
+
 // API response helpers
 export type ApiSuccess<T> = { success: true; data: T }
 export type ApiError = { success: false; error: string }

@@ -189,6 +189,16 @@ const MIGRATIONS: Migration[] = [
     sql_up: 'ALTER TABLE daily_tasks ADD COLUMN is_one_time INTEGER NOT NULL DEFAULT 0;',
     sql_down: '',
     timeout_ms: 60000
+  },
+  {
+    id: 15,
+    name: '015_add_missing_triggers',
+    sql_up: '',  // Will be loaded from KV
+    sql_down: `
+      DROP TRIGGER IF EXISTS update_user_points_on_transaction;
+      DROP TRIGGER IF EXISTS reset_monthly_points;
+    `,
+    timeout_ms: 60000
   }
 ]
 
@@ -218,40 +228,65 @@ export async function storeMigrationInKV(env: Bindings, migrationName: string, s
 
 /**
  * Acquire migration lock to prevent concurrent execution
+ * Uses D1 for strong consistency (KV has eventual consistency)
  */
 async function acquireMigrationLock(env: Bindings, timeoutMs: number = 300000): Promise<boolean> {
-  const lockKey = 'migration_lock'
-  const lockValue = await env.SESSIONS.get(lockKey)
-  
-  if (lockValue) {
-    const { timestamp, worker_id } = JSON.parse(lockValue)
-    const age = Date.now() - timestamp
-    
-    // Lock expired (older than 5 minutes)
-    if (age > timeoutMs) {
-      console.warn('[Migrations] Stale lock detected, releasing...')
-      await env.SESSIONS.delete(lockKey)
-      return false
+  const workerId = crypto.randomUUID()
+  const now = Date.now()
+
+  try {
+    // Try to insert lock record - UNIQUE constraint will prevent duplicates
+    await env.DB.prepare(`
+      INSERT INTO _migration_lock (id, worker_id, acquired_at)
+      VALUES (1, ?, ?)
+    `).bind(workerId, now).run()
+
+    console.log(`[Migrations] Lock acquired (worker: ${workerId})`)
+    return true
+  } catch (error: any) {
+    // Lock exists - check if it's stale
+    if (error.message?.includes('UNIQUE') || error.message?.includes('constraint')) {
+      const existing = await env.DB.prepare(
+        'SELECT worker_id, acquired_at FROM _migration_lock WHERE id = 1'
+      ).first<{ worker_id: string; acquired_at: number }>()
+
+      if (existing) {
+        const age = now - existing.acquired_at
+        if (age > timeoutMs) {
+          // Stale lock - force release and acquire
+          console.warn(`[Migrations] Stale lock detected (worker: ${existing.worker_id}, age: ${age}ms), releasing...`)
+          await env.DB.prepare('DELETE FROM _migration_lock WHERE id = 1').run()
+
+          // Retry acquiring lock
+          try {
+            await env.DB.prepare(`
+              INSERT INTO _migration_lock (id, worker_id, acquired_at)
+              VALUES (1, ?, ?)
+            `).bind(workerId, now).run()
+            console.log(`[Migrations] Lock acquired after stale lock cleanup (worker: ${workerId})`)
+            return true
+          } catch (retryError) {
+            console.warn('[Migrations] Failed to acquire lock after cleanup, another worker got it')
+            return false
+          }
+        }
+
+        console.warn(`[Migrations] Migration already running (worker: ${existing.worker_id}, age: ${age}ms)`)
+        return false
+      }
     }
-    
-    console.warn(`[Migrations] Migration already running (worker: ${worker_id}, age: ${age}ms)`)
+
+    console.error('[Migrations] Lock acquisition error:', error)
     return false
   }
-  
-  // Acquire lock
-  await env.SESSIONS.put(lockKey, JSON.stringify({
-    timestamp: Date.now(),
-    worker_id: crypto.randomUUID()
-  }), { expirationTtl: 300 }) // 5 minute lock
-  
-  return true
 }
 
 /**
  * Release migration lock
  */
 async function releaseMigrationLock(env: Bindings): Promise<void> {
-  await env.SESSIONS.delete('migration_lock')
+  await env.DB.prepare('DELETE FROM _migration_lock WHERE id = 1').run()
+  console.log('[Migrations] Lock released')
 }
 
 /**
@@ -325,7 +360,7 @@ async function rollbackToCheckpoint(env: Bindings, checkpointName: string): Prom
 export async function runMigrations(env: Bindings): Promise<{ success: boolean; error?: string; applied?: string[] }> {
   const startTime = Date.now()
   const appliedMigrations: string[] = []
-  
+
   try {
     // Create migrations tracking table
     await env.DB.prepare(`
@@ -333,6 +368,16 @@ export async function runMigrations(env: Bindings): Promise<{ success: boolean; 
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL UNIQUE,
         applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `).run()
+
+    // Create migration lock table (for D1-based distributed locking)
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS _migration_lock (
+        id INTEGER PRIMARY KEY,
+        worker_id TEXT NOT NULL,
+        acquired_at INTEGER NOT NULL,
+        UNIQUE(id)
       )
     `).run()
 

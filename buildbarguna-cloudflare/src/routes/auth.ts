@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword, generateReferralCode } from '../lib/crypt
 import { createToken, generateJti, verifyToken } from '../lib/jwt'
 import { authMiddleware } from '../middleware/auth'
 import { ok, err } from '../lib/response'
+import { RATE_LIMITS } from '../lib/constants'
 import type { Bindings, Variables, User } from '../types'
 
 export const authRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
@@ -25,12 +26,20 @@ const loginSchema = z.object({
 authRoutes.post('/register', zValidator('json', registerSchema), async (c) => {
   const { name, phone, password, referral_code } = c.req.valid('json')
 
+  // Rate limiting: max 3 registrations per phone per hour (prevent spam)
+  const rateLimitKey = `registration_attempts:${phone}`
+  const attempts = await c.env.SESSIONS.get(rateLimitKey)
+  if (attempts && parseInt(attempts) >= RATE_LIMITS.REGISTRATION.MAX_ATTEMPTS) {
+    return err(c, `অনেকবার চেষ্টা করা হয়েছে। ${RATE_LIMITS.REGISTRATION.WINDOW_HOURS} ঘণ্টা পরে আবার চেষ্টা করুন।`, 429)
+  }
+
   // Check existing user
   const existing = await c.env.DB.prepare(
     'SELECT id FROM users WHERE phone = ?'
   ).bind(phone).first()
 
   if (existing) {
+    // Don't clear rate limit on known phone - prevents enumeration
     return err(c, 'এই মোবাইল নম্বর দিয়ে ইতিমধ্যে অ্যাকাউন্ট আছে', 409)
   }
 
@@ -41,6 +50,8 @@ authRoutes.post('/register', zValidator('json', registerSchema), async (c) => {
       'SELECT id FROM users WHERE referral_code = ? AND is_active = 1'
     ).bind(referral_code).first<{ id: number }>()
     if (!referrer) {
+      // Increment counter on invalid referral
+      await c.env.SESSIONS.put(rateLimitKey, String((parseInt(attempts ?? '0')) + 1), { expirationTtl: 3600 })
       return err(c, 'রেফারেল কোড সঠিক নয়')
     }
     referrerUserId = referrer.id
@@ -55,9 +66,12 @@ authRoutes.post('/register', zValidator('json', registerSchema), async (c) => {
   ).bind(name, phone, password_hash, myReferralCode, referral_code ?? null, referrerUserId).run()
 
   if (!result.success) {
+    await c.env.SESSIONS.put(rateLimitKey, String((parseInt(attempts ?? '0')) + 1), { expirationTtl: 3600 })
     return err(c, 'রেজিস্ট্রেশন ব্যর্থ হয়েছে', 500)
   }
 
+  // Don't clear rate limit on success - prevents batch registration attacks
+  // Rate limit will expire naturally after TTL
   return ok(c, { message: 'রেজিস্ট্রেশন সফল হয়েছে' }, 201)
 })
 
@@ -68,8 +82,8 @@ authRoutes.post('/login', zValidator('json', loginSchema), async (c) => {
   // Rate limiting: max 5 failed attempts per phone per 15 minutes
   const rateLimitKey = `login_attempts:${phone}`
   const attempts = await c.env.SESSIONS.get(rateLimitKey)
-  if (attempts && parseInt(attempts) >= 5) {
-    return err(c, 'অনেকবার চেষ্টা করা হয়েছে। ১৫ মিনিট পরে আবার চেষ্টা করুন।', 429)
+  if (attempts && parseInt(attempts) >= RATE_LIMITS.LOGIN.MAX_ATTEMPTS) {
+    return err(c, `অনেকবার চেষ্টা করা হয়েছে। ${RATE_LIMITS.LOGIN.WINDOW_MINUTES} মিনিট পরে আবার চেষ্টা করুন।`, 429)
   }
 
   const user = await c.env.DB.prepare(
@@ -92,8 +106,8 @@ authRoutes.post('/login', zValidator('json', loginSchema), async (c) => {
     return err(c, 'মোবাইল নম্বর বা পাসওয়ার্ড সঠিক নয়', 401)
   }
 
-  // Clear rate limit on successful login
-  await c.env.SESSIONS.delete(rateLimitKey)
+  // Don't clear rate limit on success - prevents batch login attacks
+  // Rate limit will expire naturally after TTL
 
   const jti = generateJti()
   const token = await createToken(

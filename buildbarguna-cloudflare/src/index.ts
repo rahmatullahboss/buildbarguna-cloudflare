@@ -12,6 +12,7 @@ import { earningRoutes } from './routes/earnings'
 import { withdrawalRoutes, adminWithdrawalRoutes } from './routes/withdrawals'
 import { rewardsRoutes } from './routes/rewards'
 import { taskRoutes } from './routes/tasks'
+import { pointsRoutes } from './routes/points'
 import { notificationsRoutes } from './routes/notifications'
 import { adminRoutes } from './routes/admin'
 import { uploadRoutes } from './routes/upload'
@@ -249,6 +250,7 @@ app.route('/api/withdrawals', withdrawalRoutes)
 app.route('/api/admin/withdrawals', adminWithdrawalRoutes)
 app.route('/api/rewards', rewardsRoutes)
 app.route('/api/tasks', taskRoutes)
+app.route('/api/points', pointsRoutes)
 app.route('/api/notifications', notificationsRoutes)
 app.route('/api/admin', adminRoutes)
 app.route('/api/upload', uploadRoutes)

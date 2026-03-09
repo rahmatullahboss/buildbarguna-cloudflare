@@ -1,3 +1,4 @@
+import { PAGINATION } from './constants'
 import type { Context } from 'hono'
 
 export function ok<T>(c: Context, data: T, status: 200 | 201 = 200) {
@@ -25,7 +26,8 @@ export function paginate<T>(
 
 export function getPagination(query: Record<string, string | undefined>) {
   const page = Math.max(1, parseInt(query.page ?? '1', 10))
-  const limit = Math.min(100, Math.max(1, parseInt(query.limit ?? '20', 10)))
+  // Enforce maximum limit to prevent database overload
+  const limit = Math.min(PAGINATION.MAX_LIMIT, Math.max(1, parseInt(query.limit ?? '20', 10)))
   const offset = (page - 1) * limit
   return { page, limit, offset }
 }

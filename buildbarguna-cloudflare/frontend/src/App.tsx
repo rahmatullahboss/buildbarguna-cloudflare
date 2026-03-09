@@ -27,6 +27,7 @@ const Withdraw        = lazy(() => import('./pages/Withdraw'))
 const Referrals       = lazy(() => import('./pages/Referrals'))
 const MemberRegistration = lazy(() => import('./pages/MemberRegistration'))
 const Membership = lazy(() => import('./pages/Membership'))
+const Tasks         = lazy(() => import('./pages/Tasks'))
 
 // Admin pages — lazy loaded
 const AdminDashboard  = lazy(() => import('./pages/admin/AdminDashboard'))
@@ -42,6 +43,7 @@ const ProjectFinance  = lazy(() => import('./pages/admin/ProjectFinance'))
 const ProfitDistribution = lazy(() => import('./pages/admin/ProfitDistribution'))
 const CompanyExpenses = lazy(() => import('./pages/admin/CompanyExpenses'))
 const AdminTutorial   = lazy(() => import('./pages/admin/AdminTutorial'))
+const AdminTasks = lazy(() => import('./pages/admin/AdminTasks'))
 
 // Minimal full-page loading fallback with shimmer cards
 function PageLoader() {
@@ -80,6 +82,7 @@ export default function App() {
         <Route path="/portfolio"      element={<ProtectedRoute><Layout><Portfolio /></Layout></ProtectedRoute>} />
         <Route path="/withdraw"       element={<ProtectedRoute><Layout><Withdraw /></Layout></ProtectedRoute>} />
         <Route path="/referrals"      element={<ProtectedRoute><Layout><Referrals /></Layout></ProtectedRoute>} />
+        <Route path="/tasks"         element={<ProtectedRoute><Layout><Tasks /></Layout></ProtectedRoute>} />
         <Route path="/member-registration" element={<ProtectedRoute><MemberRegistration /></ProtectedRoute>} />
         <Route path="/membership" element={<ProtectedRoute><Layout><Membership /></Layout></ProtectedRoute>} />
 
@@ -93,6 +96,7 @@ export default function App() {
         <Route path="/admin/shares"         element={<AdminRoute><Layout><AdminShares /></Layout></AdminRoute>} />
         <Route path="/admin/earnings"       element={<AdminRoute><Layout><AdminEarnings /></Layout></AdminRoute>} />
         <Route path="/admin/rewards"        element={<AdminRoute><Layout><AdminRewards /></Layout></AdminRoute>} />
+        <Route path="/admin/tasks"         element={<AdminRoute><Layout><AdminTasks /></Layout></AdminRoute>} />
         <Route path="/admin/users"          element={<AdminRoute><Layout><AdminUsers /></Layout></AdminRoute>} />
         <Route path="/admin/members"        element={<AdminRoute><Layout><AdminMembers /></Layout></AdminRoute>} />
         <Route path="/admin/referrals"      element={<AdminRoute><Layout><AdminReferrals /></Layout></AdminRoute>} />

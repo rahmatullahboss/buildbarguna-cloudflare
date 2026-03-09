@@ -10,6 +10,14 @@ export const TASK_DEFAULTS = {
   DAILY_LIMIT: 20,
 } as const
 
+// Points & Withdrawal System Defaults
+export const POINTS_SYSTEM = {
+  MIN_WITHDRAWAL_POINTS: 200,
+  POINTS_TO_TAKA_RATE: 1, // 1 point = 1 taka
+  MAX_WITHDRAWALS_PER_MONTH: 3,
+  WITHDRAWAL_COOLDOWN_HOURS: 24,
+} as const
+
 // Rate Limiting
 export const RATE_LIMITS = {
   LEADERBOARD: {
@@ -26,11 +34,26 @@ export const RATE_LIMITS = {
   REWARD_REDEEM: {
     MAX_PER_HOUR: 5,
   },
+  POINTS_WITHDRAW: {
+    MAX_PER_HOUR: 3,
+    MAX_PER_DAY: 5,
+  },
   POINTS_HISTORY: {
     MAX_PER_MINUTE: 20,
   },
   NOTIFICATIONS: {
     MAX_PER_MINUTE: 30,
+  },
+  LOGIN: {
+    MAX_ATTEMPTS: 5,
+    WINDOW_MINUTES: 15,
+  },
+  REGISTRATION: {
+    MAX_ATTEMPTS: 3,
+    WINDOW_HOURS: 1,
+  },
+  REFERRAL_CHECK: {
+    MAX_PER_MINUTE: 10,
   },
 } as const
 
@@ -40,6 +63,7 @@ export const RATE_LIMIT_ENDPOINTS = {
   EXPORT: 'export',
   TASK_COMPLETION: 'task_completion',
   REWARD_REDEEM: 'reward_redeem',
+  POINTS_WITHDRAW: 'points_withdraw',
   POINTS_HISTORY: 'points_history',
   NOTIFICATIONS: 'notifications',
 } as const
@@ -103,6 +127,7 @@ export const TRANSACTION_TYPES = [
   'expired',
   'adjusted',
   'refunded',
+  'withdrawn',
 ] as const
 
 // Notification Types
@@ -115,6 +140,10 @@ export const NOTIFICATION_TYPES = [
   'task_completed',
   'fraud_alert',
   'redemption_pending',
+  'withdrawal_request',
+  'withdrawal_approved',
+  'withdrawal_rejected',
+  'withdrawal_completed',
 ] as const
 
 // Platform Types
@@ -161,4 +190,8 @@ export const ERROR_MESSAGES_BN = {
   FORBIDDEN: 'নিষিদ্ধ',
   RATE_LIMIT_EXCEEDED: 'অনেক বেশি request. অনুগ্রহ করে অপেক্ষা করুন।',
   INVALID_INPUT: 'অকার্যক ইনপুট',
+  INSUFFICIENT_BALANCE: 'পর্যাপ্ত ব্যালেন্স নেই',
+  ALREADY_PENDING: 'ইতিমধ্যে একটি অনুরোধ অপেক্ষমান',
+  MINIMUM_REQUIRED: 'ন্যূনতম {required} প্রয়োজন',
+  INVALID_BKASH_NUMBER: 'সঠিক bKash নম্বর দিন (01XXXXXXXXX)',
 } as const

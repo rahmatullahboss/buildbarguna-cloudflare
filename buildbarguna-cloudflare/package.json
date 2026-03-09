@@ -18,6 +18,7 @@
     "db:migrate:local": "wrangler d1 execute buildbarguna-invest-db --file=src/db/schema.sql --local",
     "db:migrate:remote": "wrangler d1 execute buildbarguna-invest-db --file=src/db/schema.sql --remote",
     "db:migrate:prod": "wrangler d1 execute buildbarguna-invest-db --remote --file=src/db/migrations/005_critical_fixes.sql",
+    "db:migrate:015": "wrangler d1 execute buildbarguna-invest-db --remote --file=src/db/migrations/015_add_missing_triggers.sql",
     "db:backup": "wrangler d1 export buildbarguna-invest-db --remote --output=./backups/backup_$(date +%Y%m%d_%H%M%S).sql",
     "db:rollback": "node scripts/rollback.js",
     "migration:status": "wrangler d1 execute buildbarguna-invest-db --remote --command 'SELECT id, name, applied_at FROM _migrations ORDER BY id'",

@@ -272,7 +272,17 @@ memberRoutes.post('/register',
         body.payment_note || null,
         paymentStatus
       ).run()
-      
+
+      // Log audit event for registration submission
+      await logAuditEvent(
+        c,
+        'registration_submitted',
+        userId,
+        null,
+        formNumber,
+        { payment_method: body.payment_method, bkash_number: body.bkash_number || null }
+      )
+
       return ok(c, {
         message: 'রেজিস্ট্রেশন সফল হয়েছে। পেমেন্ট যাচাইয়ের অপেক্ষায় আছে।',
         form_number: formNumber,
