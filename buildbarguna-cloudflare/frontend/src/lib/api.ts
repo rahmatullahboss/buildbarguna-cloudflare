@@ -211,14 +211,7 @@ export const adminReferralsApi = {
   stats: () => request<{ total_bonuses_issued: number; total_bonus_paid_paisa: number; top_referrers: unknown[] }>('/admin/referrals/stats')
 }
 
-// Tasks
-export const tasksApi = {
-  list: () => request<TaskItem[]>('/tasks'),
-  complete: (id: number) => request(`/tasks/${id}/complete`, { method: 'POST' }),
-  trackClick: (id: number) => request(`/tasks/${id}/click`, { method: 'POST' })
-}
-
-// Points
+// Points (used by Rewards page)
 export const pointsApi = {
   getBalance: () => request<UserPoints>('/points'),
   getHistory: (month?: string, limit = 50) => request<PointTransaction[]>(`/points/history?${month ? `month=${month}&` : ''}limit=${limit}`),
@@ -277,21 +270,7 @@ export const adminApi = {
     request('/admin/distribute-earnings', { method: 'POST', body: JSON.stringify({ month }) }),
 
   r2Url: () => request<{ url: string }>('/admin/r2-url'),
-  tasks: () => request<TaskItem[]>('/admin/tasks'),
-  createTask: (body: { title: string; destination_url: string; platform?: string; points?: number; cooldown_seconds?: number; daily_limit?: number; is_one_time?: number }) =>
-    request('/admin/tasks', { method: 'POST', body: JSON.stringify(body) }),
-  updateTask: (id: number, body: Partial<{ title: string; destination_url: string; platform: string; points: number; cooldown_seconds: number; daily_limit: number; is_one_time: number }>) =>
-    request(`/admin/tasks/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-  deleteTask: (id: number) => request(`/admin/tasks/${id}`, { method: 'DELETE' }),
-  toggleTask: (id: number) => request(`/admin/tasks/${id}/toggle`, { method: 'PATCH' }),
-  
-  taskTypes: () => request<TaskTypeItem[]>('/admin/task-types'),
-  createTaskType: (body: { name: string; display_name: string; base_points: number; cooldown_seconds: number; daily_limit: number }) =>
-    request('/admin/task-types', { method: 'POST', body: JSON.stringify(body) }),
-  updateTaskType: (id: number, body: Partial<{ display_name: string; base_points: number; cooldown_seconds: number; daily_limit: number }>) =>
-    request(`/admin/task-types/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-  toggleTaskType: (id: number) => request(`/admin/task-types/${id}/toggle`, { method: 'PATCH' }),
-  
+
   rewards: () => request<RewardItem[]>('/admin/rewards'),
   createReward: (body: { name: string; description?: string; points_required: number; quantity?: number | null; image_url?: string }) =>
     request('/admin/rewards', { method: 'POST', body: JSON.stringify(body) }),
@@ -311,31 +290,6 @@ export type ProjectDetail = ProjectItem & { available_shares: number }
 export type MyShare = { user_id: number; project_id: number; quantity: number; title: string; share_price: number; status: string }
 export type ShareRequest = { id: number; project_id: number; project_title: string; quantity: number; total_amount: number; bkash_txid: string | null; payment_method: 'bkash' | 'manual'; status: string; admin_note: string | null; created_at: string }
 export type EarningItem = { id: number; project_id: number; project_title: string; month: string; shares: number; rate: number; amount: number; created_at: string }
-export type TaskItem = { 
-  id: number
-  title: string
-  destination_url: string
-  platform: string
-  points: number
-  cooldown_seconds: number
-  daily_limit: number
-  is_one_time: number
-  is_active: number
-  completed?: number
-  points_earned?: number
-  clicked_at?: string
-  completion_timestamp?: string
-}
-
-export type TaskTypeItem = {
-  id: number
-  name: string
-  display_name: string
-  base_points: number
-  cooldown_seconds: number
-  daily_limit: number
-  is_active: number
-}
 
 export type UserPoints = {
   user_id: number

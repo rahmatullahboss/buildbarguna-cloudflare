@@ -21,7 +21,6 @@ const Projects        = lazy(() => import('./pages/Projects'))
 const ProjectDetail   = lazy(() => import('./pages/ProjectDetail'))
 const MyInvestments   = lazy(() => import('./pages/MyInvestments'))
 const Earnings        = lazy(() => import('./pages/Earnings'))
-const DailyTasks      = lazy(() => import('./pages/DailyTasks'))
 const Rewards         = lazy(() => import('./pages/Rewards'))
 const Portfolio       = lazy(() => import('./pages/Portfolio'))
 const Withdraw        = lazy(() => import('./pages/Withdraw'))
@@ -35,7 +34,6 @@ const AdminWithdrawals= lazy(() => import('./pages/admin/AdminWithdrawals'))
 const AdminProjects   = lazy(() => import('./pages/admin/AdminProjects'))
 const AdminShares     = lazy(() => import('./pages/admin/AdminShares'))
 const AdminEarnings   = lazy(() => import('./pages/admin/AdminEarnings'))
-const AdminTasks      = lazy(() => import('./pages/admin/AdminTasks'))
 const AdminRewards    = lazy(() => import('./pages/admin/AdminRewards'))
 const AdminUsers      = lazy(() => import('./pages/admin/AdminUsers'))
 const AdminMembers    = lazy(() => import('./pages/admin/AdminMembers'))
@@ -78,7 +76,6 @@ export default function App() {
         <Route path="/projects/:id"   element={<ProtectedRoute><Layout><ProjectDetail /></Layout></ProtectedRoute>} />
         <Route path="/my-investments" element={<ProtectedRoute><Layout><MyInvestments /></Layout></ProtectedRoute>} />
         <Route path="/earnings"       element={<ProtectedRoute><Layout><Earnings /></Layout></ProtectedRoute>} />
-        <Route path="/tasks"          element={<ProtectedRoute><Layout><DailyTasks /></Layout></ProtectedRoute>} />
         <Route path="/rewards"        element={<ProtectedRoute><Layout><Rewards /></Layout></ProtectedRoute>} />
         <Route path="/portfolio"      element={<ProtectedRoute><Layout><Portfolio /></Layout></ProtectedRoute>} />
         <Route path="/withdraw"       element={<ProtectedRoute><Layout><Withdraw /></Layout></ProtectedRoute>} />
@@ -95,7 +92,6 @@ export default function App() {
         <Route path="/admin/company-expenses" element={<AdminRoute><Layout><CompanyExpenses /></Layout></AdminRoute>} />
         <Route path="/admin/shares"         element={<AdminRoute><Layout><AdminShares /></Layout></AdminRoute>} />
         <Route path="/admin/earnings"       element={<AdminRoute><Layout><AdminEarnings /></Layout></AdminRoute>} />
-        <Route path="/admin/tasks"          element={<AdminRoute><Layout><AdminTasks /></Layout></AdminRoute>} />
         <Route path="/admin/rewards"        element={<AdminRoute><Layout><AdminRewards /></Layout></AdminRoute>} />
         <Route path="/admin/users"          element={<AdminRoute><Layout><AdminUsers /></Layout></AdminRoute>} />
         <Route path="/admin/members"        element={<AdminRoute><Layout><AdminMembers /></Layout></AdminRoute>} />

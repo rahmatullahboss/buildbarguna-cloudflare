@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { sharesApi, getToken } from '../lib/api'
-import { formatTaka, formatDate } from '../lib/auth'
-import { PieChart, Download } from 'lucide-react'
-import { useState } from 'react'
+import { sharesApi } from '../lib/api'
+import { formatTaka } from '../lib/auth'
+import { PieChart } from 'lucide-react'
 import Disclaimer from '../components/Disclaimer'
 
 const statusLabel: Record<string, string> = { pending: 'অপেক্ষমাণ', approved: 'অনুমোদিত', rejected: 'বাতিল' }
@@ -11,62 +10,6 @@ const statusBadge: Record<string, string> = { pending: 'badge-pending', approved
 export default function MyInvestments() {
   const { data: shares, isLoading: sharesLoading } = useQuery({ queryKey: ['my-shares'], queryFn: () => sharesApi.my() })
   const { data: requests, isLoading: reqLoading } = useQuery({ queryKey: ['share-requests'], queryFn: () => sharesApi.requests() })
-  const [downloading, setDownloading] = useState<number | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleDownload(purchaseId: number) {
-    setDownloading(purchaseId)
-    setError(null)
-    try {
-      const token = getToken()
-      if (!token) {
-        setError('সেশন expire হয়েছে। আবার লগইন করুন।')
-        return
-      }
-
-      const response = await fetch(`/api/shares/certificate/${purchaseId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-
-      if (!response.ok) {
-        // Try to parse error as JSON, fallback to text
-        let errorMessage = 'ডাউনলোড ব্যর্থ হয়েছে'
-        try {
-          const contentType = response.headers.get('content-type')
-          if (contentType?.includes('application/json')) {
-            const data = await response.json()
-            errorMessage = data.error || errorMessage
-          } else {
-            const text = await response.text()
-            errorMessage = text || errorMessage
-          }
-        } catch {
-          // Ignore parsing error
-        }
-        throw new Error(errorMessage)
-      }
-
-      const blob = await response.blob()
-      
-      if (!blob || blob.size === 0) {
-        throw new Error('খালি PDF ফাইল পাওয়া গেছে')
-      }
-      
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `BBI_Share_Certificate_${purchaseId}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-    } catch (err: any) {
-      console.error('Download error:', err)
-      setError(err.message || 'ডাউনলোড ব্যর্থ হয়েছে')
-    } finally {
-      setDownloading(null)
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -154,23 +97,6 @@ export default function MyInvestments() {
                 </div>
                 {r.admin_note && (
                   <p className="text-xs text-red-600 mt-2 bg-red-50 rounded-xl px-3 py-2">⚠️ নোট: {r.admin_note}</p>
-                )}
-                
-                {/* Download certificate button for approved purchases */}
-                {r.status === 'approved' && (
-                  <div className="mt-3">
-                    <button
-                      onClick={() => handleDownload(r.id)}
-                      disabled={downloading === r.id}
-                      className="flex items-center gap-1 text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
-                    >
-                      <Download size={14} />
-                      {downloading === r.id ? 'ডাউনলোড হচ্ছে...' : 'সার্টিফিকেট ডাউনলোড'}
-                    </button>
-                    {error && downloading === r.id && (
-                      <p className="text-red-500 text-xs mt-1">{error}</p>
-                    )}
-                  </div>
                 )}
               </div>
             ))}

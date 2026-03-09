@@ -1,13 +1,26 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { X, ChevronRight, ChevronLeft, Briefcase, Shield, Gift, ArrowDownCircle, CheckSquare } from 'lucide-react'
+import { X, ChevronRight, ChevronLeft, Briefcase, Shield, Gift, ArrowDownCircle } from 'lucide-react'
 
 const ONBOARDING_KEY = 'bb_onboarding_done'
 
-const steps = [
+interface OnboardingStep {
+  icon: ReactNode
+  title: ReactNode
+  body: string
+  highlight: string
+  action: { label: string; to: string } | null
+}
+
+const steps: OnboardingStep[] = [
   {
     icon: <Shield size={40} className="text-emerald-500" />,
-    title: 'বিল্ড বরগুনায় স্বাগতম! <img src="/bbi logo.jpg" alt="BBI" class="inline h-5 w-5" />',
+    title: (
+      <>
+        বিল্ড বরগুনায় স্বাগতম!{' '}
+        <img src="/bbi logo.jpg" alt="BBI" className="inline h-5 w-5" />
+      </>
+    ),
     body: 'এটি একটি সম্পূর্ণ হালাল বিনিয়োগ প্ল্যাটফর্ম। আপনি বরগুনার বিভিন্ন প্রজেক্টে শেয়ার কিনে মুনাফা উপার্জন করতে পারবেন।',
     highlight: '✅ সুদমুক্ত | ✅ মুশারাকা নীতি | ✅ প্রজেক্টের লাভ-লোকসান ভাগাভাগি',
     action: null
@@ -27,7 +40,7 @@ const steps = [
     action: null
   },
   {
-    icon: <CheckSquare size={40} className="text-green-500" />,
+    icon: <div className="text-4xl">✅</div>,
     title: '৩য় ধাপ: অনুমোদনের অপেক্ষা',
     body: 'TxID দিয়ে অনুরোধ জমা দিলে অ্যাডমিন যাচাই করবেন। অনুমোদনের পরে শেয়ার আপনার পোর্টফোলিওতে যোগ হবে এবং মাসিক মুনাফা শুরু হবে।',
     highlight: 'সাধারণত ১-২ কার্যদিবসের মধ্যে অনুমোদন হয়',

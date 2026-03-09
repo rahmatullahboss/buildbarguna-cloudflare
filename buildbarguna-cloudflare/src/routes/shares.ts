@@ -4,8 +4,7 @@ import { z } from 'zod'
 import { authMiddleware } from '../middleware/auth'
 import { ok, err, getPagination, paginate } from '../lib/response'
 import { safeMultiply } from '../lib/money'
-import { generateShareCertificate } from '../lib/pdf/generator'
-import type { Bindings, Variables, SharePurchase, Project } from '../types'
+import type { Bindings, Variables, Project } from '../types'
 
 export const shareRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -132,7 +131,7 @@ shareRoutes.get('/requests', async (c) => {
   return ok(c, paginate(rows.results, countRow?.total ?? 0, page, limit))
 })
 
-// Admin middleware
+// Admin middleware for future use
 const adminMiddleware = async (c: any, next: any) => {
   const userRole = c.get('userRole')
   if (userRole !== 'admin') {
@@ -140,162 +139,3 @@ const adminMiddleware = async (c: any, next: any) => {
   }
   await next()
 }
-
-// GET /api/shares/certificate/:purchaseId - Download share certificate
-shareRoutes.get('/certificate/:purchaseId', authMiddleware, async (c) => {
-  const purchaseId = parseInt(c.req.param('purchaseId'))
-  const userId = c.get('userId')
-  const userRole = c.get('userRole')
-
-  // Fetch purchase details
-  const purchase = await c.env.DB.prepare(
-    `SELECT sp.*, p.title as project_title, u.name as user_name, u.phone as user_phone
-     FROM share_purchases sp
-     JOIN projects p ON sp.project_id = p.id
-     JOIN users u ON sp.user_id = u.id
-     WHERE sp.id = ?`
-  ).bind(purchaseId).first<SharePurchase & { project_title: string; user_name: string; user_phone: string }>()
-
-  if (!purchase) {
-    return err(c, 'শেয়ার ক্রয় তথ্য পাওয়া যায়নি', 404)
-  }
-
-  // Check access: owner or admin
-  if (purchase.user_id !== userId && userRole !== 'admin') {
-    return err(c, 'আপনি এই সার্টিফিকেট ডাউনলোড করতে পারবেন না', 403)
-  }
-
-  // Check status: only approved purchases can generate certificates
-  if (purchase.status !== 'approved') {
-    return err(c, 'সার্টিফিকেট শুধুমাত্র অনুমোদিত ক্রয়ের জন্য পাওয়া যাবে', 403)
-  }
-
-  try {
-    // Try to get logo from static assets first
-    let logoBuffer: ArrayBuffer | undefined
-    const origin = new URL(c.req.url).origin
-    try {
-      const logoRes = await fetch(`${origin}/bbi%20logo.jpg`)
-      if (logoRes.ok) {
-        logoBuffer = await logoRes.arrayBuffer()
-        console.log('[Certificate] Logo loaded from static assets')
-      }
-    } catch (e) {
-      console.warn('[Certificate] Failed to fetch logo from static assets:', e)
-    }
-    
-    // R2 binding is disabled - skip R2 logo fetch to avoid errors
-    // if (!logoBuffer && c.env.FILES) { ... }
-
-    // Generate certificate ID: BBI-SHARE-YYYY-NNNN
-    const year = new Date(purchase.created_at).getFullYear()
-    const certId = `BBI-SHARE-${year}-${purchase.id.toString().padStart(4, '0')}`
-
-    console.log('[Certificate] Generating PDF for purchase:', purchaseId, 'certId:', certId)
-
-    // Generate PDF certificate
-    const pdfBuffer = await generateShareCertificate(
-      {
-        certificate_id: certId,
-        project_name: purchase.project_title,
-        share_quantity: purchase.quantity,
-        total_amount_paisa: purchase.total_amount,
-        purchase_date: purchase.created_at,
-        user_name: purchase.user_name,
-        user_phone: purchase.user_phone,
-        payment_method: purchase.payment_method
-      },
-      logoBuffer,
-      origin
-    )
-
-    // Return PDF as binary response
-    return c.body(pdfBuffer.buffer as ArrayBuffer, 200, {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="BBI_Share_Certificate_${certId}.pdf"`
-    })
-  } catch (error: any) {
-    console.error('[Certificate] Generation error:', error)
-    console.error('[Certificate] Error stack:', error.stack)
-    return err(c, 'সার্টিফিকেট তৈরি করা যায়নি। আবার চেষ্টা করুন।', 500)
-  }
-})
-
-// GET /api/shares/certificate/:purchaseId/preview - Preview share certificate
-shareRoutes.get('/certificate/:purchaseId/preview', authMiddleware, async (c) => {
-  const purchaseId = parseInt(c.req.param('purchaseId'))
-  const userId = c.get('userId')
-  const userRole = c.get('userRole')
-
-  // Fetch purchase details
-  const purchase = await c.env.DB.prepare(
-    `SELECT sp.*, p.title as project_title, u.name as user_name, u.phone as user_phone
-     FROM share_purchases sp
-     JOIN projects p ON sp.project_id = p.id
-     JOIN users u ON sp.user_id = u.id
-     WHERE sp.id = ?`
-  ).bind(purchaseId).first<SharePurchase & { project_title: string; user_name: string; user_phone: string }>()
-
-  if (!purchase) {
-    return err(c, 'শেয়ার ক্রয় তথ্য পাওয়া যায়নি', 404)
-  }
-
-  // Check access: owner or admin
-  if (purchase.user_id !== userId && userRole !== 'admin') {
-    return err(c, 'আপনি এই সার্টিফিকেট দেখতে পারবেন না', 403)
-  }
-
-  // Check status: only approved purchases can preview certificates
-  if (purchase.status !== 'approved') {
-    return err(c, 'সার্টিফিকেট প্রিভিউ শুধুমাত্র অনুমোদিত ক্রয়ের জন্য পাওয়া যাবে', 403)
-  }
-
-  try {
-    // Try to get logo from static assets first
-    let logoBuffer: ArrayBuffer | undefined
-    const origin = new URL(c.req.url).origin
-    try {
-      const logoRes = await fetch(`${origin}/bbi%20logo.jpg`)
-      if (logoRes.ok) {
-        logoBuffer = await logoRes.arrayBuffer()
-        console.log('[Certificate Preview] Logo loaded from static assets')
-      }
-    } catch (e) {
-      console.warn('[Certificate Preview] Failed to fetch logo from static assets:', e)
-    }
-    
-    // R2 binding is disabled - skip R2 logo fetch to avoid errors
-
-    // Generate certificate ID
-    const year = new Date(purchase.created_at).getFullYear()
-    const certId = `BBI-SHARE-${year}-${purchase.id.toString().padStart(4, '0')}`
-
-    console.log('[Certificate Preview] Generating PDF for purchase:', purchaseId, 'certId:', certId)
-
-    // Generate PDF certificate
-    const pdfBuffer = await generateShareCertificate(
-      {
-        certificate_id: certId,
-        project_name: purchase.project_title,
-        share_quantity: purchase.quantity,
-        total_amount_paisa: purchase.total_amount,
-        purchase_date: purchase.created_at,
-        user_name: purchase.user_name,
-        user_phone: purchase.user_phone,
-        payment_method: purchase.payment_method
-      },
-      logoBuffer,
-      origin
-    )
-
-    // Return PDF as inline response for preview
-    return c.body(pdfBuffer.buffer as ArrayBuffer, 200, {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="BBI_Share_Certificate_${certId}.pdf"`
-    })
-  } catch (error: any) {
-    console.error('[Certificate Preview] Generation error:', error)
-    console.error('[Certificate Preview] Error stack:', error.stack)
-    return err(c, 'সার্টিফিকেট প্রিভিউ করা যায়নি। আবার চেষ্টা করুন।', 500)
-  }
-})

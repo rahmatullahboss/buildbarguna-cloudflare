@@ -7,8 +7,6 @@ import { projectRoutes } from './routes/projects'
 import { shareRoutes } from './routes/shares'
 import { earningRoutes } from './routes/earnings'
 import { withdrawalRoutes, adminWithdrawalRoutes } from './routes/withdrawals'
-import { taskRoutes } from './routes/tasks'
-import { pointsRoutes } from './routes/points'
 import { rewardsRoutes } from './routes/rewards'
 import { notificationsRoutes } from './routes/notifications'
 import { adminRoutes } from './routes/admin'
@@ -131,8 +129,6 @@ app.route('/api/shares', shareRoutes)
 app.route('/api/earnings', earningRoutes)
 app.route('/api/withdrawals', withdrawalRoutes)
 app.route('/api/admin/withdrawals', adminWithdrawalRoutes)
-app.route('/api/tasks', taskRoutes)
-app.route('/api/points', pointsRoutes)
 app.route('/api/rewards', rewardsRoutes)
 app.route('/api/notifications', notificationsRoutes)
 app.route('/api/admin', adminRoutes)
