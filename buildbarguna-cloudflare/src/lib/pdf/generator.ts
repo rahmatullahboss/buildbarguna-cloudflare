@@ -88,6 +88,25 @@ async function fetchAsset(origin: string, path: string): Promise<ArrayBuffer | n
   }
 }
 
+// ─── Certificate ID Generation ────────────────────────────────────────────────
+
+// Certificate ID format constants
+const CERTIFICATE_ID_YEAR_DIGITS = 4
+const CERTIFICATE_ID_SEQUENCE_DIGITS = 4
+const CERTIFICATE_ID_PREFIX = 'BBI-SHARE'
+
+/**
+ * Generate a unique certificate ID in format: BBI-SHARE-YYYY-NNNN
+ * @param year - The year for the certificate (defaults to current year)
+ * @param sequence - Sequential number (should be unique per year, typically from database)
+ * @returns Certificate ID in format BBI-SHARE-YYYY-NNNN
+ */
+export function generateCertificateId(year?: number, sequence?: number): string {
+  const certYear = year ?? new Date().getFullYear()
+  const certSeq = (sequence ?? 1).toString().padStart(CERTIFICATE_ID_SEQUENCE_DIGITS, '0')
+  return `${CERTIFICATE_ID_PREFIX}-${certYear}-${certSeq}`
+}
+
 // ─── Color Palette ────────────────────────────────────────────────────────────
 
 const COLORS = {

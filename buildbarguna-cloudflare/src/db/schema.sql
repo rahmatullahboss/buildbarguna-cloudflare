@@ -33,9 +33,14 @@ CREATE TABLE IF NOT EXISTS share_purchases (
   payment_method TEXT NOT NULL DEFAULT 'bkash' CHECK(payment_method IN ('bkash','manual')),
   status        TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
   admin_note    TEXT,
+  idempotency_key TEXT UNIQUE,
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE INDEX IF NOT EXISTS idx_share_purchases_idempotency 
+ON share_purchases(user_id, idempotency_key) 
+WHERE idempotency_key IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS user_shares (
   user_id       INTEGER NOT NULL REFERENCES users(id),

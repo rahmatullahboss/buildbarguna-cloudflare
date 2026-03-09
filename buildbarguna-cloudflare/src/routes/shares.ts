@@ -4,7 +4,8 @@ import { z } from 'zod'
 import { authMiddleware } from '../middleware/auth'
 import { ok, err, getPagination, paginate } from '../lib/response'
 import { safeMultiply } from '../lib/money'
-import type { Bindings, Variables, Project } from '../types'
+import { generateShareCertificate, generateCertificateId } from '../lib/pdf/generator'
+import type { Bindings, Variables, Project, SharePurchase } from '../types'
 
 export const shareRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -16,13 +17,31 @@ const buySchema = z.object({
   payment_method: z.enum(['bkash', 'manual'], {
     errorMap: () => ({ message: 'বৈধ পেমেন্ট মেথড সিলেক্ট করুন' })
   }),
-  bkash_txid: z.string().regex(/^[A-Z0-9]{8,12}$/, 'বৈধ bKash TxID দিন (৮-১২ অক্ষর, বড় হাতে)').optional()
+  bkash_txid: z.string().regex(/^[A-Z0-9]{8,12}$/, 'বৈধ bKash TxID দিন (৮-১২ অক্ষর, বড় হাতে)').optional(),
+  idempotency_key: z.string().optional() // Optional idempotency key for network retry protection
 })
 
 // POST /api/shares/buy
 shareRoutes.post('/buy', zValidator('json', buySchema), async (c) => {
-  const { project_id, quantity, payment_method, bkash_txid } = c.req.valid('json')
+  const { project_id, quantity, payment_method, bkash_txid, idempotency_key } = c.req.valid('json')
   const userId = c.get('userId')
+
+  // Check idempotency key if provided
+  if (idempotency_key) {
+    const existing = await c.env.DB.prepare(
+      'SELECT id, status FROM share_purchases WHERE user_id = ? AND idempotency_key = ?'
+    ).bind(userId, idempotency_key).first<{ id: number; status: string }>()
+    
+    if (existing) {
+      // Return original response for duplicate request
+      return ok(c, {
+        message: 'অনুরোধ ইতিমধ্যে জমা হয়েছে',
+        purchase_id: existing.id,
+        status: existing.status,
+        idempotent: true
+      })
+    }
+  }
 
   // Validate bkash_txid is required for bkash payment
   if (payment_method === 'bkash' && !bkash_txid) {
@@ -64,16 +83,34 @@ shareRoutes.post('/buy', zValidator('json', buySchema), async (c) => {
   }
 
   // For manual payments, use unique txid since column has UNIQUE constraint
-  const finalTxid = payment_method === 'manual' 
-    ? `MANUAL_${userId}_${Date.now()}` 
+  const finalTxid = payment_method === 'manual'
+    ? `MANUAL_${userId}_${Date.now()}`
     : (bkash_txid ?? '')
 
-  const result = await c.env.DB.prepare(
-    `INSERT INTO share_purchases (user_id, project_id, quantity, total_amount, bkash_txid, payment_method)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).bind(userId, project_id, quantity, total_amount, finalTxid, payment_method).run()
+  // CRITICAL FIX: Atomic check-and-insert to prevent race condition
+  // Use a transaction-like approach with WHERE clause to ensure availability
+  const insertResult = await c.env.DB.prepare(
+    `INSERT INTO share_purchases (user_id, project_id, quantity, total_amount, bkash_txid, payment_method, idempotency_key)
+     SELECT ?, ?, ?, ?, ?, ?, ?
+     WHERE (? <= (
+       SELECT p.total_shares - COALESCE((SELECT SUM(us.quantity) FROM user_shares us WHERE us.project_id = p.id AND p.id = ?), 0)
+       FROM projects p WHERE p.id = ? AND p.status = 'active'
+     ))`
+  ).bind(userId, project_id, total_amount, quantity, project_id, project_id, quantity, payment_method, idempotency_key ?? null).run()
 
-  if (!result.success) return err(c, 'অনুরোধ জমা দিতে ব্যর্থ হয়েছে', 500)
+  // Check if insert succeeded (WHERE clause failed = no rows inserted = insufficient shares)
+  if (!insertResult.success || insertResult.meta.changes === 0) {
+    // Re-check to give user accurate message
+    const projectCheck = await c.env.DB.prepare(
+      `SELECT p.total_shares - COALESCE((SELECT SUM(us.quantity) FROM user_shares us WHERE us.project_id = p.id), 0) as available
+       FROM projects p WHERE p.id = ?`
+    ).bind(project_id).first<{ available: number }>()
+    
+    const available = projectCheck?.available ?? 0
+    return err(c, `দুঃখিত! ইতিমধ্যে অন্য কেউ শেয়ার কিনে নিয়েছে। এখন মাত্র ${available}টি শেয়ার উপলব্ধ।`, 409)
+  }
+
+  const purchaseId = insertResult.meta.last_row_id
 
   const paymentMsg = payment_method === 'bkash' 
     ? 'bKash পেমেন্ট যাচাই করে অনুমোদন করা হবে।'
@@ -81,7 +118,7 @@ shareRoutes.post('/buy', zValidator('json', buySchema), async (c) => {
 
   return ok(c, {
     message: `শেয়ার কেনার অনুরোধ জমা হয়েছে। ${paymentMsg}`,
-    purchase_id: result.meta.last_row_id,
+    purchase_id: purchaseId,
     total_amount_paisa: total_amount,
     payment_method
   }, 201)
@@ -129,6 +166,131 @@ shareRoutes.get('/requests', async (c) => {
   ])
 
   return ok(c, paginate(rows.results, countRow?.total ?? 0, page, limit))
+})
+
+// GET /api/shares/certificate/:purchase_id - Download share certificate
+shareRoutes.get('/certificate/:purchase_id', async (c) => {
+  const purchaseIdStr = c.req.param('purchase_id')
+  const userId = c.get('userId')
+  const userRole = c.get('userRole')
+
+  // Input validation: purchase_id must be positive integer
+  const purchaseId = parseInt(purchaseIdStr, 10)
+  if (isNaN(purchaseId) || purchaseId <= 0 || purchaseIdStr !== purchaseId.toString()) {
+    return err(c, 'Invalid purchase ID', 400)
+  }
+
+  try {
+    // Fetch purchase with project and user details
+    const purchase = await c.env.DB.prepare(
+      `SELECT sp.*, p.title as project_name, u.name as user_name, u.phone as user_phone
+       FROM share_purchases sp
+       JOIN projects p ON p.id = sp.project_id
+       JOIN users u ON u.id = sp.user_id
+       WHERE sp.id = ?`
+    ).bind(purchaseId).first<SharePurchase & { project_name: string; user_name: string; user_phone: string }>()
+
+    if (!purchase) {
+      return err(c, 'Purchase not found', 404)
+    }
+
+    // Authorization check: user can only download own certificates, admin can download any
+    if (userRole !== 'admin' && purchase.user_id !== userId) {
+      return err(c, 'Access denied', 403)
+    }
+
+    // Only approved purchases can generate certificates
+    if (purchase.status !== 'approved') {
+      return err(c, 'Certificate only available for approved purchases', 403)
+    }
+
+    // Generate certificate ID if not already set (use purchase ID as sequence for simplicity)
+    const certificateId = generateCertificateId(new Date(purchase.created_at).getFullYear(), purchase.id)
+
+    // Generate PDF certificate
+    const pdfBytes = await generateShareCertificate(
+      {
+        certificate_id: certificateId,
+        project_name: purchase.project_name,
+        share_quantity: purchase.quantity,
+        total_amount_paisa: purchase.total_amount,
+        purchase_date: purchase.created_at,
+        user_name: purchase.user_name,
+        user_phone: purchase.user_phone,
+        payment_method: purchase.payment_method,
+        form_number: undefined
+      },
+      undefined, // logoBuffer - will be fetched from dist
+      c.req.header('origin')
+    )
+
+    // Set proper headers for PDF download
+    c.header('Content-Type', 'application/pdf')
+    c.header('Content-Disposition', `attachment; filename="BBI_Share_Certificate_${certificateId}.pdf"`)
+    c.header('Content-Length', pdfBytes.length.toString())
+    c.header('X-Content-Type-Options', 'nosniff')
+
+    // Log certificate generation for audit trail
+    console.log(`[CERTIFICATE] Generated certificate ${certificateId} for purchase ${purchaseId} by user ${userId}`)
+
+    return c.body(pdfBytes)
+  } catch (error) {
+    console.error('[CERTIFICATE] Error generating certificate:', error)
+    return err(c, 'Failed to generate certificate', 500)
+  }
+})
+
+// GET /api/shares/certificate/:purchase_id/preview - Preview certificate metadata
+shareRoutes.get('/certificate/:purchase_id/preview', async (c) => {
+  const purchaseIdStr = c.req.param('purchase_id')
+  const userId = c.get('userId')
+  const userRole = c.get('userRole')
+
+  // Input validation: purchase_id must be positive integer
+  const purchaseId = parseInt(purchaseIdStr, 10)
+  if (isNaN(purchaseId) || purchaseId <= 0 || purchaseIdStr !== purchaseId.toString()) {
+    return err(c, 'Invalid purchase ID', 400)
+  }
+
+  try {
+    // Fetch purchase with project and user details
+    const purchase = await c.env.DB.prepare(
+      `SELECT sp.*, p.title as project_name, u.name as user_name
+       FROM share_purchases sp
+       JOIN projects p ON p.id = sp.project_id
+       JOIN users u ON u.id = sp.user_id
+       WHERE sp.id = ?`
+    ).bind(purchaseId).first<SharePurchase & { project_name: string; user_name: string }>()
+
+    if (!purchase) {
+      return err(c, 'Purchase not found', 404)
+    }
+
+    // Authorization check: same as download
+    if (userRole !== 'admin' && purchase.user_id !== userId) {
+      return err(c, 'Access denied', 403)
+    }
+
+    // Only approved purchases can preview certificates
+    if (purchase.status !== 'approved') {
+      return err(c, 'Certificate only available for approved purchases', 403)
+    }
+
+    // Generate certificate ID for preview
+    const certificateId = generateCertificateId(new Date(purchase.created_at).getFullYear(), purchase.id)
+
+    return ok(c, {
+      certificate_id: certificateId,
+      project_name: purchase.project_name,
+      share_quantity: purchase.quantity,
+      total_amount_paisa: purchase.total_amount,
+      purchase_date: purchase.created_at,
+      user_name: purchase.user_name
+    })
+  } catch (error) {
+    console.error('[CERTIFICATE] Error fetching preview:', error)
+    return err(c, 'Failed to fetch certificate preview', 500)
+  }
 })
 
 // Admin middleware for future use

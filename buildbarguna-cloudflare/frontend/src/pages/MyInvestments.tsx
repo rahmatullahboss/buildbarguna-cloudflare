@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { sharesApi } from '../lib/api'
 import { formatTaka } from '../lib/auth'
-import { PieChart } from 'lucide-react'
+import { PieChart, Download } from 'lucide-react'
 import Disclaimer from '../components/Disclaimer'
+import { useCertificateDownload } from '../hooks/useCertificateDownload'
 
 const statusLabel: Record<string, string> = { pending: 'অপেক্ষমাণ', approved: 'অনুমোদিত', rejected: 'বাতিল' }
 const statusBadge: Record<string, string> = { pending: 'badge-pending', approved: 'badge-approved', rejected: 'badge-rejected' }
@@ -10,6 +11,7 @@ const statusBadge: Record<string, string> = { pending: 'badge-pending', approved
 export default function MyInvestments() {
   const { data: shares, isLoading: sharesLoading } = useQuery({ queryKey: ['my-shares'], queryFn: () => sharesApi.my() })
   const { data: requests, isLoading: reqLoading } = useQuery({ queryKey: ['share-requests'], queryFn: () => sharesApi.requests() })
+  const { downloading, error, downloadCertificate, clearError } = useCertificateDownload()
 
   return (
     <div className="space-y-6">
@@ -97,6 +99,23 @@ export default function MyInvestments() {
                 </div>
                 {r.admin_note && (
                   <p className="text-xs text-red-600 mt-2 bg-red-50 rounded-xl px-3 py-2">⚠️ নোট: {r.admin_note}</p>
+                )}
+                {error && (
+                  <p className="text-red-500 text-xs mt-2 bg-red-50 rounded-xl px-3 py-2">⚠️ {error}</p>
+                )}
+                {r.status === 'approved' && (
+                  <button
+                    onClick={() => downloadCertificate(r.id)}
+                    disabled={downloading}
+                    className={`mt-3 w-full flex items-center justify-center gap-2 text-sm py-2.5 rounded-xl font-semibold transition-colors ${
+                      downloading
+                        ? 'bg-gray-400 cursor-not-allowed text-gray-200'
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    }`}
+                  >
+                    <Download size={16} />
+                    {downloading ? 'ডাউনলোড হচ্ছে...' : 'সার্টিফিকেট ডাউনলোড করুন'}
+                  </button>
                 )}
               </div>
             ))}

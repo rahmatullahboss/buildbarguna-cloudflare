@@ -2,14 +2,16 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { authApi, earningsApi, sharesApi, withdrawalsApi, referralsApi, memberApi } from '../lib/api'
 import { formatTaka, getUser } from '../lib/auth'
-import { TrendingUp, PieChart, Briefcase, Copy, BarChart2, ArrowRight, ArrowDownCircle, Gift, Users, FileText } from 'lucide-react'
+import { TrendingUp, PieChart, Briefcase, Copy, BarChart2, ArrowRight, ArrowDownCircle, Gift, Users, FileText, Download, CheckCircle } from 'lucide-react'
 import { useState } from 'react'
 import Onboarding, { useOnboarding } from '../components/Onboarding'
+import { useCertificateDownload } from '../hooks/useCertificateDownload'
 
 export default function Dashboard() {
   const user = getUser()
   const [copied, setCopied] = useState(false)
   const { show: showOnboarding, dismiss: dismissOnboarding } = useOnboarding()
+  const { downloading, error, downloadCertificate, clearError } = useCertificateDownload()
 
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => authApi.me() })
   const { data: summary } = useQuery({ queryKey: ['earnings-summary'], queryFn: () => earningsApi.summary() })
@@ -18,6 +20,7 @@ export default function Dashboard() {
   const { data: withdrawalBalance } = useQuery({ queryKey: ['withdrawal-balance'], queryFn: () => withdrawalsApi.balance(), staleTime: 60_000 })
   const { data: referralStats } = useQuery({ queryKey: ['referral-stats'], queryFn: () => referralsApi.stats(), staleTime: 60_000 })
   const { data: memberStatus } = useQuery({ queryKey: ['member-status'], queryFn: () => memberApi.status(), staleTime: 60_000 })
+  const { data: shareRequests } = useQuery({ queryKey: ['share-requests-dashboard'], queryFn: () => sharesApi.requests(1), staleTime: 60_000 })
 
   const balance = me?.success ? me.data.balance_paisa : 0
   const thisMonth = summary?.success ? summary.data.this_month_paisa : 0
@@ -25,6 +28,7 @@ export default function Dashboard() {
   const port = portfolio?.success ? portfolio.data : null
   const wbal = withdrawalBalance?.success ? withdrawalBalance.data : null
   const refStats = referralStats?.success ? referralStats.data : null
+  const approvedPurchases = shareRequests?.success ? shareRequests.data.items.filter((r: any) => r.status === 'approved') : []
 
   function copyReferral() {
     navigator.clipboard.writeText(user?.referral_code ?? '')
@@ -166,14 +170,56 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          <Link 
-            to="/membership" 
+          <Link
+            to="/membership"
             className="text-sm text-teal-600 font-medium flex items-center gap-1 hover:underline"
           >
             {memberStatus?.success && memberStatus.data.registered ? 'দেখুন' : 'রেজিস্ট্রেশন'} <ArrowRight size={14} />
           </Link>
         </div>
       </div>
+
+      {/* Share Certificate Download Card */}
+      {approvedPurchases.length > 0 && (
+        <div className="card bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-100">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-gray-900 flex items-center gap-2">
+              <CheckCircle size={18} className="text-emerald-600" /> শেয়ার সার্টিফিকেট
+            </h2>
+            <Link to="/my-investments" className="text-xs text-emerald-600 font-medium flex items-center gap-1 hover:underline">
+              সব দেখুন <ArrowRight size={12} />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {approvedPurchases.slice(0, 3).map((purchase: any) => (
+              <div key={purchase.id} className="flex items-center justify-between bg-white rounded-xl p-3 border border-emerald-100">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900 text-sm truncate">{purchase.project_title}</p>
+                  <p className="text-xs text-gray-500">{purchase.quantity} শেয়ার • {formatTaka(purchase.total_amount)}</p>
+                </div>
+                <button
+                  onClick={() => downloadCertificate(purchase.id)}
+                  disabled={downloading}
+                  className={`flex items-center gap-1.5 text-xs py-2 px-3 rounded-xl font-medium transition-colors shrink-0 ml-3 ${
+                    downloading
+                      ? 'bg-gray-400 cursor-not-allowed text-gray-200'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  }`}
+                >
+                  <Download size={14} />
+                  {downloading ? 'ডাউনলোড...' : 'ডাউনলোড'}
+                </button>
+              </div>
+            ))}
+          </div>
+          {error && (
+            <p className="text-xs text-red-500 mt-2 bg-red-50 rounded-lg px-3 py-2">⚠️ {error}</p>
+          )}
+          <p className="text-xs text-gray-500 mt-3 flex items-center gap-1">
+            <CheckCircle size={11} /> অনুমোদিত শেয়ার ক্রয়ের সার্টিফিকেট সাথে সাথে ডাউনলোড করুন
+          </p>
+        </div>
+      )}
 
       {/* Withdrawal summary card */}
       {wbal && wbal.available_paisa > 0 && (
