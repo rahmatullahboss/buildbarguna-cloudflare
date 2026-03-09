@@ -43,13 +43,14 @@ jobs:
       - name: Build frontend
         run: |
           echo "🔨 Building frontend..."
-          pwd
-          ls -la
+          echo "Working directory: $(pwd)"
+          echo "VITE_R2_PUBLIC_URL set: ${VITE_R2_PUBLIC_URL:+YES}"
+          echo "VITE_R2_PUBLIC_URL value: ${VITE_R2_PUBLIC_URL:-'NOT SET - using fallback'}"
           npm ci --legacy-peer-deps
           npm run build
         working-directory: buildbarguna-cloudflare/frontend
         env:
-          VITE_R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          VITE_R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL || 'https://placeholder.r2.dev' }}
           CI: true
 
       - name: Deploy to Cloudflare Workers
