@@ -41,10 +41,16 @@ jobs:
         run: npm run test:unit
 
       - name: Build frontend
-        run: npm run build
+        run: |
+          echo "🔨 Building frontend..."
+          pwd
+          ls -la
+          npm ci --legacy-peer-deps
+          npm run build
         working-directory: buildbarguna-cloudflare/frontend
         env:
           VITE_R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          CI: true
 
       - name: Deploy to Cloudflare Workers
         run: npx wrangler deploy
