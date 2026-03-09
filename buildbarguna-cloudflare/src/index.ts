@@ -1,3 +1,6 @@
+// Import regenerator-runtime for pdf-lib async/await support
+import 'regenerator-runtime/runtime'
+
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
@@ -8,6 +11,7 @@ import { shareRoutes } from './routes/shares'
 import { earningRoutes } from './routes/earnings'
 import { withdrawalRoutes, adminWithdrawalRoutes } from './routes/withdrawals'
 import { rewardsRoutes } from './routes/rewards'
+import { taskRoutes } from './routes/tasks'
 import { notificationsRoutes } from './routes/notifications'
 import { adminRoutes } from './routes/admin'
 import { uploadRoutes } from './routes/upload'
@@ -98,12 +102,126 @@ app.use('/api/*', cors({
   credentials: true,
 }))
 
+// Security headers middleware (CSP, X-Frame-Options, etc.)
+app.use('/api/*', async (c, next) => {
+  await next()
+  
+  // Content Security Policy - restrict resource loading
+  c.header('Content-Security-Policy', [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://cdn.cloudflare.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: https:",
+    "connect-src 'self' https://buildbarguna-worker.workers.dev",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'"
+  ].join('; '))
+  
+  // Prevent clickjacking
+  c.header('X-Frame-Options', 'DENY')
+  
+  // Prevent MIME type sniffing
+  c.header('X-Content-Type-Options', 'nosniff')
+  
+  // Referrer policy
+  c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
+  
+  // Permissions policy (disable unnecessary features)
+  c.header('Permissions-Policy', [
+    'accelerometer=()',
+    'ambient-light-sensor=()',
+    'autoplay=()',
+    'camera=()',
+    'cross-origin-isolated=()',
+    'display-capture=()',
+    'document-domain=()',
+    'encrypted-media=()',
+    'execution-while-not-rendered=()',
+    'execution-while-out-of-viewport=()',
+    'fullscreen=()',
+    'geolocation=()',
+    'gyroscope=()',
+    'keyboard-map=()',
+    'microphone=()',
+    'midi=()',
+    'navigation-override=()',
+    'payment=()',
+    'picture-in-picture=()',
+    'publickey-credentials-get=()',
+    'screen-wake-lock=()',
+    'sync-xhr=()',
+    'usb=()',
+    'web-share=()',
+    'xr-spatial-tracking=()'
+  ].join(', '))
+})
+
 // Validate JWT_SECRET is properly set (fail fast, not silently)
 app.use('/api/*', async (c, next) => {
   if (!c.env.JWT_SECRET || c.env.JWT_SECRET.length < 32) {
     return c.json({ success: false, error: 'Server misconfiguration' }, 500)
   }
   await next()
+})
+
+// Validate required secrets on application startup (health check will fail if missing)
+const REQUIRED_SECRETS = ['JWT_SECRET'] as const
+
+app.use('/api/health/ready', async (c) => {
+  const missingSecrets: string[] = []
+  
+  // Check core secrets
+  for (const secret of REQUIRED_SECRETS) {
+    if (!c.env[secret]) {
+      missingSecrets.push(secret)
+    }
+  }
+  
+  if (missingSecrets.length > 0) {
+    return c.json({
+      success: false,
+      status: 'unhealthy',
+      error: 'Missing required secrets',
+      missing_secrets: missingSecrets
+    }, 500)
+  }
+  
+  // Check database connectivity
+  try {
+    await c.env.DB.prepare('SELECT 1 as check').first()
+  } catch (error) {
+    return c.json({
+      success: false,
+      status: 'unhealthy',
+      error: 'Database connection failed',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, 500)
+  }
+  
+  // Check KV connectivity
+  try {
+    await c.env.SESSIONS.get('health_check')
+  } catch (error) {
+    return c.json({
+      success: false,
+      status: 'unhealthy',
+      error: 'KV connection failed',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, 500)
+  }
+  
+  return c.json({
+    success: true,
+    status: 'healthy',
+    checks: {
+      secrets: 'ok',
+      database: 'ok',
+      kv: 'ok'
+    },
+    timestamp: new Date().toISOString()
+  })
 })
 
 // Global request size limit — reject bodies > 1MB to prevent timeout/DoS
@@ -130,6 +248,7 @@ app.route('/api/earnings', earningRoutes)
 app.route('/api/withdrawals', withdrawalRoutes)
 app.route('/api/admin/withdrawals', adminWithdrawalRoutes)
 app.route('/api/rewards', rewardsRoutes)
+app.route('/api/tasks', taskRoutes)
 app.route('/api/notifications', notificationsRoutes)
 app.route('/api/admin', adminRoutes)
 app.route('/api/upload', uploadRoutes)
@@ -165,26 +284,62 @@ app.get('/api/download/app', (c) => {
 // Favicon — serve empty 204
 app.get('/favicon.ico', (c) => new Response(null, { status: 204 }))
 
-// 404 for unmatched API routes only
-// Non-API routes are handled by Workers Static Assets (wrangler.toml)
-app.notFound((c) => {
-  // Only handle API 404s
-  if (c.req.path.startsWith('/api/')) {
-    return c.json({ success: false, error: 'রুট পাওয়া যায়নি' }, 404)
-  }
-  // For non-API routes, pass through to static assets
-  // Returning 404 allows Workers Static Assets to serve index.html (SPA mode)
-  return new Response('Not Found', { status: 404 })
-})
-
 // Export: fetch handler + scheduled (Cron Trigger)
 export default {
   fetch: app.fetch,
-  async scheduled(_event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
-    // Run earnings distribution + token blacklist cleanup together
-    ctx.waitUntil(Promise.all([
-      distributeMonthlyEarnings(env),
-      cleanupTokenBlacklist(env)
-    ]))
+  async scheduled(event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
+    console.log(`[cron] Starting scheduled job at ${new Date().toISOString()}`)
+    const startTime = Date.now()
+
+    // Run earnings distribution + token blacklist cleanup with error handling
+    ctx.waitUntil((async () => {
+      try {
+        const results = await Promise.allSettled([
+          (async () => {
+            console.log('[cron] Starting earnings distribution...')
+            await distributeMonthlyEarnings(env)
+            console.log('[cron] Earnings distribution completed')
+          })(),
+          (async () => {
+            console.log('[cron] Starting token blacklist cleanup...')
+            await cleanupTokenBlacklist(env)
+            console.log('[cron] Token blacklist cleanup completed')
+          })()
+        ])
+
+        const duration = Date.now() - startTime
+
+        results.forEach((result, i) => {
+          if (result.status === 'rejected') {
+            console.error(`[cron] Task ${i} failed after ${duration}ms:`, result.reason)
+          }
+        })
+
+        const allSucceeded = results.every(r => r.status === 'fulfilled')
+        console.log(`[cron] ${allSucceeded ? 'All tasks completed' : 'Some tasks failed'} in ${duration}ms`)
+
+        // Store cron execution status for monitoring
+        await env.SESSIONS.put('last_cron_execution', JSON.stringify({
+          timestamp: new Date().toISOString(),
+          duration_ms: duration,
+          success: allSucceeded,
+          tasks: results.map((r, i) => ({
+            task: i === 0 ? 'earnings_distribution' : 'token_blacklist_cleanup',
+            status: r.status,
+            error: r.status === 'rejected' ? String(r.reason) : null
+          }))
+        }), { expirationTtl: 86400 }) // Keep for 24 hours for monitoring
+
+      } catch (error) {
+        const duration = Date.now() - startTime
+        console.error(`[cron] Critical error after ${duration}ms:`, error)
+        // Store error for monitoring
+        await env.SESSIONS.put('last_cron_error', JSON.stringify({
+          timestamp: new Date().toISOString(),
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : null
+        }), { expirationTtl: 86400 })
+      }
+    })())
   }
 }
