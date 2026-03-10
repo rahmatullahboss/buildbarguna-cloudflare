@@ -354,7 +354,7 @@ authRoutes.get('/google', async (c) => {
     await storeOAuthState(c.env.SESSIONS, state, { codeVerifier })
 
     // Build authorization URL
-    const authUrl = await buildGoogleAuthUrl(redirectUri, state, codeChallenge)
+    const authUrl = await buildGoogleAuthUrl(redirectUri, state, codeChallenge, c.env)
 
     // Redirect to Google
     return c.redirect(authUrl)
@@ -390,7 +390,7 @@ authRoutes.get('/google/callback', async (c) => {
     // Exchange code for tokens
     const isProduction = !!c.env.FRONTEND_URL && !c.env.FRONTEND_URL.includes('localhost')
     const redirectUri = getGoogleRedirectUrl(isProduction ? 'production' : undefined)
-    const tokenResponse = await exchangeCodeForToken(code, storedState.codeVerifier, redirectUri)
+    const tokenResponse = await exchangeCodeForToken(code, storedState.codeVerifier, redirectUri, c.env)
 
     if (!tokenResponse.access_token) {
       throw new Error('No access token received')
