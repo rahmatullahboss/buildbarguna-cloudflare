@@ -322,19 +322,17 @@ taskRoutes.post('/:id/complete', async (c) => {
     return err(c, 'টাস্ক ইতিমধ্যে সম্পন্ন হয়েছে', 409)
   }
   
-  // SECURITY FIX: Create transaction record FIRST with INSERT OR IGNORE
-  // This prevents double-adding points in race conditions
-  // If this insert is ignored (duplicate), we skip the user_points update
+  // Insert point_transaction with INSERT OR IGNORE to prevent race condition duplicates.
+  // Only update user_points if the insert actually succeeded (changes > 0).
+  // No database trigger — points are updated manually here only.
   const transactionResult = await c.env.DB.prepare(
     `INSERT OR IGNORE INTO point_transactions (user_id, task_id, points, transaction_type, description, month_year)
      VALUES (?, ?, ?, 'earned', ?, strftime('%Y-%m', 'now'))`
   ).bind(userId, taskId, task.points, `Completed: ${task.title}`).run()
-  
-  // Only update user points if we actually inserted a new transaction
-  // This ensures points are added exactly once per task completion
+
   if (transactionResult.meta.changes && transactionResult.meta.changes > 0) {
     await c.env.DB.prepare(
-      `UPDATE user_points SET 
+      `UPDATE user_points SET
          available_points = available_points + ?,
          lifetime_earned = lifetime_earned + ?,
          monthly_earned = monthly_earned + ?,
