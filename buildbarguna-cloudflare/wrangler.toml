@@ -42,9 +42,12 @@ id = "0e5da409471743769c5e0fe9d2752bd8"
 crons = ["0 18 1 * *"]
 
 # ── Secrets (set via: wrangler secret put SECRET_NAME) ───────────────────────
-# JWT_SECRET        — JWT signing secret
-# R2_ACCOUNT_ID     — Cloudflare Account ID for R2 S3 API (separate account)
-# R2_ACCESS_KEY_ID  — R2 API token access key
-# R2_SECRET_ACCESS_KEY — R2 API token secret
-# R2_BUCKET_NAME    — R2 bucket name
-# R2_PUBLIC_URL     — Public R2 bucket URL
+# JWT_SECRET            — JWT signing secret
+# PDF_API_KEY           — PDF generation API key (PDFShift: https://pdfshift.io)
+# ADOBE_CLIENT_ID       — Adobe PDF Services client ID
+# ADOBE_CLIENT_SECRET   — Adobe PDF Services client secret
+# R2_ACCOUNT_ID         — Cloudflare Account ID for R2 S3 API (separate account)
+# R2_ACCESS_KEY_ID      — R2 API token access key
+# R2_SECRET_ACCESS_KEY  — R2 API token secret
+# R2_BUCKET_NAME        — R2 bucket name
+# R2_PUBLIC_URL         — Public R2 bucket URL

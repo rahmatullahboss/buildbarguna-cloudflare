@@ -3,6 +3,9 @@ export type Bindings = {
   SESSIONS: KVNamespace
   FILES?: R2Bucket        // Optional — not used in current setup
   JWT_SECRET: string
+  PDF_API_KEY?: string     // External PDF generation API key (PDFShift, etc.)
+  ADOBE_CLIENT_ID?: string   // Adobe PDF Services client ID
+  ADOBE_CLIENT_SECRET?: string // Adobe PDF Services client secret
   R2_PUBLIC_URL: string   // Public R2 bucket URL e.g. https://pub-xxxx.r2.dev
   R2_ACCOUNT_ID: string   // Cloudflare Account ID for R2 S3 API
   R2_ACCESS_KEY_ID: string

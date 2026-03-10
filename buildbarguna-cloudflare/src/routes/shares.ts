@@ -5,6 +5,7 @@ import { authMiddleware } from '../middleware/auth'
 import { ok, err, getPagination, paginate } from '../lib/response'
 import { safeMultiply } from '../lib/money'
 import { generateShareCertificate, generateCertificateId } from '../lib/pdf/generator'
+import { generateShareCertificatePDF } from '../lib/pdf/api-generator'
 import type { Bindings, Variables, Project, SharePurchase } from '../types'
 
 export const shareRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
@@ -207,22 +208,44 @@ shareRoutes.get('/certificate/:purchase_id', async (c) => {
     // Generate certificate ID if not already set (use purchase ID as sequence for simplicity)
     const certificateId = generateCertificateId(new Date(purchase.created_at).getFullYear(), purchase.id)
 
-    // Generate PDF certificate
-    const pdfBytes = await generateShareCertificate(
-      {
-        certificate_id: certificateId,
-        project_name: purchase.project_name,
-        share_quantity: purchase.quantity,
-        total_amount_paisa: purchase.total_amount,
-        purchase_date: purchase.created_at,
-        user_name: purchase.user_name,
-        user_phone: purchase.user_phone,
-        payment_method: purchase.payment_method,
-        form_number: undefined
-      },
-      undefined, // logoBuffer - will be fetched from dist
-      c.req.header('origin')
-    )
+    // Generate PDF certificate - use external API if key is configured
+    let pdfBytes: Uint8Array
+    
+    if (c.env.PDF_API_KEY) {
+      // Use external PDF API (recommended - avoids CPU limits)
+      pdfBytes = await generateShareCertificatePDF(
+        {
+          certificate_id: certificateId,
+          project_name: purchase.project_name,
+          share_quantity: purchase.quantity,
+          total_amount_paisa: purchase.total_amount,
+          purchase_date: purchase.created_at,
+          user_name: purchase.user_name,
+          user_phone: purchase.user_phone,
+          payment_method: purchase.payment_method,
+          form_number: undefined
+        },
+        { PDF_API_KEY: c.env.PDF_API_KEY },
+        c.req.header('origin')
+      )
+    } else {
+      // Fallback to local pdf-lib generation
+      pdfBytes = await generateShareCertificate(
+        {
+          certificate_id: certificateId,
+          project_name: purchase.project_name,
+          share_quantity: purchase.quantity,
+          total_amount_paisa: purchase.total_amount,
+          purchase_date: purchase.created_at,
+          user_name: purchase.user_name,
+          user_phone: purchase.user_phone,
+          payment_method: purchase.payment_method,
+          form_number: undefined
+        },
+        undefined, // logoBuffer - will be fetched from dist
+        c.req.header('origin')
+      )
+    }
 
     // Set proper headers for PDF download
     c.header('Content-Type', 'application/pdf')

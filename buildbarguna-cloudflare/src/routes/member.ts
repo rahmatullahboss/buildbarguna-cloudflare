@@ -5,6 +5,7 @@ import { authMiddleware } from '../middleware/auth'
 import { ok, err } from '../lib/response'
 import { toPaisa } from '../lib/money'
 import { generateMemberCertificate } from '../lib/pdf/generator'
+import { generateMemberCertificatePDF } from '../lib/pdf/api-generator'
 import type { Bindings, Variables } from '../types'
 
 // Custom Zod validation hook that returns user-friendly error messages
@@ -447,28 +448,57 @@ memberRoutes.get('/certificate/:formNumber', authMiddleware, async (c) => {
       }
     }
 
-    // Generate PDF certificate
-    const pdfBuffer = await generateMemberCertificate(
-      {
-        form_number: registration.form_number as string,
-        name_english: registration.name_english as string,
-        name_bangla: registration.name_bangla as string | undefined,
-        father_name: registration.father_name as string,
-        mother_name: registration.mother_name as string,
-        date_of_birth: registration.date_of_birth as string,
-        blood_group: registration.blood_group as string | undefined,
-        present_address: registration.present_address as string,
-        permanent_address: registration.permanent_address as string,
-        facebook_id: registration.facebook_id as string | undefined,
-        mobile_whatsapp: registration.mobile_whatsapp as string,
-        emergency_contact: registration.emergency_contact as string | undefined,
-        email: registration.email as string | undefined,
-        skills_interests: registration.skills_interests as string | undefined,
-        created_at: registration.created_at as string
-      },
-      logoBuffer,
-      new URL(c.req.url).origin
-    )
+    // Generate PDF certificate - use external API if key is configured, otherwise use local
+    let pdfBuffer: Uint8Array
+    
+    if (c.env.PDF_API_KEY) {
+      // Use external PDF API (recommended - avoids CPU limits)
+      pdfBuffer = await generateMemberCertificatePDF(
+        {
+          form_number: registration.form_number as string,
+          name_english: registration.name_english as string,
+          name_bangla: registration.name_bangla as string | undefined,
+          father_name: registration.father_name as string,
+          mother_name: registration.mother_name as string,
+          date_of_birth: registration.date_of_birth as string,
+          blood_group: registration.blood_group as string | undefined,
+          present_address: registration.present_address as string,
+          permanent_address: registration.permanent_address as string,
+          facebook_id: registration.facebook_id as string | undefined,
+          mobile_whatsapp: registration.mobile_whatsapp as string,
+          emergency_contact: registration.emergency_contact as string | undefined,
+          email: registration.email as string | undefined,
+          skills_interests: registration.skills_interests as string | undefined,
+          created_at: registration.created_at as string,
+          verified_at: registration.verified_at as string | undefined
+        },
+        { PDF_API_KEY: c.env.PDF_API_KEY },
+        new URL(c.req.url).origin
+      )
+    } else {
+      // Fallback to local pdf-lib generation
+      pdfBuffer = await generateMemberCertificate(
+        {
+          form_number: registration.form_number as string,
+          name_english: registration.name_english as string,
+          name_bangla: registration.name_bangla as string | undefined,
+          father_name: registration.father_name as string,
+          mother_name: registration.mother_name as string,
+          date_of_birth: registration.date_of_birth as string,
+          blood_group: registration.blood_group as string | undefined,
+          present_address: registration.present_address as string,
+          permanent_address: registration.permanent_address as string,
+          facebook_id: registration.facebook_id as string | undefined,
+          mobile_whatsapp: registration.mobile_whatsapp as string,
+          emergency_contact: registration.emergency_contact as string | undefined,
+          email: registration.email as string | undefined,
+          skills_interests: registration.skills_interests as string | undefined,
+          created_at: registration.created_at as string
+        },
+        logoBuffer,
+        new URL(c.req.url).origin
+      )
+    }
 
     // Log audit event for certificate download
     await logAuditEvent(
