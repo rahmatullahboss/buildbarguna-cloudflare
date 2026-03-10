@@ -8,7 +8,6 @@ minify = true
 [[durable_objects.bindings]]
 name = "RATE_LIMITER"
 class_name = "RateLimiter"
-script_name = "buildbarguna-worker"
 
 # ── Module rules: bundle binary assets directly into the Worker ───────────────
 # Importing a .ttf file gives an ArrayBuffer — no network fetch needed at runtime
