@@ -222,7 +222,6 @@ function ConfirmButton({
 
 export default function Tasks() {
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'daily' | 'one-time'>('daily')
   const [activeTask, setActiveTask] = useState<TaskListItem | null>(null)
 
   const { data: tasksData, isLoading } = useQuery({
@@ -232,10 +231,8 @@ export default function Tasks() {
 
   const tasks = tasksData?.success ? tasksData.data : null
 
-  // Single unified task list - filter by type for tabs
+  // All tasks in one list
   const allTasks = tasks?.tasks || []
-  const dailyTasks = allTasks.filter(t => !t.is_one_time)
-  const oneTimeTasks = allTasks.filter(t => t.is_one_time)
   const userPoints = tasks?.user_points
 
   // Start task - call API and open link
@@ -294,7 +291,7 @@ export default function Tasks() {
     setActiveTask(null)
   }
 
-  const displayTasks = activeTab === 'daily' ? dailyTasks : oneTimeTasks
+  const displayTasks = allTasks
 
   return (
     <div className="space-y-6 pb-20">
@@ -320,28 +317,6 @@ export default function Tasks() {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => setActiveTab('daily')}
-          className={`flex-1 py-3 rounded-xl font-medium transition-colors
-            ${activeTab === 'daily' 
-              ? 'bg-primary-600 text-white' 
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-        >
-          দৈনিক টাস্ক ({dailyTasks.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('one-time')}
-          className={`flex-1 py-3 rounded-xl font-medium transition-colors
-            ${activeTab === 'one-time' 
-              ? 'bg-primary-600 text-white' 
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-        >
-          ওয়ান টাইম ({oneTimeTasks.length})
-        </button>
       </div>
 
       {/* Task List */}

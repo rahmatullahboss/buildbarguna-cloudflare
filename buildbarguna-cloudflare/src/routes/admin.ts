@@ -382,7 +382,11 @@ adminRoutes.delete('/tasks/:id', async (c) => {
   const task = await c.env.DB.prepare('SELECT title FROM daily_tasks WHERE id = ?').bind(id).first<{ title: string }>()
   if (!task) return err(c, 'টাস্ক পাওয়া যায়নি', 404)
   
-  // Delete the task (will cascade delete task_completions if foreign key is set)
+  // Delete related records first (to avoid foreign key constraint)
+  await c.env.DB.prepare('DELETE FROM task_completions WHERE task_id = ?').bind(id).run()
+  await c.env.DB.prepare('DELETE FROM task_start_sessions WHERE task_id = ?').bind(id).run()
+  
+  // Then delete the task
   await c.env.DB.prepare('DELETE FROM daily_tasks WHERE id = ?').bind(id).run()
   return ok(c, { message: 'টাস্ক মুছে ফেলা হয়েছে' })
 })
