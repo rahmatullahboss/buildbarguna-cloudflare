@@ -10,6 +10,26 @@ import type { Bindings, Variables, User } from '../types'
 
 export const authRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
+// In-memory rate limiting to minimize KV writes
+const authRateLimitCache = new Map<string, { count: number; expiry: number }>()
+
+function checkAuthRateLimit(key: string, maxAttempts: number, windowSeconds: number): boolean {
+  const now = Date.now()
+  const cached = authRateLimitCache.get(key)
+  
+  if (cached && cached.expiry > now) {
+    if (cached.count >= maxAttempts) {
+      return false // Rate limited
+    }
+    cached.count++
+    return true
+  }
+  
+  // New entry
+  authRateLimitCache.set(key, { count: 1, expiry: now + windowSeconds * 1000 })
+  return true
+}
+
 const registerSchema = z.object({
   name: z.string().min(2, 'নাম কমপক্ষে ২ অক্ষরের হতে হবে'),
   phone: z.string().regex(/^01[3-9]\d{8}$/, 'সঠিক বাংলাদেশি মোবাইল নম্বর দিন'),
@@ -27,9 +47,9 @@ authRoutes.post('/register', zValidator('json', registerSchema), async (c) => {
   const { name, phone, password, referral_code } = c.req.valid('json')
 
   // Rate limiting: max 3 registrations per phone per hour (prevent spam)
-  const rateLimitKey = `registration_attempts:${phone}`
-  const attempts = await c.env.SESSIONS.get(rateLimitKey)
-  if (attempts && parseInt(attempts) >= RATE_LIMITS.REGISTRATION.MAX_ATTEMPTS) {
+  // Use in-memory rate limiting to minimize KV writes
+  const rateLimitKey = `reg:${phone}`
+  if (!checkAuthRateLimit(rateLimitKey, RATE_LIMITS.REGISTRATION.MAX_ATTEMPTS, 3600)) {
     return err(c, `অনেকবার চেষ্টা করা হয়েছে। ${RATE_LIMITS.REGISTRATION.WINDOW_HOURS} ঘণ্টা পরে আবার চেষ্টা করুন।`, 429)
   }
 
@@ -39,7 +59,6 @@ authRoutes.post('/register', zValidator('json', registerSchema), async (c) => {
   ).bind(phone).first()
 
   if (existing) {
-    // Don't clear rate limit on known phone - prevents enumeration
     return err(c, 'এই মোবাইল নম্বর দিয়ে ইতিমধ্যে অ্যাকাউন্ট আছে', 409)
   }
 
@@ -50,8 +69,6 @@ authRoutes.post('/register', zValidator('json', registerSchema), async (c) => {
       'SELECT id FROM users WHERE referral_code = ? AND is_active = 1'
     ).bind(referral_code).first<{ id: number }>()
     if (!referrer) {
-      // Increment counter on invalid referral
-      await c.env.SESSIONS.put(rateLimitKey, String((parseInt(attempts ?? '0')) + 1), { expirationTtl: 3600 })
       return err(c, 'রেফারেল কোড সঠিক নয়')
     }
     referrerUserId = referrer.id
@@ -66,12 +83,9 @@ authRoutes.post('/register', zValidator('json', registerSchema), async (c) => {
   ).bind(name, phone, password_hash, myReferralCode, referral_code ?? null, referrerUserId).run()
 
   if (!result.success) {
-    await c.env.SESSIONS.put(rateLimitKey, String((parseInt(attempts ?? '0')) + 1), { expirationTtl: 3600 })
     return err(c, 'রেজিস্ট্রেশন ব্যর্থ হয়েছে', 500)
   }
 
-  // Don't clear rate limit on success - prevents batch registration attacks
-  // Rate limit will expire naturally after TTL
   return ok(c, { message: 'রেজিস্ট্রেশন সফল হয়েছে' }, 201)
 })
 
@@ -80,9 +94,9 @@ authRoutes.post('/login', zValidator('json', loginSchema), async (c) => {
   const { phone, password } = c.req.valid('json')
 
   // Rate limiting: max 5 failed attempts per phone per 15 minutes
-  const rateLimitKey = `login_attempts:${phone}`
-  const attempts = await c.env.SESSIONS.get(rateLimitKey)
-  if (attempts && parseInt(attempts) >= RATE_LIMITS.LOGIN.MAX_ATTEMPTS) {
+  // Use in-memory rate limiting to minimize KV writes
+  const rateLimitKey = `login:${phone}`
+  if (!checkAuthRateLimit(rateLimitKey, RATE_LIMITS.LOGIN.MAX_ATTEMPTS, 900)) {
     return err(c, `অনেকবার চেষ্টা করা হয়েছে। ${RATE_LIMITS.LOGIN.WINDOW_MINUTES} মিনিট পরে আবার চেষ্টা করুন।`, 429)
   }
 
@@ -91,8 +105,6 @@ authRoutes.post('/login', zValidator('json', loginSchema), async (c) => {
   ).bind(phone).first<User>()
 
   if (!user) {
-    // Increment counter even on unknown phone to prevent enumeration
-    await c.env.SESSIONS.put(rateLimitKey, String((parseInt(attempts ?? '0')) + 1), { expirationTtl: 900 })
     return err(c, 'মোবাইল নম্বর বা পাসওয়ার্ড সঠিক নয়', 401)
   }
 
@@ -102,7 +114,6 @@ authRoutes.post('/login', zValidator('json', loginSchema), async (c) => {
 
   const valid = await verifyPassword(password, user.password_hash)
   if (!valid) {
-    await c.env.SESSIONS.put(rateLimitKey, String((parseInt(attempts ?? '0')) + 1), { expirationTtl: 900 })
     return err(c, 'মোবাইল নম্বর বা পাসওয়ার্ড সঠিক নয়', 401)
   }
 

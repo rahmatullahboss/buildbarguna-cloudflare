@@ -3,6 +3,13 @@ import { rewardsApi, pointsApi } from '../lib/api'
 import { Gift, Coins, Package, CheckCircle, Clock, XCircle, AlertTriangle, Wallet, Send } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 
+// Points to Taka conversion: 10 points = 1 Taka
+const POINTS_TO_TAKA_DIVISOR = 10
+const MIN_WITHDRAWAL_POINTS = 200
+
+// Helper to convert points to taka
+const pointsToTaka = (points: number) => Math.floor(points / POINTS_TO_TAKA_DIVISOR)
+
 export default function Rewards() {
   const qc = useQueryClient()
   const [showConfirm, setShowConfirm] = useState<number | null>(null)
@@ -11,8 +18,6 @@ export default function Rewards() {
   const [amount, setAmount] = useState<string>('')
   const [bkashNumber, setBkashNumber] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
-
-  const MIN_WITHDRAWAL = 200 // This should come from API settings, but hardcoded for now
 
   const { data: pointsData } = useQuery({
     queryKey: ['points'],
@@ -122,16 +127,16 @@ export default function Rewards() {
           {/* Withdraw Button */}
           <button
             onClick={() => setShowWithdrawModal(true)}
-            disabled={!points || points.available_points < MIN_WITHDRAWAL}
+            disabled={!points || points.available_points < MIN_WITHDRAWAL_POINTS}
             className="w-full py-3 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-xl font-medium hover:from-green-700 hover:to-green-600 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
           >
             <Wallet size={18} />
-            পয়েন্ট উত্তোলন করুন (ন্যূনতম {MIN_WITHDRAWAL} পয়েন্ট = {MIN_WITHDRAWAL} টাকা)
+            পয়েন্ট উত্তোলন করুন (ন্যূনতম {MIN_WITHDRAWAL_POINTS} পয়েন্ট = {pointsToTaka(MIN_WITHDRAWAL_POINTS)} টাকা)
           </button>
 
-          {points && points.available_points < MIN_WITHDRAWAL && (
+          {points && points.available_points < MIN_WITHDRAWAL_POINTS && (
             <p className="mt-2 text-xs text-center text-orange-600">
-              উত্তোলন করতে আরও {MIN_WITHDRAWAL - points.available_points} পয়েন্ট প্রয়োজন
+              উত্তোলন করতে আরও {MIN_WITHDRAWAL_POINTS - points.available_points} পয়েন্ট প্রয়োজন
             </p>
           )}
         </div>
@@ -367,7 +372,6 @@ function WithdrawModal({
   const [bkashNumber, setBkashNumber] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [showWithdrawConfirm, setShowWithdrawConfirm] = useState<{amount: number, bkash: string} | null>(null)
-  const MIN_WITHDRAWAL = 200
 
   const withdrawMutation = useMutation({
     mutationFn: () => {
@@ -391,8 +395,8 @@ function WithdrawModal({
     setError('')
 
     const amountNum = parseInt(amount)
-    if (isNaN(amountNum) || amountNum < MIN_WITHDRAWAL) {
-      setError(`ন্যূনতম ${MIN_WITHDRAWAL} পয়েন্ট প্রয়োজন`)
+    if (isNaN(amountNum) || amountNum < MIN_WITHDRAWAL_POINTS) {
+      setError(`ন্যূনতম ${MIN_WITHDRAWAL_POINTS} পয়েন্ট প্রয়োজন (${pointsToTaka(MIN_WITHDRAWAL_POINTS)} টাকা)`)
       return
     }
 
@@ -497,12 +501,12 @@ function WithdrawModal({
               type="number"
               value={amount}
               onChange={e => setAmount(e.target.value)}
-              placeholder={`ন্যূনতম ${MIN_WITHDRAWAL}`}
+              placeholder={`ন্যূনতম ${MIN_WITHDRAWAL_POINTS}`}
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
             />
             {points && (
               <div className="flex gap-2 mt-2">
-                <button type="button" onClick={() => handleQuickAmount(200)} className="text-xs px-3 py-1 bg-gray-100 rounded-full hover:bg-gray-200">200</button>
+                <button type="button" onClick={() => handleQuickAmount(MIN_WITHDRAWAL_POINTS)} className="text-xs px-3 py-1 bg-gray-100 rounded-full hover:bg-gray-200">{MIN_WITHDRAWAL_POINTS}</button>
                 <button type="button" onClick={() => handleQuickAmount(500)} className="text-xs px-3 py-1 bg-gray-100 rounded-full hover:bg-gray-200">500</button>
                 <button type="button" onClick={() => handleQuickAmount(points.available_points)} className="text-xs px-3 py-1 bg-gray-100 rounded-full hover:bg-gray-200">সব</button>
               </div>
@@ -523,8 +527,8 @@ function WithdrawModal({
 
           {/* Info */}
           <div className="bg-green-50 rounded-lg p-3 text-sm text-green-700">
-            <p>• 1 পয়েন্ট = 1 টাকা</p>
-            <p>• ন্যূনতম উত্তোলন: {MIN_WITHDRAWAL} পয়েন্ট</p>
+            <p>• {POINTS_TO_TAKA_DIVISOR} পয়েন্ট = 1 টাকা</p>
+            <p>• ন্যূনতম উত্তোলন: {MIN_WITHDRAWAL_POINTS} পয়েন্ট = {pointsToTaka(MIN_WITHDRAWAL_POINTS)} টাকা</p>
             <p>• অ্যাডমিন অনুমোদন প্রয়োজন</p>
             <p>• bKash এ 24-48 ঘণ্টার মধ্যে পাঠানো হবে</p>
             <p>• প্রতি মাসে সর্বোচ্চ 3টি উত্তোলন</p>

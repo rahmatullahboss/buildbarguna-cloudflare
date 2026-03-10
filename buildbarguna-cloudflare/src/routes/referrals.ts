@@ -8,8 +8,27 @@ import type { Bindings, Variables } from '../types'
 
 export const referralRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
+// In-memory rate limiting to minimize KV writes
+const referralRateLimitCache = new Map<string, { count: number; expiry: number }>()
+
+function checkReferralRateLimit(key: string, maxAttempts: number, windowSeconds: number): boolean {
+  const now = Date.now()
+  const cached = referralRateLimitCache.get(key)
+  
+  if (cached && cached.expiry > now) {
+    if (cached.count >= maxAttempts) {
+      return false
+    }
+    cached.count++
+    return true
+  }
+  
+  referralRateLimitCache.set(key, { count: 1, expiry: now + windowSeconds * 1000 })
+  return true
+}
+
 // GET /api/referrals/check — PUBLIC, no auth needed (used by Register page)
-// Rate limited: max 10 checks per IP per minute via KV
+// Rate limited: max 10 checks per IP per minute via in-memory
 referralRoutes.get('/check', async (c) => {
   const code = c.req.query('code')
   if (!code) return err(c, 'কোড দিন')
@@ -17,15 +36,11 @@ referralRoutes.get('/check', async (c) => {
   // Basic format check — referral codes are 8 alphanumeric chars
   if (!/^[A-Z0-9]{4,12}$/.test(code)) return err(c, 'রেফারেল কোড সঠিক নয়', 404)
 
-  // Rate limit: 10 requests per IP per minute
+  // Rate limit: 10 requests per IP per minute (in-memory)
   const ip = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? 'unknown'
-  const rateLimitKey = `ref_check:${ip}`
-  const attempts = await c.env.SESSIONS.get(rateLimitKey)
-  const count = parseInt(attempts ?? '0', 10)
-  if (count >= 10) {
+  if (!checkReferralRateLimit(`ref_check:${ip}`, 10, 60)) {
     return err(c, 'অনেকবার চেষ্টা করা হয়েছে। ১ মিনিট পরে আবার চেষ্টা করুন।', 429)
   }
-  await c.env.SESSIONS.put(rateLimitKey, String(count + 1), { expirationTtl: 60 })
 
   const referrer = await c.env.DB.prepare(
     'SELECT name FROM users WHERE referral_code = ? AND is_active = 1'
