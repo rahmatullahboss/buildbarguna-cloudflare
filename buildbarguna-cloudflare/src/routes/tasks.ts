@@ -295,7 +295,7 @@ taskRoutes.post('/:id/complete', async (c) => {
     }
   }
 
-  // Check for one-time task completion (with new unique index)
+  // Check for one-time task completion
   if (task.is_one_time === 1) {
     const everCompleted = await c.env.DB.prepare(
       `SELECT id FROM task_completions WHERE user_id = ? AND task_id = ?`
@@ -306,21 +306,18 @@ taskRoutes.post('/:id/complete', async (c) => {
     }
   }
   
-  // Create completion (UNIQUE constraint prevents duplicates)
-  try {
-    await c.env.DB.prepare(
-      `INSERT INTO task_completions (user_id, task_id, clicked_at, completed_at, task_date, points_earned, completion_time_seconds, is_flagged, flag_reason, is_one_time)
-       VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)`
-    ).bind(userId, taskId, session.clicked_at, today, task.points, completionTimeSeconds, isSuspiciouslyFast ? 1 : 0, flagReason, task.is_one_time).run()
-  } catch (e: unknown) {
-    // UNIQUE constraint violation - already completed
-    if (e instanceof Error && e.message.includes('UNIQUE constraint failed')) {
-      return err(c, 'টাস্ক ইতিমধ্যে সম্পন্ন হয়েছে', 409)
-    }
-    throw e
+  // Create completion with INSERT OR IGNORE - prevents duplicates at DB level
+  const insertResult = await c.env.DB.prepare(
+    `INSERT OR IGNORE INTO task_completions (user_id, task_id, clicked_at, completed_at, task_date, points_earned, completion_time_seconds, is_flagged, flag_reason, is_one_time)
+     VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)`
+  ).bind(userId, taskId, session.clicked_at, today, task.points, completionTimeSeconds, isSuspiciouslyFast ? 1 : 0, flagReason, task.is_one_time).run()
+  
+  // If no row was inserted, it means already completed
+  if (!insertResult.meta.changes || insertResult.meta.changes === 0) {
+    return err(c, 'টাস্ক ইতিমধ্যে সম্পন্ন হয়েছে', 409)
   }
   
-  // Update user points
+  // Update user points - only after successful insert
   await c.env.DB.prepare(
     `UPDATE user_points SET 
        available_points = available_points + ?,
