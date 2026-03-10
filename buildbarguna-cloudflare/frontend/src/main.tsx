@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import './index.css'
 import { restoreTokenFromSession } from './lib/apiToken'
+import { registerServiceWorker } from './lib/service-worker-registration'
 
 // Restore JWT from sessionStorage before first render.
 // This enables page refresh without losing login state within the same tab.
@@ -29,6 +30,12 @@ async function initCapacitor() {
 }
 
 initCapacitor()
+
+// Register service worker for PWA functionality (offline support, caching)
+// Only register in production builds
+if (import.meta.env.PROD) {
+  registerServiceWorker()
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
