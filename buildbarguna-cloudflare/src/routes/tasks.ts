@@ -11,6 +11,7 @@ taskRoutes.use('*', authMiddleware)
 // GET /api/tasks - List available tasks for the logged-in member
 taskRoutes.get('/', async (c) => {
   const userId = c.get('userId')
+  const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
   
   // Get all active tasks
   const tasksResult = await c.env.DB.prepare(
@@ -23,11 +24,10 @@ taskRoutes.get('/', async (c) => {
       dt.cooldown_seconds,
       dt.daily_limit,
       dt.is_one_time,
-      dt.is_active,
-      CASE WHEN dt.is_one_time = 1 THEN 0 ELSE dt.daily_limit END as daily_limit_calc
+      dt.is_active
     FROM daily_tasks dt
     WHERE dt.is_active = 1
-    ORDER BY dt.is_one_time ASC, dt.points DESC`
+    ORDER BY dt.points DESC`
   ).all()
   
   const tasks = tasksResult.results as Array<{
@@ -39,53 +39,62 @@ taskRoutes.get('/', async (c) => {
     cooldown_seconds: number
     daily_limit: number
     is_one_time: number
-    daily_limit_calc: number
   }>
   
   // Get today's completions for this user
-  const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
-  
   const completionsResult = await c.env.DB.prepare(
-    `SELECT task_id, COUNT(*) as count, MAX(completed_at) as last_completed
+    `SELECT task_id, COUNT(*) as count
      FROM task_completions 
      WHERE user_id = ? AND task_date = ?
      GROUP BY task_id`
   ).bind(userId, today).all()
   
-  const todayCompletions = new Map<number, { count: number; last_completed: string }>()
+  const todayCompletions = new Map<number, number>()
   for (const row of completionsResult.results) {
-    const r = row as { task_id: number; count: number; last_completed: string }
-    todayCompletions.set(r.task_id, { count: r.count, last_completed: r.last_completed })
+    const r = row as { task_id: number; count: number }
+    todayCompletions.set(r.task_id, r.count)
   }
   
   // Get one-time completions (ever)
   const oneTimeResult = await c.env.DB.prepare(
-    `SELECT task_id, COUNT(*) as count
+    `SELECT task_id
      FROM task_completions 
-     WHERE user_id = ? AND task_id IN (SELECT id FROM daily_tasks WHERE is_one_time = 1)
-     GROUP BY task_id`
+     WHERE user_id = ? AND task_id IN (SELECT id FROM daily_tasks WHERE is_one_time = 1)`
   ).bind(userId).all()
   
-  const oneTimeCompletions = new Map<number, number>()
+  const oneTimeCompleted = new Set<number>()
   for (const row of oneTimeResult.results) {
-    const r = row as { task_id: number; count: number }
-    oneTimeCompletions.set(r.task_id, r.count)
+    const r = row as { task_id: number }
+    oneTimeCompleted.add(r.task_id)
   }
   
   // Build task list items
-  const buildTaskItem = (task: typeof tasks[0]): TaskListItem | null => {
-    const todayData = todayCompletions.get(task.id)
-    const completedToday = todayData ? todayData.count >= 1 : false
-    // For one-time tasks: if not completed ever, remaining is 1; otherwise 0
-    const remainingToday = task.is_one_time === 1 ? 1 : Math.max(0, task.daily_limit_calc - (todayData?.count || 0))
-    const completedEver = oneTimeCompletions.get(task.id) || 0
-
-    // For one-time tasks: if already completed ever, don't return it (hide from list)
-    if (task.is_one_time === 1 && completedEver > 0) {
-      return null
+  const allTasks: TaskListItem[] = []
+  
+  for (const task of tasks) {
+    const completedToday = todayCompletions.get(task.id) || 0
+    const isOneTimeCompleted = oneTimeCompleted.has(task.id)
+    
+    // Skip one-time tasks that are already completed
+    if (task.is_one_time === 1 && isOneTimeCompleted) {
+      continue
     }
     
-    return {
+    // Calculate remaining count
+    let remainingCount: number
+    let canComplete: boolean
+    
+    if (task.is_one_time === 1) {
+      // One-time: can complete once ever
+      remainingCount = isOneTimeCompleted ? 0 : 1
+      canComplete = !isOneTimeCompleted
+    } else {
+      // Daily: can complete daily_limit times per day
+      remainingCount = Math.max(0, task.daily_limit - completedToday)
+      canComplete = completedToday < task.daily_limit
+    }
+    
+    allTasks.push({
       id: task.id,
       title: task.title,
       platform: task.platform as TaskListItem['platform'],
@@ -93,15 +102,12 @@ taskRoutes.get('/', async (c) => {
       points: task.points,
       cooldown_seconds: task.cooldown_seconds,
       is_one_time: task.is_one_time === 1,
-      completed_today: completedToday,
-      completed_ever: completedEver > 0,
-      remaining_count: remainingToday
-    }
+      completed_today: completedToday > 0,
+      completed_ever: isOneTimeCompleted,
+      remaining_count: remainingCount,
+      can_complete: canComplete
+    })
   }
-
-  // Separate daily and one-time tasks (filter out null - completed one-time tasks)
-  const dailyTasks = tasks.filter(t => t.is_one_time === 0).map(buildTaskItem).filter((t): t is TaskListItem => t !== null)
-  const oneTimeTasks = tasks.filter(t => t.is_one_time === 1).map(buildTaskItem).filter((t): t is TaskListItem => t !== null)
   
   // Get user's point balance
   const userPointsResult = await c.env.DB.prepare(
@@ -112,8 +118,7 @@ taskRoutes.get('/', async (c) => {
   const userPoints = userPointsResult || { available_points: 0, lifetime_earned: 0, monthly_earned: 0 }
   
   const response: TaskListResponse = {
-    daily_tasks: dailyTasks,
-    one_time_tasks: oneTimeTasks,
+    tasks: allTasks,
     user_points: {
       available_points: userPoints.available_points,
       lifetime_earned: userPoints.lifetime_earned,

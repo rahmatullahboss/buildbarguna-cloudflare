@@ -187,12 +187,12 @@ export type TaskListItem = {
   completed_today: boolean
   completed_ever: boolean
   remaining_count: number
+  can_complete: boolean
 }
 
 /** Task list response */
 export type TaskListResponse = {
-  daily_tasks: TaskListItem[]
-  one_time_tasks: TaskListItem[]
+  tasks: TaskListItem[]
   user_points: {
     available_points: number
     lifetime_earned: number

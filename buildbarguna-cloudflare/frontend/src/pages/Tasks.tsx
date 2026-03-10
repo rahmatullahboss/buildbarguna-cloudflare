@@ -125,11 +125,12 @@ function ConfirmButton({
     return () => clearInterval(timer)
   }, [cooldownRemaining])
   
-  // Start countdown when component mounts
+  // Start countdown when component mounts - use wait_seconds from task if available
   useEffect(() => {
-    // Calculate remaining time from task's cooldown
-    setCooldownRemaining(task.cooldown_seconds)
-  }, [task.cooldown_seconds])
+    // Use wait_seconds from task (set by start mutation) or fallback to cooldown_seconds
+    const initialWait = task.wait_seconds || task.cooldown_seconds || 0
+    setCooldownRemaining(initialWait)
+  }, [task.wait_seconds, task.cooldown_seconds])
 
   const completeMutation = useMutation({
     mutationFn: () => tasksApi.complete(task.id),
@@ -231,8 +232,10 @@ export default function Tasks() {
 
   const tasks = tasksData?.success ? tasksData.data : null
 
-  const dailyTasks = tasks?.daily_tasks || []
-  const oneTimeTasks = tasks?.one_time_tasks || []
+  // Single unified task list - filter by type for tabs
+  const allTasks = tasks?.tasks || []
+  const dailyTasks = allTasks.filter(t => !t.is_one_time)
+  const oneTimeTasks = allTasks.filter(t => t.is_one_time)
   const userPoints = tasks?.user_points
 
   // Start task - call API and open link
@@ -268,8 +271,8 @@ export default function Tasks() {
     },
     onSuccess: (result) => {
       console.log('[Task] Success:', result)
-      // Set active task for confirmation
-      setActiveTask(result.task)
+      // Set active task for confirmation with wait_seconds
+      setActiveTask({ ...result.task, wait_seconds: result.wait_seconds })
     },
     onError: (error) => {
       console.error('[Task] Mutation error:', error)
