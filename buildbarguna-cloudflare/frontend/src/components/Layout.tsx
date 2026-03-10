@@ -7,13 +7,12 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 
-// Bottom nav shows 5 most important items on mobile
+// Bottom nav shows 4 most important items on mobile
 const bottomNav = [
   { to: '/dashboard', label: 'হোম', icon: Home },
   { to: '/projects', label: 'প্রজেক্ট', icon: Briefcase },
   { to: '/earnings', label: 'মুনাফা', icon: TrendingUp },
   { to: '/withdraw', label: 'উত্তোলন', icon: ArrowDownCircle },
-  { to: '/tutorial', label: 'গাইড', icon: BookOpen },
 ]
 
 const memberNav = [
@@ -27,7 +26,6 @@ const memberNav = [
   { to: '/membership', label: 'মেম্বারশিপ', icon: FileText },
   { to: '/withdraw', label: 'উত্তোলন', icon: ArrowDownCircle },
   { to: '/referrals', label: 'রেফারেল', icon: Gift },
-  { to: '/tutorial', label: 'গাইড', icon: BookOpen },
 ]
 
 const adminNav = [
