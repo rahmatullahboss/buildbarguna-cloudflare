@@ -272,6 +272,16 @@ taskRoutes.post('/:id/complete', async (c) => {
   const isSuspiciouslyFast = completionTimeSeconds < 5 // Less than 5 seconds is suspicious
   const flagReason = isSuspiciouslyFast ? 'সন্দেহজনক দ্রুত সম্পাদন' : null
 
+  // Check if already completed today (prevent double submission)
+  const existingCompletion = await c.env.DB.prepare(
+    `SELECT id FROM task_completions 
+     WHERE user_id = ? AND task_id = ? AND task_date = ?`
+  ).bind(userId, taskId, today).first()
+
+  if (existingCompletion) {
+    return err(c, 'টাস্ক ইতিমধ্যে সম্পন্ন হয়েছে', 409)
+  }
+
   // Re-check daily limit (prevent race conditions)
   if (task.is_one_time === 0) {
     const todayCountResult = await c.env.DB.prepare(
@@ -299,9 +309,9 @@ taskRoutes.post('/:id/complete', async (c) => {
   // Create completion (UNIQUE constraint prevents duplicates)
   try {
     await c.env.DB.prepare(
-      `INSERT INTO task_completions (user_id, task_id, clicked_at, completed_at, task_date, points_earned, completion_time_seconds, is_flagged, flag_reason)
-       VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?)`
-    ).bind(userId, taskId, session.clicked_at, today, task.points, completionTimeSeconds, isSuspiciouslyFast ? 1 : 0, flagReason).run()
+      `INSERT INTO task_completions (user_id, task_id, clicked_at, completed_at, task_date, points_earned, completion_time_seconds, is_flagged, flag_reason, is_one_time)
+       VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)`
+    ).bind(userId, taskId, session.clicked_at, today, task.points, completionTimeSeconds, isSuspiciouslyFast ? 1 : 0, flagReason, task.is_one_time).run()
   } catch (e: unknown) {
     // UNIQUE constraint violation - already completed
     if (e instanceof Error && e.message.includes('UNIQUE constraint failed')) {

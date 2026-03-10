@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tasksApi, type TaskListItem } from '../lib/api'
 import { Play, CheckCircle, Clock, Facebook, Youtube, Link as LinkIcon, AlertCircle, ExternalLink, RotateCcw } from 'lucide-react'
@@ -95,7 +95,7 @@ function TaskCard({
   )
 }
 
-// Simple inline confirmation component
+// Simple inline confirmation component with countdown timer
 function ConfirmButton({ 
   task, 
   onComplete,
@@ -106,6 +106,30 @@ function ConfirmButton({
   onCancel: () => void
 }) {
   const [isClicked, setIsClicked] = useState(false)
+  const [cooldownRemaining, setCooldownRemaining] = useState<number>(0)
+  
+  // Countdown timer effect
+  useEffect(() => {
+    if (cooldownRemaining <= 0) return
+    
+    const timer = setInterval(() => {
+      setCooldownRemaining(prev => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    
+    return () => clearInterval(timer)
+  }, [cooldownRemaining])
+  
+  // Start countdown when component mounts
+  useEffect(() => {
+    // Calculate remaining time from task's cooldown
+    setCooldownRemaining(task.cooldown_seconds)
+  }, [task.cooldown_seconds])
 
   const completeMutation = useMutation({
     mutationFn: () => tasksApi.complete(task.id),
@@ -114,43 +138,81 @@ function ConfirmButton({
         onComplete()
       }
     },
+    onError: (error) => {
+      // If API fails (e.g., cooldown not complete), show error
+      alert(error instanceof Error ? error.message : 'Error completing task')
+      setIsClicked(false)
+    },
     onSettled: () => {
-      // Reset clicked state after API finishes (success or error)
       setIsClicked(false)
     }
   })
 
-  // Handle click - hide button immediately, then call API
+  // Handle click - disable immediately and call API
   const handleClick = () => {
+    if (isClicked || completeMutation.isPending) return
     setIsClicked(true)
     completeMutation.mutate()
   }
 
-  // Don't render if already clicked (hides immediately)
-  if (isClicked) {
-    return null
+  const handleCancel = () => {
+    if (cooldownRemaining > 0) {
+      onCancel()
+    } else {
+      onCancel()
+    }
   }
+
+  // Show countdown if waiting for cooldown
+  const isDisabled = cooldownRemaining > 0 || isClicked || completeMutation.isPending
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 z-50">
       <div className="max-w-md mx-auto flex items-center gap-3">
         <div className="flex-1">
           <p className="font-medium text-gray-900">{task.title}</p>
-          <p className="text-sm text-success-600">+{task.points} পয়েন্ট অর্জন করতে কনফার্ম করুন</p>
+          {cooldownRemaining > 0 ? (
+            <p className="text-sm text-orange-600">
+              অপেক্ষা করুন: {cooldownRemaining} সেকেন্ড
+            </p>
+          ) : (
+            <p className="text-sm text-success-600">+{task.points} পয়েন্ট অর্জন করতে কনফার্ম করুন</p>
+          )}
         </div>
+        
+        {/* Cancel Button */}
         <button
-          onClick={handleClick}
-          disabled={completeMutation.isPending}
-          className="px-4 py-2 bg-success-600 text-white rounded-lg font-medium hover:bg-success-700 disabled:opacity-50 flex items-center gap-2"
-        >
-          <CheckCircle className="w-4 h-4" />
-          কনফার্ম
-        </button>
-        <button
-          onClick={onCancel}
-          className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-medium hover:bg-gray-200"
+          onClick={handleCancel}
+          className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg font-medium hover:bg-gray-200 text-sm"
         >
           বাতিল
+        </button>
+        
+        {/* Confirm Button */}
+        <button
+          onClick={handleClick}
+          disabled={isDisabled}
+          className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2
+            ${isDisabled 
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+              : 'bg-success-600 text-white hover:bg-success-700'}`}
+        >
+          {isClicked || completeMutation.isPending ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              প্রসেসিং...
+            </>
+          ) : cooldownRemaining > 0 ? (
+            <>
+              <span className="w-4 h-4 bg-orange-500 rounded-full animate-pulse" />
+              অপেক্ষা
+            </>
+          ) : (
+            <>
+              <CheckCircle className="w-4 h-4" />
+              কনফার্ম
+            </>
+          )}
         </button>
       </div>
     </div>
@@ -188,52 +250,26 @@ export default function Tasks() {
         throw new Error('Task has no destination URL. Please contact admin.')
       }
       
-      // Open window IMMEDIATELY (before async call) to avoid popup blocker
-      const newWindow = window.open('about:blank', '_blank', 'noopener,noreferrer')
+      // Open the destination URL in a new tab FIRST
+      // This must happen from user interaction to avoid popup blocker
+      window.open(task.destination_url, '_blank', 'noopener,noreferrer')
       
-      if (!newWindow) {
-        console.error('[Task] Failed to open popup window - blocked by browser?')
-        // Fallback: open directly in same tab
-        window.location.href = task.destination_url
-        return { task, success: true }
+      // Then call API to record start time
+      const response = await tasksApi.start(task.id)
+      console.log('[Task] API Response:', response)
+      
+      // Get wait_seconds from response if successful
+      let waitSeconds = 0
+      if (response.success && response.data) {
+        waitSeconds = response.data.wait_seconds || 0
       }
       
-      try {
-        // Call start API to record start time
-        console.log('[Task] Calling API for task:', task.id)
-        const response = await tasksApi.start(task.id)
-        console.log('[Task] API Response:', response)
-        
-        // Update the opened window with actual URL
-        if (response.success && response.data?.destination_url) {
-          console.log('[Task] Navigating to:', response.data.destination_url)
-          // Use replace to avoid breaking back button
-          newWindow.location.replace(response.data.destination_url)
-        } else if (response.error) {
-          console.error('[Task] API returned error:', response.error)
-          newWindow.close()
-          throw new Error(response.error)
-        } else {
-          console.error('[Task] Invalid response structure:', response)
-          newWindow.close()
-          throw new Error('Invalid response from server')
-        }
-        
-        return { task, success: response.success }
-      } catch (error) {
-        console.error('[Task] Error starting task:', error)
-        // Close window if API fails
-        if (newWindow && !newWindow.closed) {
-          newWindow.close()
-        }
-        throw error
-      }
+      return { task, success: response.success, wait_seconds: waitSeconds }
     },
     onSuccess: (result) => {
       console.log('[Task] Success:', result)
-      if (result.success) {
-        setActiveTask(result.task)
-      }
+      // Set active task for confirmation
+      setActiveTask(result.task)
     },
     onError: (error) => {
       console.error('[Task] Mutation error:', error)

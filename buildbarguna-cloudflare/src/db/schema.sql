@@ -104,8 +104,24 @@ CREATE TABLE IF NOT EXISTS task_completions (
   completed_at  TEXT NOT NULL DEFAULT (datetime('now')),
   task_date     TEXT NOT NULL,
   points_earned INTEGER NOT NULL DEFAULT 0,
+  completion_time_seconds INTEGER,
+  is_flagged    INTEGER DEFAULT 0,
+  flag_reason   TEXT,
+  is_one_time   INTEGER DEFAULT 0,
   UNIQUE(user_id, task_id, task_date)
 );
+
+-- Task start sessions - tracks when user starts a task (for cooldown)
+CREATE TABLE IF NOT EXISTS task_start_sessions (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL REFERENCES users(id),
+  task_id       INTEGER NOT NULL REFERENCES daily_tasks(id),
+  clicked_at    TEXT NOT NULL,
+  session_date  TEXT NOT NULL,
+  UNIQUE(user_id, task_id, session_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_start_sessions_user_date ON task_start_sessions(user_id, session_date);
 
 CREATE TABLE IF NOT EXISTS user_points (
     user_id           INTEGER PRIMARY KEY REFERENCES users(id),
@@ -123,7 +139,7 @@ CREATE TABLE IF NOT EXISTS point_transactions (
     user_id         INTEGER NOT NULL REFERENCES users(id),
     task_id         INTEGER REFERENCES daily_tasks(id),
     points          INTEGER NOT NULL,
-    transaction_type TEXT NOT NULL CHECK(transaction_type IN ('earned', 'redeemed', 'expired', 'adjusted', 'refunded')),
+    transaction_type TEXT NOT NULL CHECK(transaction_type IN ('earned', 'redeemed', 'expired', 'adjusted', 'refunded', 'withdrawn')),
     description     TEXT,
     month_year      TEXT NOT NULL DEFAULT (strftime('%Y-%m', 'now')),
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
