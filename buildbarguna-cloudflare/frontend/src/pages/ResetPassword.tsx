@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authApi } from '../lib/api'
 import { Eye, EyeOff } from 'lucide-react'
+import LottieIcon from '../components/LottieIcon'
 
 export default function ResetPassword() {
   const navigate = useNavigate()
@@ -76,14 +77,14 @@ export default function ResetPassword() {
         {success && (
           <div className="bg-green-50 border border-green-200 text-green-700 rounded-2xl px-4 py-4 mb-6 text-sm">
             <div className="flex items-start gap-3">
-              <span className="text-xl">✅</span>
+              <LottieIcon name="checkmark" className="w-6 h-6" />
               <div>
                 <p className="font-semibold">পাসওয়ার্ড রিসেট সফল!</p>
                 <p className="mt-1">
                   আপনার পাসওয়ার্ড সফলভাবে রিসেট হয়েছে। আপনি শীঘ্রই লগইন পেজে নিয়ে যাওয়া হবে।
                 </p>
-                <p className="mt-2 text-xs text-green-600">
-                  ⏳ ৩ সেকেন্ডের মধ্যে লগইন পেজে ফিরে যাবে...
+                <p className="mt-2 text-xs text-green-600 flex items-center gap-1">
+                  <LottieIcon name="warning" className="w-4 h-4" /> ৩ সেকেন্ডের মধ্যে লগইন পেজে ফিরে যাবে...
                 </p>
               </div>
             </div>
@@ -93,7 +94,7 @@ export default function ResetPassword() {
         {/* Error Message */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3 mb-6 text-sm flex items-start gap-2">
-            <span className="flex-shrink-0 mt-0.5">⚠️</span>
+            <LottieIcon name="warning" className="w-5 h-5" />
             {error}
           </div>
         )}
@@ -102,7 +103,7 @@ export default function ResetPassword() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* New Password */}
             <div>
-              <label className="label" htmlFor="password">🔒 নতুন পাসওয়ার্ড</label>
+              <label className="label" htmlFor="password"><LottieIcon name="lock" className="w-4 h-4 inline-block mr-1" /> নতুন পাসওয়ার্ড</label>
               <div className="relative">
                 <input
                   id="password"
@@ -127,7 +128,7 @@ export default function ResetPassword() {
 
             {/* Confirm Password */}
             <div>
-              <label className="label" htmlFor="confirmPassword">🔒 পাসওয়ার্ড নিশ্চিত করুন</label>
+              <label className="label" htmlFor="confirmPassword"><LottieIcon name="lock" className="w-4 h-4 inline-block mr-1" /> পাসওয়ার্ড নিশ্চিত করুন</label>
               <div className="relative">
                 <input
                   id="confirmPassword"
@@ -174,14 +175,14 @@ export default function ResetPassword() {
                     <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                     রিসেট হচ্ছে...
                   </span>
-                : '🔐 পাসওয়ার্ড রিসেট করুন'}
+                : <><LottieIcon name="lock" className="w-5 h-5 inline-block mr-1" /> পাসওয়ার্ড রিসেট করুন</>}
             </button>
           </form>
         )}
 
         {/* Trust badge */}
         <div className="mt-6 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-3 text-center">
-          <p className="text-xs font-semibold text-emerald-800">🔒 নিরাপদ পাসওয়ার্ড রিসেট</p>
+          <p className="text-xs font-semibold text-emerald-800 flex items-center justify-center gap-1"><LottieIcon name="lock" className="w-4 h-4" /> নিরাপদ পাসওয়ার্ড রিসেট</p>
           <p className="text-xs text-emerald-600 mt-0.5">আপনার অ্যাকাউন্ট সুরক্ষিত রাখতে আমরা সর্বোচ্চ চেষ্টা করি</p>
         </div>
       </div>

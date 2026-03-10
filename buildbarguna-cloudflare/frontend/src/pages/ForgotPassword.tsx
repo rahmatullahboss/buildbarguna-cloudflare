@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { authApi } from '../lib/api'
 import { ArrowLeft } from 'lucide-react'
+import LottieIcon from '../components/LottieIcon'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -55,14 +56,14 @@ export default function ForgotPassword() {
         {success && (
           <div className="bg-green-50 border border-green-200 text-green-700 rounded-2xl px-4 py-4 mb-6 text-sm">
             <div className="flex items-start gap-3">
-              <span className="text-xl">✅</span>
+              <LottieIcon name="checkmark" className="w-6 h-6" />
               <div>
                 <p className="font-semibold">ইমেইল পাঠানো হয়েছে!</p>
                 <p className="mt-1">
                   যদি আপনার ইমেইলটি রেজিস্টার্ড থাকে, তবে আপনি শীঘ্রই একটি পাসওয়ার্ড রিসেট লিঙ্ক পাবেন।
                 </p>
-                <p className="mt-2 text-xs text-green-600">
-                  💡 ইনবক্স চেক করুন এবং স্প্যাম ফোল্ডারও দেখে নিন।
+                <p className="mt-2 text-xs text-green-600 flex items-center gap-1">
+                  <LottieIcon name="phone" className="w-4 h-4" /> ইনবক্স চেক করুন এবং স্প্যাম ফোল্ডারও দেখে নিন।
                 </p>
               </div>
             </div>
@@ -72,7 +73,7 @@ export default function ForgotPassword() {
         {/* Error Message */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3 mb-6 text-sm flex items-start gap-2">
-            <span className="flex-shrink-0 mt-0.5">⚠️</span>
+            <LottieIcon name="warning" className="w-5 h-5" />
             {error}
           </div>
         )}
@@ -81,7 +82,7 @@ export default function ForgotPassword() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
             <div>
-              <label className="label" htmlFor="email">📧 ইমেইল ঠিকানা</label>
+              <label className="label" htmlFor="email"><LottieIcon name="email" className="w-4 h-4 inline-block mr-1" /> ইমেইল ঠিকানা</label>
               <input
                 id="email"
                 className="input"
@@ -105,7 +106,7 @@ export default function ForgotPassword() {
                     <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                     পাঠানো হচ্ছে...
                   </span>
-                : '📧 রিসেট লিঙ্ক দিন'}
+                : <><LottieIcon name="email" className="w-5 h-5 inline-block mr-1" /> রিসেট লিঙ্ক দিন</>}
             </button>
           </form>
         )}
@@ -113,7 +114,7 @@ export default function ForgotPassword() {
         {/* Info box */}
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-2xl p-4">
           <p className="text-xs text-blue-800">
-            <span className="font-semibold">💡 মনে রাখবেন:</span>
+            <span className="font-semibold flex items-center gap-1"><LottieIcon name="phone" className="w-4 h-4" /> মনে রাখবেন:</span>
           </p>
           <ul className="text-xs text-blue-700 mt-2 space-y-1">
             <li>• রিসেট লিঙ্কটি ১৫ মিনিটের জন্য বৈধ</li>
@@ -124,7 +125,7 @@ export default function ForgotPassword() {
 
         {/* Trust badge */}
         <div className="mt-6 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-3 text-center">
-          <p className="text-xs font-semibold text-emerald-800">🔒 নিরাপদ পাসওয়ার্ড রিসেট</p>
+          <p className="text-xs font-semibold text-emerald-800 flex items-center justify-center gap-1"><LottieIcon name="lock" className="w-4 h-4" /> নিরাপদ পাসওয়ার্ড রিসেট</p>
           <p className="text-xs text-emerald-600 mt-0.5">আপনার অ্যাকাউন্ট সুরক্ষিত রাখতে আমরা সর্বোচ্চ চেষ্টা করি</p>
         </div>
       </div>

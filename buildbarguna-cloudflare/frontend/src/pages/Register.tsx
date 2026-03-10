@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authApi, referralsApi } from '../lib/api'
 import { Gift } from 'lucide-react'
+import LottieIcon from '../components/LottieIcon'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -70,35 +71,35 @@ export default function Register() {
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3 mb-4 text-sm flex items-start gap-2">
-            <span>⚠️</span><span>{error}</span>
+            <LottieIcon name="warning" className="w-5 h-5" /><span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="label">👤 পূর্ণ নাম</label>
+            <label className="label"><LottieIcon name="user" className="w-4 h-4 inline-block mr-1" /> পূর্ণ নাম</label>
             <input className="input" type="text" placeholder="আপনার নাম" value={form.name}
               onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required />
           </div>
           <div>
-            <label className="label">📧 ইমেইল ঠিকানা <span className="text-red-500">*</span></label>
+            <label className="label"><LottieIcon name="email" className="w-4 h-4 inline-block mr-1" /> ইমেইল ঠিকানা <span className="text-red-500">*</span></label>
             <input className="input" type="email" placeholder="আপনার ইমেইল দিন" value={form.email}
               onChange={e => setForm(p => ({ ...p, email: e.target.value }))} required />
           </div>
           <div>
-            <label className="label">📱 মোবাইল নম্বর <span className="text-gray-400 font-normal text-xs">(ঐচ্ছিক)</span></label>
+            <label className="label"><LottieIcon name="phone" className="w-4 h-4 inline-block mr-1" /> মোবাইল নম্বর <span className="text-gray-400 font-normal text-xs">(ঐচ্ছিক)</span></label>
             <input className="input" type="tel" placeholder="01XXXXXXXXX" value={form.phone}
               onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
               pattern="01[3-9][0-9]{8}"
               title="সঠিক বাংলাদেশি মোবাইল নম্বর দিন (যেমন: 01712345678)" />
           </div>
           <div>
-            <label className="label">🔒 পাসওয়ার্ড</label>
+            <label className="label"><LottieIcon name="lock" className="w-4 h-4 inline-block mr-1" /> পাসওয়ার্ড</label>
             <input className="input" type="password" placeholder="কমপক্ষে ৬ অক্ষর" value={form.password}
               onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required minLength={6} />
           </div>
           <div>
-            <label className="label">🎁 রেফারেল কোড <span className="text-gray-400 font-normal text-xs">(ঐচ্ছিক)</span></label>
+            <label className="label"><LottieIcon name="gift" className="w-4 h-4 inline-block mr-1" /> রেফারেল কোড <span className="text-gray-400 font-normal text-xs">(ঐচ্ছিক)</span></label>
             <div className="relative">
               <input
                 className={`input pr-10 font-mono tracking-widest ${refValid === false ? 'border-red-400 focus:ring-red-300' : refValid === true ? 'border-green-400 focus:ring-green-300' : ''}`}
@@ -116,7 +117,7 @@ export default function Register() {
             )}
             {!refChecking && refValid === true && (
               <p className="text-green-600 text-xs mt-1 flex items-center gap-1">
-                <Gift size={12} /> {referrerName} এর কোড — প্রথম বিনিয়োগে তিনি বোনাস পাবেন! 🎉
+                <Gift size={12} /> {referrerName} এর কোড — প্রথম বিনিয়োগে তিনি বোনাস পাবেন! <LottieIcon name="gift" className="w-4 h-4" />
               </p>
             )}
             {!refChecking && refValid === false && form.referral_code && (
@@ -128,7 +129,7 @@ export default function Register() {
               ? <span className="flex items-center justify-center gap-2">
                   <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />রেজিস্ট্রেশন হচ্ছে...
                 </span>
-              : '✅ রেজিস্ট্রেশন করুন'}
+              : <><LottieIcon name="checkmark" className="w-5 h-5 inline-block mr-1" /> রেজিস্ট্রেশন করুন</>}
           </button>
         </form>
 
@@ -166,7 +167,7 @@ export default function Register() {
 
         {/* Trust badge */}
         <div className="mt-5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-3 text-center">
-          <p className="text-xs font-semibold text-emerald-800">✅ সম্পূর্ণ হালাল বিনিয়োগ</p>
+          <p className="text-xs font-semibold text-emerald-800 flex items-center justify-center gap-1"><LottieIcon name="halal" className="w-4 h-4" /> সম্পূর্ণ হালাল বিনিয়োগ</p>
           <p className="text-xs text-emerald-600 mt-0.5">সুদমুক্ত • মুশারাকা নীতি • শরিয়াহ সম্মত</p>
         </div>
 
