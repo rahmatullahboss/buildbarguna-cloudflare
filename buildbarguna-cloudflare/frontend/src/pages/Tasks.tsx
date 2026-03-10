@@ -176,34 +176,68 @@ export default function Tasks() {
   // Start task - call API and open link
   const startTaskMutation = useMutation({
     mutationFn: async (task: TaskListItem) => {
+      console.log('[Task] Starting task:', {
+        id: task.id,
+        title: task.title,
+        destination_url: task.destination_url,
+        platform: task.platform
+      })
+      
+      // Validate task has destination URL
+      if (!task.destination_url || task.destination_url.trim() === '') {
+        throw new Error('Task has no destination URL. Please contact admin.')
+      }
+      
       // Open window IMMEDIATELY (before async call) to avoid popup blocker
       const newWindow = window.open('about:blank', '_blank', 'noopener,noreferrer')
       
+      if (!newWindow) {
+        console.error('[Task] Failed to open popup window - blocked by browser?')
+        // Fallback: open directly in same tab
+        window.location.href = task.destination_url
+        return { task, success: true }
+      }
+      
       try {
         // Call start API to record start time
+        console.log('[Task] Calling API for task:', task.id)
         const response = await tasksApi.start(task.id)
+        console.log('[Task] API Response:', response)
         
         // Update the opened window with actual URL
-        if (newWindow && response.success && response.data?.destination_url) {
-          newWindow.location.href = response.data.destination_url
-        } else if (newWindow) {
-          // Fallback: close if no URL
+        if (response.success && response.data?.destination_url) {
+          console.log('[Task] Navigating to:', response.data.destination_url)
+          // Use replace to avoid breaking back button
+          newWindow.location.replace(response.data.destination_url)
+        } else if (response.error) {
+          console.error('[Task] API returned error:', response.error)
           newWindow.close()
+          throw new Error(response.error)
+        } else {
+          console.error('[Task] Invalid response structure:', response)
+          newWindow.close()
+          throw new Error('Invalid response from server')
         }
         
         return { task, success: response.success }
       } catch (error) {
+        console.error('[Task] Error starting task:', error)
         // Close window if API fails
-        if (newWindow) {
+        if (newWindow && !newWindow.closed) {
           newWindow.close()
         }
         throw error
       }
     },
     onSuccess: (result) => {
+      console.log('[Task] Success:', result)
       if (result.success) {
         setActiveTask(result.task)
       }
+    },
+    onError: (error) => {
+      console.error('[Task] Mutation error:', error)
+      alert(error instanceof Error ? error.message : 'Task start failed. Please try again.')
     }
   })
 
