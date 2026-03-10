@@ -13,7 +13,7 @@ export const TASK_DEFAULTS = {
 // Points & Withdrawal System Defaults
 export const POINTS_SYSTEM = {
   MIN_WITHDRAWAL_POINTS: 200,
-  POINTS_TO_TAKA_RATE: 1, // 1 point = 1 taka
+  POINTS_TO_TAKA_DIVISOR: 10, // 10 points = 1 taka (500 points = 50 taka)
   MAX_WITHDRAWALS_PER_MONTH: 3,
   WITHDRAWAL_COOLDOWN_HOURS: 24,
 } as const

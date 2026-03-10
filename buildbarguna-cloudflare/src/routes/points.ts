@@ -346,8 +346,8 @@ pointsRoutes.post('/withdraw', zValidator('json', withdrawSchema), async (c) => 
     return err(c, 'আপনার একটি উত্তোলন অনুরোধ ইতিমধ্যে অপেক্ষমান', 400)
   }
 
-  // Calculate taka (1 point = 1 taka)
-  const amount_taka = amount_points * POINTS_SYSTEM.POINTS_TO_TAKA_RATE
+  // Calculate taka (10 points = 1 taka)
+  const amount_taka = Math.floor(amount_points / POINTS_SYSTEM.POINTS_TO_TAKA_DIVISOR)
 
   // CRITICAL FIX: Deduct points immediately to prevent double-spending
   // This locks the points so they can't be used for rewards while withdrawal is pending
