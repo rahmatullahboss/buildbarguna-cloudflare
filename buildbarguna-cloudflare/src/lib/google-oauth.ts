@@ -163,6 +163,6 @@ export function getGoogleRedirectUrl(environment?: string): string {
     return 'https://buildbargunainitiative.org/api/auth/google/callback'
   }
   
-  // Default to development
-  return 'http://localhost:5173/api/auth/google/callback'
+  // Default to development - use worker URL (same as production for local testing)
+  return 'https://buildbarguna-worker.rahmatullahzisan01.workers.dev/api/auth/google/callback'
 }

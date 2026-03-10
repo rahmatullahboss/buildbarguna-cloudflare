@@ -134,16 +134,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             )}
           </nav>
 
-          {/* Logout — always pinned at bottom of sidebar */}
+          {/* Sidebar Footer: Logout + Created by DigitalCare */}
           <div className="flex-shrink-0 p-4 border-t border-gray-100">
+            {/* Logout button */}
             <button
               onClick={handleLogout}
               aria-label="লগআউট করুন"
-              className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-600 transition-colors w-full px-3 py-2 rounded-lg hover:bg-red-50"
+              className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-600 transition-colors w-full px-3 py-2 rounded-lg hover:bg-red-50 mb-3"
             >
               <LogOut size={18} />
               লগআউট
             </button>
+            
+            {/* Created by DigitalCare - only in sidebar */}
+            <div className="text-center pt-2 border-t border-gray-50">
+              <a
+                href="https://digitalcare.site/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"
+              >
+                Created by DigitalCare
+              </a>
+            </div>
           </div>
         </aside>
 
@@ -181,30 +194,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           })}
         </div>
       </nav>
-
-      {/* Footer - Created by DigitalCare */}
-      <footer className="lg:hidden fixed bottom-16 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-t border-gray-100 py-2 text-center">
-        <a
-          href="https://digitalcare.site/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"
-        >
-          Created by DigitalCare
-        </a>
-      </footer>
-
-      {/* Desktop Footer */}
-      <footer className="hidden lg:block flex-shrink-0 py-4 text-center border-t border-gray-100 mt-auto">
-        <a
-          href="https://digitalcare.site/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm font-medium text-teal-600 hover:text-teal-700 transition-colors"
-        >
-          Created by DigitalCare
-        </a>
-      </footer>
     </div>
   )
 }
