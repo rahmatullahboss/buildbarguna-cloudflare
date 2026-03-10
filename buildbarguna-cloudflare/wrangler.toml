@@ -9,10 +9,10 @@ minify = true
 name = "RATE_LIMITER"
 class_name = "RateLimiter"
 
-# Migration for Durable Objects
+# Migration for Durable Objects (sqlite for free plan)
 [[migrations]]
 tag = "v1"
-new_classes = ["RateLimiter"]
+new_sqlite_classes = ["RateLimiter"]
 
 # ── Module rules: bundle binary assets directly into the Worker ───────────────
 # Importing a .ttf file gives an ArrayBuffer — no network fetch needed at runtime
