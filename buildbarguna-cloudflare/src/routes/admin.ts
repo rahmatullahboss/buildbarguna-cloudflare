@@ -652,7 +652,7 @@ adminRoutes.post('/users/:id/points/adjust', zValidator('json', z.object({
   // Get current points for audit trail
   const currentUserPoints = await c.env.DB.prepare(
     'SELECT available_points, lifetime_earned, lifetime_redeemed FROM user_points WHERE user_id = ?'
-  ).bind(userId).first()
+  ).bind(userId).first<{ available_points: number; lifetime_earned: number; lifetime_redeemed: number }>()
   
   // Update user points
   await c.env.DB.prepare(

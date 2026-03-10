@@ -7,7 +7,7 @@
  * Supports: PDFShift, DocRaptor, or any HTML-to-PDF API
  */
 
-import { err } from './response'
+import { err } from '../response'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

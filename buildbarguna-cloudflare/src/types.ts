@@ -23,7 +23,8 @@ export type Bindings = {
 export type Variables = {
   userId: number
   userRole: 'member' | 'admin'
-  userPhone: string
+  userPhone: string | null
+  requestId?: string
 }
 
 // DB Row types
@@ -130,13 +131,14 @@ export type TaskCompletion = {
 }
 
 export type UserPoints = {
+  id?: number
   user_id: number
   available_points: number
   lifetime_earned: number
   lifetime_redeemed: number
   monthly_earned: number
   monthly_redeemed: number
-  current_month: string
+  current_month?: string
   updated_at: string
 }
 
@@ -230,17 +232,7 @@ export type TaskCompleteResponse = {
 
 // ─── Point System Types ───────────────────────────────────────────
 
-/** User points balance */
-export type UserPoints = {
-  id: number
-  user_id: number
-  available_points: number
-  lifetime_earned: number
-  lifetime_redeemed: number
-  monthly_earned: number
-  monthly_redeemed: number
-  updated_at: string
-}
+/** User points balance - defined above */
 
 // API response helpers
 export type ApiSuccess<T> = { success: true; data: T }
@@ -426,6 +418,7 @@ export type ProfitPreview = {
   summary: {
     total_revenue: number
     total_expense: number
+    direct_expense: number          // direct project expenses
     net_profit: number
     company_expense_allocation: number  // NEW: company expenses allocated to this project
     adjusted_net_profit: number         // net_profit - company_expense_allocation
@@ -447,6 +440,7 @@ export type ProfitPreview = {
     ownership_percentage: number
     profit_amount: number
   }[]
+  has_available_profit?: boolean
 }
 
 // ─── Company Expenses Types ─────────────────────────────────────────────────────

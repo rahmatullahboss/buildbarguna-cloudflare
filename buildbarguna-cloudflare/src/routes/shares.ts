@@ -256,7 +256,12 @@ shareRoutes.get('/certificate/:purchase_id', async (c) => {
     // Log certificate generation for audit trail
     console.log(`[CERTIFICATE] Generated certificate ${certificateId} for purchase ${purchaseId} by user ${userId}`)
 
-    return c.body(pdfBytes)
+    return new Response(pdfBytes, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="BBI_Share_Certificate_${certificateId}.pdf"`
+      }
+    })
   } catch (error) {
     console.error('[CERTIFICATE] Error generating certificate:', error)
     return err(c, 'Failed to generate certificate', 500)

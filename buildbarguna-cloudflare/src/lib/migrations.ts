@@ -536,7 +536,7 @@ export async function getMigrationStatus(env: Bindings): Promise<{
   const pending = MIGRATIONS.filter(m => !appliedIds.has(m.id))
 
   return {
-    applied: applied.results,
+    applied: applied.results as { id: number; name: string; applied_at: string }[],
     pending: pending.map(m => m.name),
     total: MIGRATIONS.length
   }

@@ -229,7 +229,7 @@ async function generateFormNumber(db: any, maxRetries = 5): Promise<string> {
       `SELECT MAX(CAST(SUBSTR(form_number, 9, 4) AS INTEGER)) as max_seq 
        FROM member_registrations 
        WHERE form_number LIKE ?`
-    ).bind(`BBI-${year}-%`).first<{ max_seq: number | null }>()
+    ).bind(`BBI-${year}-%`).first() as { max_seq: number | null } | null
     
     const nextSeq = ((result?.max_seq || 0) + 1) + attempt
     const formNumber = `BBI-${year}-${nextSeq.toString().padStart(4, '0')}`

@@ -343,7 +343,7 @@ authRoutes.post('/reset-password', zValidator('json', resetPasswordSchema), asyn
 authRoutes.get('/google', async (c) => {
   try {
     // Generate PKCE parameters
-    const { codeVerifier, codeChallenge } = generatePKCE()
+    const { codeVerifier, codeChallenge } = await generatePKCE()
     const state = generateState()
 
     // Get redirect URI based on environment - use FRONTEND_URL to detect production
@@ -354,7 +354,7 @@ authRoutes.get('/google', async (c) => {
     await storeOAuthState(c.env.SESSIONS, state, { codeVerifier })
 
     // Build authorization URL
-    const authUrl = buildGoogleAuthUrl(redirectUri, state, codeChallenge)
+    const authUrl = await buildGoogleAuthUrl(redirectUri, state, codeChallenge)
 
     // Redirect to Google
     return c.redirect(authUrl)
@@ -478,15 +478,15 @@ authRoutes.get('/google/callback', async (c) => {
     }), { expirationTtl: 300 })
 
     // Redirect to frontend with session ID only (not full user data)
-    const frontendUrl = c.env.R2_PUBLIC_URL?.replace('/storage', '') || 'https://buildbargunainitiative.org'
-    const redirectUrl = new URL('/login', frontendUrl)
+    const oauthBaseUrl = c.env.R2_PUBLIC_URL?.replace('/storage', '') || 'https://buildbargunainitiative.org'
+    const redirectUrl = new URL('/login', oauthBaseUrl)
     redirectUrl.searchParams.set('oauth_session', sessionId)
 
     return c.redirect(redirectUrl.toString())
   } catch (error) {
     console.error('Google OAuth callback error:', error)
-    const frontendUrl = c.env.R2_PUBLIC_URL?.replace('/storage', '') || 'https://buildbargunainitiative.org'
-    return c.redirect(`${frontendUrl}/login?error=google_auth_failed`)
+    const oauthBaseUrl = c.env.R2_PUBLIC_URL?.replace('/storage', '') || 'https://buildbargunainitiative.org'
+    return c.redirect(`${oauthBaseUrl}/login?error=google_auth_failed`)
   }
 })
 

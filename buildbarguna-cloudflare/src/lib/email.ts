@@ -5,6 +5,11 @@ import { Resend } from 'resend'
  * Handles password reset and other transactional emails
  */
 
+export interface Env {
+  RESEND_API_KEY?: string
+  EMAIL_FROM?: string
+}
+
 export interface PasswordResetEmailData {
   to: string
   name: string
@@ -25,12 +30,12 @@ export interface WelcomeEmailData {
 /**
  * Send password reset email
  */
-export async function sendPasswordResetEmail(data: PasswordResetEmailData): Promise<boolean> {
-  const resend = new Resend(process.env.RESEND_API_KEY || '')
+export async function sendPasswordResetEmail(data: PasswordResetEmailData, env?: Env): Promise<boolean> {
+  const resend = new Resend(env?.RESEND_API_KEY || '')
 
   try {
     await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'BuildBarguna <noreply@buildbargunainitiative.org>',
+      from: env?.EMAIL_FROM || 'BuildBarguna <noreply@buildbargunainitiative.org>',
       to: [data.to],
       subject: 'পাসওয়ার্ড রিসেট লিঙ্ক',
       html: getPasswordResetHtml(data),
@@ -48,12 +53,12 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData): Prom
 /**
  * Send password reset confirmation email
  */
-export async function sendPasswordResetConfirmation(data: PasswordResetConfirmationData): Promise<boolean> {
-  const resend = new Resend(process.env.RESEND_API_KEY || '')
+export async function sendPasswordResetConfirmation(data: PasswordResetConfirmationData, env?: Env): Promise<boolean> {
+  const resend = new Resend(env?.RESEND_API_KEY || '')
 
   try {
     await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'BuildBarguna <noreply@buildbargunainitiative.org>',
+      from: env?.EMAIL_FROM || 'BuildBarguna <noreply@buildbargunainitiative.org>',
       to: [data.to],
       subject: 'পাসওয়ার্ড সফলভাবে রিসেট হয়েছে',
       html: getPasswordResetConfirmationHtml(data),
@@ -71,12 +76,12 @@ export async function sendPasswordResetConfirmation(data: PasswordResetConfirmat
 /**
  * Send welcome email after registration
  */
-export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<boolean> {
-  const resend = new Resend(process.env.RESEND_API_KEY || '')
+export async function sendWelcomeEmail(data: WelcomeEmailData, env?: Env): Promise<boolean> {
+  const resend = new Resend(env?.RESEND_API_KEY || '')
 
   try {
     await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'BuildBarguna <noreply@buildbargunainitiative.org>',
+      from: env?.EMAIL_FROM || 'BuildBarguna <noreply@buildbargunainitiative.org>',
       to: [data.to],
       subject: 'বিল্ড বরগুনায় স্বাগতম!',
       html: getWelcomeHtml(data),

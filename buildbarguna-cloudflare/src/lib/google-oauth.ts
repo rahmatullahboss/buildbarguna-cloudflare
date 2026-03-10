@@ -6,17 +6,31 @@ import * as oauth from 'oauth4webapi'
  */
 
 // Google OAuth configuration
-const GOOGLE_ISSUER = 'https://accounts.google.com'
-const GOOGLE_AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth'
-const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
+const GOOGLE_ISSUER = new URL('https://accounts.google.com')
 const GOOGLE_USERINFO_ENDPOINT = 'https://www.googleapis.com/oauth2/v2/userinfo'
+
+export interface Env {
+  GOOGLE_CLIENT_ID?: string
+}
+
+// Cached authorization server discovery
+let cachedAuthorizationServer: oauth.AuthorizationServer | null = null
+
+async function getAuthorizationServer(): Promise<oauth.AuthorizationServer> {
+  if (!cachedAuthorizationServer) {
+    const response = await oauth.discoveryRequest(GOOGLE_ISSUER)
+    const as = await oauth.processDiscoveryResponse(GOOGLE_ISSUER, response)
+    cachedAuthorizationServer = as
+  }
+  return cachedAuthorizationServer
+}
 
 /**
  * Generate PKCE code verifier and challenge
  */
-export function generatePKCE(): { codeVerifier: string; codeChallenge: string } {
+export async function generatePKCE(): Promise<{ codeVerifier: string; codeChallenge: string }> {
   const codeVerifier = oauth.generateRandomCodeVerifier()
-  const codeChallenge = oauth.calculatePKCECodeChallenge(codeVerifier)
+  const codeChallenge = await oauth.calculatePKCECodeChallenge(codeVerifier)
   return { codeVerifier, codeChallenge }
 }
 
@@ -30,13 +44,15 @@ export function generateState(): string {
 /**
  * Build Google OAuth authorization URL
  */
-export function buildGoogleAuthUrl(
+export async function buildGoogleAuthUrl(
   redirectUri: string,
   state: string,
-  codeChallenge: string
-): string {
-  const authorizationUrl = new URL(GOOGLE_AUTH_ENDPOINT)
-  authorizationUrl.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID || '')
+  codeChallenge: string,
+  env?: Env
+): Promise<string> {
+  const as = await getAuthorizationServer()
+  const authorizationUrl = new URL(as.authorization_endpoint!)
+  authorizationUrl.searchParams.set('client_id', env?.GOOGLE_CLIENT_ID || '')
   authorizationUrl.searchParams.set('redirect_uri', redirectUri)
   authorizationUrl.searchParams.set('response_type', 'code')
   authorizationUrl.searchParams.set('scope', 'openid email profile')
@@ -55,33 +71,29 @@ export function buildGoogleAuthUrl(
 export async function exchangeCodeForToken(
   code: string,
   codeVerifier: string,
-  redirectUri: string
+  redirectUri: string,
+  env?: Env
 ): Promise<oauth.TokenEndpointResponse> {
-  const client = new oauth.Client({
-    client_id: process.env.GOOGLE_CLIENT_ID || '',
-    token_endpoint_auth_method: 'none' // Google doesn't require client secret for this flow
-  })
-
-  const response = await oauth.authorizationCodeGrantRequest(
-    {
-      issuer: GOOGLE_ISSUER,
-      authorizationCode: code,
-      redirectUri,
-      client,
-      codeVerifier,
-      [oauth.customFetch]: fetch.bind(globalThis),
-      [oauth.allowInsecureRequests]: false
-    }
+  const as = await getAuthorizationServer()
+  const client = { client_id: env?.GOOGLE_CLIENT_ID || '' }
+  
+  // Create callback parameters from the authorization code
+  const callbackParams = new URLSearchParams()
+  callbackParams.set('code', code)
+  callbackParams.set('state', '') // State is validated separately
+  
+  const clientAuth = oauth.ClientSecretPost('')
+  
+  const tokenResponse = await oauth.authorizationCodeGrantRequest(
+    as,
+    client,
+    clientAuth,
+    callbackParams,
+    redirectUri,
+    codeVerifier
   )
 
-  return oauth.processAuthorizationCodeOAuth2Response(
-    {
-      issuer: GOOGLE_ISSUER,
-      client,
-      expectedGrantType: 'authorization_code'
-    },
-    response
-  )
+  return oauth.processAuthorizationCodeResponse(as, client, tokenResponse)
 }
 
 /**
