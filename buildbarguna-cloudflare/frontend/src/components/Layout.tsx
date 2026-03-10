@@ -151,7 +151,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {menuOpen && <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setMenuOpen(false)} />}
 
         {/* Main content — scrolls independently, pb-20 on mobile for bottom nav */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 lg:pb-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-32 lg:pb-6">
           <div key={location.pathname} className="max-w-5xl mx-auto w-full page-enter">
             {children}
           </div>
@@ -181,6 +181,30 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           })}
         </div>
       </nav>
+
+      {/* Footer - Created by DigitalCare */}
+      <footer className="lg:hidden fixed bottom-16 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-t border-gray-100 py-2 text-center">
+        <a
+          href="https://digitalcare.site/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"
+        >
+          Created by DigitalCare
+        </a>
+      </footer>
+
+      {/* Desktop Footer */}
+      <footer className="hidden lg:block flex-shrink-0 py-4 text-center border-t border-gray-100 mt-auto">
+        <a
+          href="https://digitalcare.site/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm font-medium text-teal-600 hover:text-teal-700 transition-colors"
+        >
+          Created by DigitalCare
+        </a>
+      </footer>
     </div>
   )
 }
