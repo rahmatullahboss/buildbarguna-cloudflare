@@ -302,7 +302,10 @@ export default function Home() {
             <Link to="/projects" className="hover:text-white transition-colors">প্রজেক্টসমূহ</Link>
           </div>
           <div className="border-t border-gray-800 pt-6">
-            <p className="text-xs text-gray-600">© ২০২৬ বিল্ড বরগুনা। সর্বস্বত্ব সংরক্ষিত। | সম্পূর্ণ হালাল বিনিয়োগ প্ল্যাটফর্ম</p>
+            <p className="text-xs text-gray-600 mb-2">© ২০২৬ বিল্ড বরগুনা। সর্বস্বত্ব সংরক্ষিত। | সম্পূর্ণ হালাল বিনিয়োগ প্ল্যাটফর্ম</p>
+            <a href="https://digitalcare.site/" target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-teal-500 hover:text-teal-400 transition-colors">
+              Created by DigitalCare
+            </a>
           </div>
         </div>
       </footer>
