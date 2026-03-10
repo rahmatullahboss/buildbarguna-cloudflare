@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { authApi, earningsApi, sharesApi, withdrawalsApi, referralsApi, memberApi } from '../lib/api'
 import { formatTaka, getUser } from '../lib/auth'
-import { TrendingUp, PieChart, Briefcase, Copy, BarChart2, ArrowRight, ArrowDownCircle, Gift, Users, FileText, Download, CheckCircle } from 'lucide-react'
+import { TrendingUp, PieChart, Briefcase, Copy, BarChart2, ArrowRight, ArrowDownCircle, Gift, Users, FileText, Download, CheckCircle, ListTodo } from 'lucide-react'
 import { useState } from 'react'
 import Onboarding, { useOnboarding } from '../components/Onboarding'
 import { useCertificateDownload } from '../hooks/useCertificateDownload'
@@ -255,10 +255,14 @@ export default function Dashboard() {
       )}
 
       {/* Quick actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <Link to="/projects" className="card hover:shadow-md transition-all hover:-translate-y-0.5 flex items-center gap-3 cursor-pointer group">
           <div className="bg-primary-100 group-hover:bg-primary-200 p-2.5 rounded-xl transition-colors"><Briefcase size={20} className="text-primary-700" /></div>
           <div><p className="font-semibold text-sm">প্রজেক্ট</p><p className="text-xs text-gray-400">শেয়ার কিনুন</p></div>
+        </Link>
+        <Link to="/tasks" className="card hover:shadow-md transition-all hover:-translate-y-0.5 flex items-center gap-3 cursor-pointer group">
+          <div className="bg-amber-100 group-hover:bg-amber-200 p-2.5 rounded-xl transition-colors"><ListTodo size={20} className="text-amber-700" /></div>
+          <div><p className="font-semibold text-sm">টাস্ক</p><p className="text-xs text-gray-400">পয়েন্ট সংগ্রহ</p></div>
         </Link>
         <Link to="/earnings" className="card hover:shadow-md transition-all hover:-translate-y-0.5 flex items-center gap-3 cursor-pointer group">
           <div className="bg-yellow-100 group-hover:bg-yellow-200 p-2.5 rounded-xl transition-colors"><TrendingUp size={20} className="text-yellow-700" /></div>
