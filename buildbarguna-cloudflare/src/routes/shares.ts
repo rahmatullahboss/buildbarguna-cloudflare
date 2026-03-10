@@ -96,7 +96,7 @@ shareRoutes.post('/buy', zValidator('json', buySchema), async (c) => {
        SELECT p.total_shares - COALESCE((SELECT SUM(us.quantity) FROM user_shares us WHERE us.project_id = p.id AND p.id = ?), 0)
        FROM projects p WHERE p.id = ? AND p.status = 'active'
      ))`
-  ).bind(userId, project_id, total_amount, quantity, project_id, project_id, quantity, payment_method, idempotency_key ?? null).run()
+  ).bind(userId, project_id, quantity, total_amount, finalTxid, payment_method, idempotency_key ?? null, quantity, project_id, project_id).run()
 
   // Check if insert succeeded (WHERE clause failed = no rows inserted = insufficient shares)
   if (!insertResult.success || insertResult.meta.changes === 0) {

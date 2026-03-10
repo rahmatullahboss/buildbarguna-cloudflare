@@ -218,6 +218,39 @@ memberRoutes.get('/my-registration', authMiddleware, async (c) => {
   })
 })
 
+// Helper: Generate unique form number with retry logic
+async function generateFormNumber(db: any, maxRetries = 5): Promise<string> {
+  const year = new Date().getFullYear()
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    // Get current max sequence for the year
+    const result = await db.prepare(
+      `SELECT MAX(CAST(SUBSTR(form_number, 9, 4) AS INTEGER)) as max_seq 
+       FROM member_registrations 
+       WHERE form_number LIKE ?`
+    ).bind(`BBI-${year}-%`).first<{ max_seq: number | null }>()
+    
+    const nextSeq = ((result?.max_seq || 0) + 1) + attempt
+    const formNumber = `BBI-${year}-${nextSeq.toString().padStart(4, '0')}`
+    
+    // Check if this form number exists (avoid race condition)
+    const existing = await db.prepare(
+      'SELECT 1 FROM member_registrations WHERE form_number = ?'
+    ).bind(formNumber).first()
+    
+    if (!existing) {
+      return formNumber
+    }
+    
+    // If exists, try next sequence
+    continue
+  }
+  
+  // Fallback: use timestamp-based unique suffix
+  const timestamp = Date.now().toString(36).slice(-4).toUpperCase()
+  return `BBI-${year}-${timestamp}`
+}
+
 // POST /api/member/register - Submit registration with payment
 memberRoutes.post('/register', 
   authMiddleware, 
@@ -227,14 +260,8 @@ memberRoutes.post('/register',
     const userId = c.get('userId')
     const body = c.req.valid('json')
     
-    // Generate form number: BBI-YYYY-NNNN
-    const year = new Date().getFullYear()
-    const countResult = await c.env.DB.prepare(
-      `SELECT COUNT(*) as count FROM member_registrations WHERE form_number LIKE ?`
-    ).bind(`BBI-${year}-%`).first<{ count: number }>()
-    
-    const nextNumber = ((countResult?.count || 0) + 1).toString().padStart(4, '0')
-    const formNumber = `BBI-${year}-${nextNumber}`
+    // Generate unique form number with retry logic
+    const formNumber = await generateFormNumber(c.env.DB)
     
     // Determine payment status - new registrations need admin verification
     const paymentStatus = 'pending'
@@ -292,6 +319,13 @@ memberRoutes.post('/register',
       })
     } catch (error: any) {
       console.error('Member registration error:', error)
+      
+      // Check for UNIQUE constraint error
+      if (error?.message?.includes('UNIQUE constraint failed') || 
+          error?.message?.includes('SQLITE_CONSTRAINT_UNIQUE')) {
+        return err(c, 'দুঃখিত, একটি টেকনিক্যাল সমস্যা হয়েছে। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।', 500)
+      }
+      
       return err(c, 'রেজিস্ট্রেশন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।', 500)
     }
   }
@@ -843,13 +877,7 @@ memberRoutes.post('/reapply', authMiddleware, async (c) => {
   if (existing.status === 'cancelled') {
     try {
       // Generate new form number for reapplication
-      const year = new Date().getFullYear()
-      const countResult = await c.env.DB.prepare(
-        `SELECT COUNT(*) as count FROM member_registrations WHERE form_number LIKE ?`
-      ).bind(`BBI-${year}-%`).first<{ count: number }>()
-      
-      const nextNumber = ((countResult?.count || 0) + 1).toString().padStart(4, '0')
-      const newFormNumber = `BBI-${year}-${nextNumber}`
+      const newFormNumber = await generateFormNumber(c.env.DB)
 
       // Update the cancelled registration to active (payment still pending)
       await c.env.DB.prepare(
@@ -891,13 +919,7 @@ memberRoutes.post('/reapply', authMiddleware, async (c) => {
   if (existing.status === 'rejected') {
     try {
       // Generate new form number
-      const year = new Date().getFullYear()
-      const countResult = await c.env.DB.prepare(
-        `SELECT COUNT(*) as count FROM member_registrations WHERE form_number LIKE ?`
-      ).bind(`BBI-${year}-%`).first<{ count: number }>()
-      
-      const nextNumber = ((countResult?.count || 0) + 1).toString().padStart(4, '0')
-      const newFormNumber = `BBI-${year}-${nextNumber}`
+      const newFormNumber = await generateFormNumber(c.env.DB)
 
       // Update to active (payment pending)
       await c.env.DB.prepare(
