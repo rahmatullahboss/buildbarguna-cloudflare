@@ -26,10 +26,16 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: buildbarguna-cloudflare/package-lock.json
+          cache-dependency-path: |
+            buildbarguna-cloudflare/package-lock.json
+            buildbarguna-cloudflare/frontend/package-lock.json
 
-      - name: Install dependencies
+      - name: Install backend dependencies
         run: npm ci --legacy-peer-deps
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: buildbarguna-cloudflare/frontend
 
       - name: Verify regenerator-runtime import
         run: |
