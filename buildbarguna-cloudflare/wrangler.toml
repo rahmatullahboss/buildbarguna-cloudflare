@@ -4,6 +4,12 @@ compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 minify = true
 
+# ── Durable Objects ────────────────────────────────────────────────────────────
+[[durable_objects.bindings]]
+name = "RATE_LIMITER"
+class_name = "RateLimiter"
+script_name = "buildbarguna-worker"
+
 # ── Module rules: bundle binary assets directly into the Worker ───────────────
 # Importing a .ttf file gives an ArrayBuffer — no network fetch needed at runtime
 [[rules]]
@@ -37,9 +43,9 @@ id = "0e5da409471743769c5e0fe9d2752bd8"
 # R2 disabled - certificates generated on-demand without persistent storage
 # Logo optional, certificates work without R2 bucket
 
-# ── Cron: 1st of every month at BD midnight (UTC 18:00) ──────────────────────
+# ── Cron: 1st of every month at BD midnight (UTC 18:00) + Hourly cleanup ─────
 [triggers]
-crons = ["0 18 1 * *"]
+crons = ["0 18 1 * *", "0 * * * *"]  # Monthly earnings + Hourly cleanup
 
 # ── Secrets (set via: wrangler secret put SECRET_NAME) ───────────────────────
 # JWT_SECRET            — JWT signing secret
@@ -51,3 +57,6 @@ crons = ["0 18 1 * *"]
 # R2_SECRET_ACCESS_KEY  — R2 API token secret
 # R2_BUCKET_NAME        — R2 bucket name
 # R2_PUBLIC_URL         — Public R2 bucket URL
+# RESEND_API_KEY        — Resend email API key (for password reset emails)
+# EMAIL_FROM            — Sender email address (e.g., "BuildBarguna <noreply@buildbarguna.com>")
+# GOOGLE_CLIENT_ID      — Google OAuth 2.0 Client ID (for Google Sign-In)

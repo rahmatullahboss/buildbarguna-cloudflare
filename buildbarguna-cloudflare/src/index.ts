@@ -22,6 +22,8 @@ import { profitRoutes } from './routes/profit-distribution'
 import { companyExpenseRoutes } from './routes/company-expenses'
 import { memberRoutes } from './routes/member'
 import { distributeMonthlyEarnings, cleanupTokenBlacklist } from './cron/earnings'
+import { scheduled } from './scheduled'
+import { RateLimiter } from './durable-objects/rate-limiter'
 import type { Bindings, Variables } from './types'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
@@ -94,8 +96,11 @@ app.use('/api/*', cors({
       'http://localhost',
       'ionic://localhost',
     ]
-    // Allow requests with no origin (e.g. native app direct requests)
-    if (!origin) return '*'
+    // For no-origin requests (e.g., native apps, server-to-server), 
+    // deny by default to prevent unauthorized cross-origin use
+    if (!origin) return null
+    
+    // Allow if origin is in allowlist
     return allowed.includes(origin) ? origin : null
   },
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -430,3 +435,9 @@ export default {
     })())
   }
 }
+
+// Export scheduled handler for cron jobs
+export { scheduled }
+
+// Export Durable Objects
+export { RateLimiter }

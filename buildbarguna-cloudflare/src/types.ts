@@ -1,6 +1,9 @@
+import type { RateLimiter } from './durable-objects/rate-limiter'
+
 export type Bindings = {
   DB: D1Database
   SESSIONS: KVNamespace
+  RATE_LIMITER: DurableObjectNamespace<RateLimiter>
   FILES?: R2Bucket        // Optional — not used in current setup
   JWT_SECRET: string
   PDF_API_KEY?: string     // External PDF generation API key (PDFShift, etc.)
@@ -11,6 +14,9 @@ export type Bindings = {
   R2_ACCESS_KEY_ID: string
   R2_SECRET_ACCESS_KEY: string
   R2_BUCKET_NAME: string
+  GOOGLE_CLIENT_ID?: string // Google OAuth 2.0 Client ID
+  RESEND_API_KEY?: string   // Resend email API key
+  EMAIL_FROM?: string       // Sender email address
 }
 
 export type Variables = {
@@ -23,11 +29,14 @@ export type Variables = {
 export type User = {
   id: number
   name: string
-  phone: string
+  phone: string | null          // Now optional (was: string)
+  email: string | null          // NEW: Email for login (optional)
   password_hash: string
   role: 'member' | 'admin'
-  referral_code: string
+  referral_code: string | null
   referred_by: string | null
+  google_id: string | null      // NEW: For Google Sign-In
+  email_verified: number        // NEW: Email verification status (0 or 1)
   is_active: number
   created_at: string
 }

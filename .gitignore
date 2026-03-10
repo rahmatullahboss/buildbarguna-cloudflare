@@ -38,3 +38,24 @@ Thumbs.db
 *.log
 npm-debug.log*
 agency-agents/
+
+# PDF files and folders
+pdf/
+**/pdf/
+*.pdf
+
+# Adobe Creative Cloud
+**/*.ai
+**/*.psd
+**/*.indd
+**/*.indb
+**/*.indl
+**/*.xmp
+**/*.eps
+**/Adobe/
+
+# External SDKs and Samples
+PDFServicesSDK-Node.jsSamples/
+
+# OpenSpec (development tooling)
+openspec/

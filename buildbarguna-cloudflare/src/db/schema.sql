@@ -1,15 +1,24 @@
 CREATE TABLE IF NOT EXISTS users (
   id               INTEGER PRIMARY KEY AUTOINCREMENT,
   name             TEXT NOT NULL,
-  phone            TEXT NOT NULL UNIQUE,
+  phone            TEXT,                              -- Now optional (was NOT NULL UNIQUE)
+  email            TEXT,                              -- NEW: Email for login (optional)
   password_hash    TEXT NOT NULL,
   role             TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('member', 'admin')),
-  referral_code    TEXT UNIQUE,
+  referral_code    TEXT,
   referred_by      TEXT,                              -- legacy: kept for migration compatibility
   referrer_user_id INTEGER REFERENCES users(id),     -- FK to referrer (preferred over referred_by string)
+  google_id        TEXT,                              -- NEW: For Google Sign-In
+  email_verified   INTEGER DEFAULT 0,                 -- NEW: Email verification status
   is_active        INTEGER NOT NULL DEFAULT 1,
   created_at       TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Unique indexes for users (allow NULLs, but enforce uniqueness when present)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_unique ON users(phone) WHERE phone IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users(email) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id_unique ON users(google_id) WHERE google_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_referral_code_unique ON users(referral_code) WHERE referral_code IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS projects (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -191,6 +200,19 @@ CREATE TABLE IF NOT EXISTS token_blacklist (
   expires_at INTEGER NOT NULL
 );
 
+-- Password reset tokens for email-based password recovery
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  token TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  expires_at INTEGER NOT NULL,
+  used INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Indexes for password reset tokens
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires ON password_reset_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id);
+
 CREATE TABLE IF NOT EXISTS withdrawals (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id         INTEGER NOT NULL REFERENCES users(id),
@@ -248,6 +270,9 @@ WHERE task_id IS NOT NULL AND transaction_type = 'earned';
 CREATE INDEX IF NOT EXISTS idx_users_phone                ON users(phone);
 CREATE INDEX IF NOT EXISTS idx_users_referral_code        ON users(referral_code);
 CREATE INDEX IF NOT EXISTS idx_users_referrer_user_id     ON users(referrer_user_id);
+CREATE INDEX IF NOT EXISTS idx_users_email                ON users(email);           -- NEW: For email login
+CREATE INDEX IF NOT EXISTS idx_users_google_id            ON users(google_id);       -- NEW: For Google OAuth
+CREATE INDEX IF NOT EXISTS idx_users_email_phone          ON users(email, phone);    -- NEW: For combined login lookup
 CREATE INDEX IF NOT EXISTS idx_profit_rates_month         ON profit_rates(month);
 CREATE INDEX IF NOT EXISTS idx_profit_rates_project_month ON profit_rates(project_id, month);
 CREATE INDEX IF NOT EXISTS idx_earnings_project           ON earnings(project_id);

@@ -78,12 +78,16 @@ async function request<T>(
 
 // Auth
 export const authApi = {
-  register: (body: { name: string; phone: string; password: string; referral_code?: string }) =>
+  register: (body: { name: string; email: string; phone?: string; password: string; referral_code?: string }) =>
     request('/auth/register', { method: 'POST', body: JSON.stringify(body) }),
-  login: (body: { phone: string; password: string }) =>
+  login: (body: { identifier: string; password: string }) =>
     request<{ token: string; user: UserProfile }>('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
-  me: () => request<UserProfile & { balance_paisa: number }>('/auth/me')
+  me: () => request<UserProfile & { balance_paisa: number }>('/auth/me'),
+  forgotPassword: (email: string) =>
+    request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+  resetPassword: (token: string, password: string) =>
+    request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) })
 }
 
 // Projects
@@ -410,7 +414,7 @@ export const adminApi = {
 }
 
 // Types
-export type UserProfile = { id: number; name: string; phone: string; role: 'member' | 'admin'; referral_code: string }
+export type UserProfile = { id: number; name: string; phone: string | null; email: string | null; role: 'member' | 'admin'; referral_code: string }
 export type ProjectItem = { id: number; title: string; description: string; image_url: string; total_capital: number; total_shares: number; share_price: number; sold_shares: number; status: string; created_at: string }
 export type ProjectDetail = ProjectItem & { available_shares: number }
 export type MyShare = { user_id: number; project_id: number; quantity: number; title: string; share_price: number; status: string }

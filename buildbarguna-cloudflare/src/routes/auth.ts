@@ -6,68 +6,100 @@ import { createToken, generateJti, verifyToken } from '../lib/jwt'
 import { authMiddleware } from '../middleware/auth'
 import { ok, err } from '../lib/response'
 import { RATE_LIMITS } from '../lib/constants'
+import { sendPasswordResetEmail } from '../lib/email'
+import { checkRateLimit } from '../lib/rate-limiter'
+import {
+  generatePKCE,
+  generateState,
+  buildGoogleAuthUrl,
+  exchangeCodeForToken,
+  fetchGoogleUserInfo,
+  storeOAuthState,
+  consumeOAuthState,
+  getGoogleRedirectUrl,
+  type GoogleUserInfo
+} from '../lib/google-oauth'
 import type { Bindings, Variables, User } from '../types'
 
 export const authRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
-// In-memory rate limiting to minimize KV writes
-const authRateLimitCache = new Map<string, { count: number; expiry: number }>()
+// Email validation regex (standard RFC 5322)
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-function checkAuthRateLimit(key: string, maxAttempts: number, windowSeconds: number): boolean {
-  const now = Date.now()
-  const cached = authRateLimitCache.get(key)
-  
-  if (cached && cached.expiry > now) {
-    if (cached.count >= maxAttempts) {
-      return false // Rate limited
-    }
-    cached.count++
-    return true
-  }
-  
-  // New entry
-  authRateLimitCache.set(key, { count: 1, expiry: now + windowSeconds * 1000 })
-  return true
+// Generate secure random token for password reset
+function generateResetToken(): string {
+  const array = new Uint8Array(32)
+  crypto.getRandomValues(array)
+  return Array.from(array, b => b.toString(16).padStart(2, '0')).join('')
 }
 
 const registerSchema = z.object({
   name: z.string().min(2, 'নাম কমপক্ষে ২ অক্ষরের হতে হবে'),
-  phone: z.string().regex(/^01[3-9]\d{8}$/, 'সঠিক বাংলাদেশি মোবাইল নম্বর দিন'),
+  email: z.string().email('সঠিক ইমেইল ঠিকানা দিন'),
+  phone: z.string().regex(/^01[3-9]\d{8}$/, 'সঠিক বাংলাদেশি মোবাইল নম্বর দিন').optional().or(z.literal('')),
   password: z.string().min(6, 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে'),
   referral_code: z.string().optional()
 })
 
 const loginSchema = z.object({
-  phone: z.string(),
-  password: z.string()
+  identifier: z.string().min(3, 'ইমেইল অথবা মোবাইল নম্বর দিন'),
+  password: z.string().min(1, 'পাসওয়ার্ড দিন')
+})
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email('সঠিক ইমেইল ঠিকানা দিন')
+})
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'রিसेट টোকেন দিন'),
+  password: z.string().min(6, 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে')
 })
 
 // POST /api/auth/register
 authRoutes.post('/register', zValidator('json', registerSchema), async (c) => {
-  const { name, phone, password, referral_code } = c.req.valid('json')
+  const { name, email, phone, password, referral_code } = c.req.valid('json')
 
-  // Rate limiting: max 3 registrations per phone per hour (prevent spam)
-  // Use in-memory rate limiting to minimize KV writes
-  const rateLimitKey = `reg:${phone}`
-  if (!checkAuthRateLimit(rateLimitKey, RATE_LIMITS.REGISTRATION.MAX_ATTEMPTS, 3600)) {
-    return err(c, `অনেকবার চেষ্টা করা হয়েছে। ${RATE_LIMITS.REGISTRATION.WINDOW_HOURS} ঘণ্টা পরে আবার চেষ্টা করুন।`, 429)
+  // Rate limiting: max 3 registrations per email per hour (prevent spam)
+  const rateLimitKey = `reg:${email.toLowerCase()}`
+  const rateLimit = await checkRateLimit(c.env, rateLimitKey, RATE_LIMITS.REGISTRATION.MAX_ATTEMPTS, 3600)
+  
+  if (!rateLimit.allowed) {
+    return err(c, `অনেকবার চেষ্টা করা হয়েছে। ${Math.ceil((rateLimit.resetAt - Date.now()) / 3600000)} ঘণ্টা পরে আবার চেষ্টা করুন।`, 429)
   }
 
-  // Check existing user
-  const existing = await c.env.DB.prepare(
-    'SELECT id FROM users WHERE phone = ?'
-  ).bind(phone).first()
+  // Check existing user by email
+  const existingEmail = await c.env.DB.prepare(
+    'SELECT id FROM users WHERE email = ?'
+  ).bind(email.toLowerCase()).first()
 
-  if (existing) {
-    return err(c, 'এই মোবাইল নম্বর দিয়ে ইতিমধ্যে অ্যাকাউন্ট আছে', 409)
+  if (existingEmail) {
+    return err(c, 'এই ইমেইল দিয়ে ইতিমধ্যে অ্যাকাউন্ট আছে', 409)
   }
 
-  // Validate referral code if provided — store referrer's integer ID (not code string)
+  // Check existing user by phone (if provided)
+  if (phone && phone.trim() !== '') {
+    const existingPhone = await c.env.DB.prepare(
+      'SELECT id FROM users WHERE phone = ?'
+    ).bind(phone).first()
+
+    if (existingPhone) {
+      return err(c, 'এই মোবাইল নম্বর দিয়ে ইতিমধ্যে অ্যাকাউন্ট আছে', 409)
+    }
+  }
+
+  // Validate referral code if provided
   let referrerUserId: number | null = null
   if (referral_code) {
+    // Sanitize referral code: only allow alphanumeric characters
+    const sanitizedReferralCode = referral_code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+    
+    if (sanitizedReferralCode !== referral_code) {
+      console.warn('Referral code contained invalid characters, sanitized')
+    }
+    
     const referrer = await c.env.DB.prepare(
       'SELECT id FROM users WHERE referral_code = ? AND is_active = 1'
-    ).bind(referral_code).first<{ id: number }>()
+    ).bind(sanitizedReferralCode).first<{ id: number }>()
     if (!referrer) {
       return err(c, 'রেফারেল কোড সঠিক নয়')
     }
@@ -78,9 +110,9 @@ authRoutes.post('/register', zValidator('json', registerSchema), async (c) => {
   const myReferralCode = generateReferralCode()
 
   const result = await c.env.DB.prepare(
-    `INSERT INTO users (name, phone, password_hash, referral_code, referred_by, referrer_user_id)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).bind(name, phone, password_hash, myReferralCode, referral_code ?? null, referrerUserId).run()
+    `INSERT INTO users (name, email, phone, password_hash, referral_code, referred_by, referrer_user_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(name, email.toLowerCase(), phone || null, password_hash, myReferralCode, referral_code ?? null, referrerUserId).run()
 
   if (!result.success) {
     return err(c, 'রেজিস্ট্রেশন ব্যর্থ হয়েছে', 500)
@@ -91,21 +123,28 @@ authRoutes.post('/register', zValidator('json', registerSchema), async (c) => {
 
 // POST /api/auth/login
 authRoutes.post('/login', zValidator('json', loginSchema), async (c) => {
-  const { phone, password } = c.req.valid('json')
+  const { identifier, password } = c.req.valid('json')
 
-  // Rate limiting: max 5 failed attempts per phone per 15 minutes
-  // Use in-memory rate limiting to minimize KV writes
-  const rateLimitKey = `login:${phone}`
-  if (!checkAuthRateLimit(rateLimitKey, RATE_LIMITS.LOGIN.MAX_ATTEMPTS, 900)) {
-    return err(c, `অনেকবার চেষ্টা করা হয়েছে। ${RATE_LIMITS.LOGIN.WINDOW_MINUTES} মিনিট পরে আবার চেষ্টা করুন।`, 429)
+  // Determine if identifier is email or phone
+  const isEmail = emailRegex.test(identifier)
+  const rateLimitKey = `login:${identifier.toLowerCase()}`
+
+  // Rate limiting: max 5 failed attempts per 15 minutes
+  const rateLimit = await checkRateLimit(c.env, rateLimitKey, RATE_LIMITS.LOGIN.MAX_ATTEMPTS, 900)
+  
+  if (!rateLimit.allowed) {
+    return err(c, `অনেকবার চেষ্টা করা হয়েছে। ${Math.ceil((rateLimit.resetAt - Date.now()) / 60000)} মিনিট পরে আবার চেষ্টা করুন।`, 429)
   }
 
+  // Query user by email or phone based on identifier type
   const user = await c.env.DB.prepare(
-    'SELECT * FROM users WHERE phone = ?'
-  ).bind(phone).first<User>()
+    isEmail
+      ? 'SELECT * FROM users WHERE email = ?'
+      : 'SELECT * FROM users WHERE phone = ?'
+  ).bind(isEmail ? identifier.toLowerCase() : identifier).first<User>()
 
   if (!user) {
-    return err(c, 'মোবাইল নম্বর বা পাসওয়ার্ড সঠিক নয়', 401)
+    return err(c, 'ইমেইল/মোবাইল নম্বর বা পাসওয়ার্ড সঠিক নয়', 401)
   }
 
   if (!user.is_active) {
@@ -114,7 +153,7 @@ authRoutes.post('/login', zValidator('json', loginSchema), async (c) => {
 
   const valid = await verifyPassword(password, user.password_hash)
   if (!valid) {
-    return err(c, 'মোবাইল নম্বর বা পাসওয়ার্ড সঠিক নয়', 401)
+    return err(c, 'ইমেইল/মোবাইল নম্বর বা পাসওয়ার্ড সঠিক নয়', 401)
   }
 
   // Don't clear rate limit on success - prevents batch login attacks
@@ -122,7 +161,13 @@ authRoutes.post('/login', zValidator('json', loginSchema), async (c) => {
 
   const jti = generateJti()
   const token = await createToken(
-    { sub: String(user.id), phone: user.phone, role: user.role, jti },
+    {
+      sub: String(user.id),
+      phone: user.phone,
+      email: user.email,
+      role: user.role,
+      jti
+    },
     c.env.JWT_SECRET
   )
 
@@ -132,6 +177,7 @@ authRoutes.post('/login', zValidator('json', loginSchema), async (c) => {
       id: user.id,
       name: user.name,
       phone: user.phone,
+      email: user.email,
       role: user.role,
       referral_code: user.referral_code
     }
@@ -158,7 +204,7 @@ authRoutes.post('/logout', authMiddleware, async (c) => {
 authRoutes.get('/me', authMiddleware, async (c) => {
   const userId = c.get('userId')
   const user = await c.env.DB.prepare(
-    'SELECT id, name, phone, role, referral_code, referred_by, is_active, created_at FROM users WHERE id = ?'
+    'SELECT id, name, phone, email, role, referral_code, referred_by, is_active, created_at FROM users WHERE id = ?'
   ).bind(userId).first<Omit<User, 'password_hash'>>()
 
   if (!user) return err(c, 'ব্যবহারকারী পাওয়া যায়নি', 404)
@@ -176,3 +222,283 @@ authRoutes.get('/me', authMiddleware, async (c) => {
   const balance_paisa = (balanceRow?.total ?? 0) + (referralBonusRow?.total ?? 0)
   return ok(c, { ...user, balance_paisa })
 })
+
+// POST /api/auth/forgot-password
+authRoutes.post('/forgot-password', zValidator('json', forgotPasswordSchema), async (c) => {
+  const { email } = c.req.valid('json')
+  const normalizedEmail = email.toLowerCase()
+
+  // Rate limiting: max 3 requests per hour per email
+  const rateLimitKey = `forgot:${normalizedEmail}`
+  const rateLimit = await checkRateLimit(c.env, rateLimitKey, 3, 3600)
+  
+  if (!rateLimit.allowed) {
+    return err(c, 'অনেকবার চেষ্টা করা হয়েছে। ১ ঘণ্টা পরে আবার চেষ্টা করুন।', 429)
+  }
+
+  // Find user by email
+  const user = await c.env.DB.prepare(
+    'SELECT id, name, email FROM users WHERE email = ? AND is_active = 1'
+  ).bind(normalizedEmail).first<{ id: number; name: string; email: string }>()
+
+  // Always return success message (security: don't reveal if email exists)
+  // Use constant-time comparison to prevent timing attacks
+  const emailExists = user !== null
+  
+  // Generate reset token even if email doesn't exist (constant-time)
+  const token = generateResetToken()
+  const expiresAt = Math.floor(Date.now() / 1000) + (15 * 60) // 15 minutes
+
+  // Only store token and send email if user exists
+  if (emailExists) {
+    await c.env.DB.prepare(
+      'INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES (?, ?, ?)'
+    ).bind(token, user.id, expiresAt).run()
+
+    // Generate reset link
+    const frontendUrl = c.env.R2_PUBLIC_URL?.replace('/storage', '') || 'https://buildbarguna.com'
+    const resetLink = `${frontendUrl}/reset-password?token=${token}`
+
+    // Send password reset email using Resend
+    const emailSent = await sendPasswordResetEmail({
+      to: user.email,
+      name: user.name,
+      resetLink,
+      expiryMinutes: 15
+    })
+
+    if (!emailSent) {
+      console.error('Failed to send password reset email')
+      // Don't reveal email failure to user for security reasons
+    }
+  } else {
+    // Simulate work to prevent timing attacks (constant-time delay)
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+
+  return ok(c, { message: 'যদি এই ইমেইলটি রেজিস্টার্ড থাকে, তবে আপনি শীঘ্রই একটি পাসওয়ার্ড রিসেট লিঙ্ক পাবেন।' })
+})
+
+// POST /api/auth/reset-password
+authRoutes.post('/reset-password', zValidator('json', resetPasswordSchema), async (c) => {
+  const { token, password } = c.req.valid('json')
+
+  // Find and validate token
+  const resetToken = await c.env.DB.prepare(
+    'SELECT token, user_id, expires_at, used FROM password_reset_tokens WHERE token = ?'
+  ).bind(token).first<{ token: string; user_id: number; expires_at: number; used: number }>()
+
+  if (!resetToken) {
+    return err(c, 'অবৈধ রিসেট লিঙ্ক', 400)
+  }
+
+  if (resetToken.used === 1) {
+    return err(c, 'এই রিসেট লিঙ্কটি ইতিমধ্যে ব্যবহার করা হয়েছে', 400)
+  }
+
+  const now = Math.floor(Date.now() / 1000)
+  if (resetToken.expires_at < now) {
+    return err(c, 'রিসেট লিঙ্কটি মেয়াদোত্তীর্ণ হয়েছে', 400)
+  }
+
+  // Hash new password
+  const passwordHash = await hashPassword(password)
+
+  // Update user password
+  const result = await c.env.DB.prepare(
+    'UPDATE users SET password_hash = ? WHERE id = ?'
+  ).bind(passwordHash, resetToken.user_id).run()
+
+  if (!result.success) {
+    return err(c, 'পাসওয়ার্ড রিসেট ব্যর্থ হয়েছে', 500)
+  }
+
+  // Mark token as used
+  await c.env.DB.prepare(
+    'UPDATE password_reset_tokens SET used = 1 WHERE token = ?'
+  ).bind(token).run()
+
+  // Blacklist ALL existing JWT tokens for this user (force re-login on all devices)
+  // Insert a user-level blacklist entry that auth middleware will check
+  await c.env.DB.prepare(
+    'INSERT OR REPLACE INTO token_blacklist (jti, expires_at) VALUES (?, ?)'
+  ).bind(`user_${resetToken.user_id}_all_sessions`, now + (7 * 24 * 60 * 60)).run()
+
+  return ok(c, { message: 'পাসওয়ার্ড সফলভাবে রিসেট হয়েছে' })
+})
+
+// GET /api/auth/google - Initiate Google OAuth flow
+authRoutes.get('/google', async (c) => {
+  try {
+    // Generate PKCE parameters
+    const { codeVerifier, codeChallenge } = generatePKCE()
+    const state = generateState()
+
+    // Get redirect URI based on environment
+    const isProduction = c.env.R2_PUBLIC_URL?.includes('buildbarguna.com') ?? false
+    const redirectUri = getGoogleRedirectUrl(isProduction ? 'production' : undefined)
+
+    // Store state in KV for later verification
+    await storeOAuthState(c.env.SESSIONS, state, { codeVerifier })
+
+    // Build authorization URL
+    const authUrl = buildGoogleAuthUrl(redirectUri, state, codeChallenge)
+
+    // Redirect to Google
+    return c.redirect(authUrl)
+  } catch (error) {
+    console.error('Google OAuth initiation error:', error)
+    return err(c, 'Google লগইন শুরু করা যায়নি', 500)
+  }
+})
+
+// GET /api/auth/google/callback - Handle Google OAuth callback
+authRoutes.get('/google/callback', async (c) => {
+  try {
+    const code = c.req.query('code')
+    const state = c.req.query('state')
+    const error = c.req.query('error')
+
+    // Check for OAuth errors
+    if (error) {
+      const redirectUri = getGoogleRedirectUrl('production')
+      return c.redirect(`${redirectUri.replace('/api/auth/google/callback', '/login')}?error=google_auth_failed`)
+    }
+
+    if (!code || !state) {
+      const redirectUri = getGoogleRedirectUrl('production')
+      return c.redirect(`${redirectUri.replace('/api/auth/google/callback', '/login')}?error=invalid_callback`)
+    }
+
+    // Retrieve and validate state
+    const storedState = await consumeOAuthState(c.env.SESSIONS, state)
+    if (!storedState) {
+      const redirectUri = getGoogleRedirectUrl('production')
+      return c.redirect(`${redirectUri.replace('/api/auth/google/callback', '/login')}?error=invalid_state`)
+    }
+
+    // Exchange code for tokens
+    const isProduction = c.env.R2_PUBLIC_URL?.includes('buildbarguna.com') ?? false
+    const redirectUri = getGoogleRedirectUrl(isProduction ? 'production' : undefined)
+    const tokenResponse = await exchangeCodeForToken(code, storedState.codeVerifier, redirectUri)
+
+    if (!tokenResponse.access_token) {
+      throw new Error('No access token received')
+    }
+
+    // Fetch user info from Google
+    const googleUser: GoogleUserInfo = await fetchGoogleUserInfo(tokenResponse.access_token)
+
+    // Check if user exists by Google ID
+    let user = await c.env.DB.prepare(
+      'SELECT * FROM users WHERE google_id = ?'
+    ).bind(googleUser.id).first<User>()
+
+    // If not found, check by email
+    if (!user) {
+      user = await c.env.DB.prepare(
+        'SELECT * FROM users WHERE email = ?'
+      ).bind(googleUser.email).first<User>()
+    }
+
+    // Create new user if doesn't exist
+    if (!user) {
+      const passwordHash = await hashPassword(crypto.randomUUID()) // Random password for Google users
+      const referralCode = generateReferralCode()
+
+      const result = await c.env.DB.prepare(
+        `INSERT INTO users (name, email, google_id, password_hash, referral_code, email_verified, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        googleUser.name,
+        googleUser.email,
+        googleUser.id,
+        passwordHash,
+        referralCode,
+        googleUser.verified_email ? 1 : 0,
+        1
+      ).run()
+
+      if (!result.success) {
+        throw new Error('Failed to create user')
+      }
+
+      // Fetch the newly created user
+      user = await c.env.DB.prepare(
+        'SELECT * FROM users WHERE google_id = ?'
+      ).bind(googleUser.id).first<User>()
+    } else {
+      // Update existing user with Google ID if not already linked
+      if (!user.google_id) {
+        await c.env.DB.prepare(
+          'UPDATE users SET google_id = ?, email_verified = ? WHERE id = ?'
+        ).bind(googleUser.id, googleUser.verified_email ? 1 : user.email_verified, user.id).run()
+      }
+    }
+
+    if (!user || !user.is_active) {
+      return c.redirect(`${redirectUri.replace('/api/auth/google/callback', '/login')}?error=account_inactive`)
+    }
+
+    // Generate JWT token
+    const jti = generateJti()
+    const token = await createToken(
+      {
+        sub: String(user.id),
+        phone: user.phone,
+        email: user.email,
+        role: user.role,
+        jti
+      },
+      c.env.JWT_SECRET
+    )
+
+    // Store user data in KV temporarily (5 minutes expiry)
+    const sessionId = crypto.randomUUID()
+    await c.env.SESSIONS.put(`oauth:session:${sessionId}`, JSON.stringify({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        referral_code: user.referral_code
+      }
+    }), { expirationTtl: 300 })
+
+    // Redirect to frontend with session ID only (not full user data)
+    const frontendUrl = c.env.R2_PUBLIC_URL?.replace('/storage', '') || 'https://buildbarguna.com'
+    const redirectUrl = new URL('/login', frontendUrl)
+    redirectUrl.searchParams.set('oauth_session', sessionId)
+
+    return c.redirect(redirectUrl.toString())
+  } catch (error) {
+    console.error('Google OAuth callback error:', error)
+    const frontendUrl = c.env.R2_PUBLIC_URL?.replace('/storage', '') || 'https://buildbarguna.com'
+    return c.redirect(`${frontendUrl}/login?error=google_auth_failed`)
+  }
+})
+
+// GET /api/auth/session/:sessionId - Retrieve OAuth session (one-time use)
+authRoutes.get('/session/:sessionId', async (c) => {
+  const { sessionId } = c.req.param()
+  
+  try {
+    const sessionData = await c.env.SESSIONS.get(`oauth:session:${sessionId}`)
+    
+    if (!sessionData) {
+      return err(c, 'সেশন এক্সপায়ার্ড অথবা পাওয়া যায়নি', 404)
+    }
+    
+    // Delete session after retrieval (one-time use)
+    await c.env.SESSIONS.delete(`oauth:session:${sessionId}`)
+    
+    const { token, user } = JSON.parse(sessionData)
+    return ok(c, { token, user })
+  } catch (error) {
+    console.error('Session retrieval error:', error)
+    return err(c, 'সেশন রিট্রিভ করতে ব্যর্থ', 500)
+  }
+})
+
