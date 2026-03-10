@@ -234,6 +234,61 @@ app.use('/api/*', async (c, next) => {
   await next()
 })
 
+// Security: Block common attack patterns and malicious scanners
+app.use('*', async (c, next) => {
+  const path = c.req.path.toLowerCase()
+  
+  // Block common attack/scanner patterns
+  const blockedPatterns = [
+    '.git', '.env', '.vscode', '.idea', '.docker',
+    'wp-admin', 'wp-login', 'wp-content', 'wordpress',
+    'phpmyadmin', 'pma', 'myadmin',
+    'admin.php', 'administrator',
+    '.php', '.asp', '.aspx', '.jsp', '.cgi',
+    'shell', 'cmd', 'exec', 'system',
+    'etc/passwd', 'etc/shadow',
+    'proc/self',
+    'boot.ini', 'win.ini',
+    'web.config', 'web.xml',
+    'pom.properties', 'maven',
+    'actuator', 'trace.axd', 'telescope',
+    'graphql', 'api/gql', 'api/graphql',
+    'swagger', 'api-docs', 'v2/api-docs', 'v3/api-docs',
+    'info.php', 'config.json', 'sftp.json',
+    'debug/default/view', 'panel=config'
+  ]
+  
+  // Check if request matches any blocked pattern
+  if (blockedPatterns.some(pattern => path.includes(pattern))) {
+    console.log(`[Security] Blocked malicious request: ${c.req.method} ${c.req.path}`)
+    // Return 404 to not reveal that we're blocking
+    return c.json({ success: false, error: 'Not found' }, 404)
+  }
+  
+  await next()
+})
+
+// Rate limiting middleware using KV store
+app.use('/api/*', async (c, next) => {
+  const ip = c.req.header('CF-Connecting-IP') || 'unknown'
+  const key = `rate_limit:${ip}`
+  
+  // Get current count from KV
+  const current = await c.env.SESSIONS.get(key)
+  const count = current ? parseInt(current, 10) : 0
+  
+  // Limit: 100 requests per minute per IP
+  if (count > 100) {
+    console.log(`[RateLimit] Blocked ${ip} - ${count} requests`)
+    return c.json({ success: false, error: 'অনুরোধের সীমা অতিক্রম করেছে' }, 429)
+  }
+  
+  // Increment counter with 60 second TTL
+  await c.env.SESSIONS.put(key, (count + 1).toString(), { expirationTtl: 60 })
+  
+  await next()
+})
+
 // Global error handler — sanitize internal errors, never leak stack traces
 app.onError((err, c) => {
   console.error('[unhandled]', err)
