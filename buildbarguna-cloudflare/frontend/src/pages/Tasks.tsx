@@ -176,14 +176,34 @@ export default function Tasks() {
   // Start task - call API and open link
   const startTaskMutation = useMutation({
     mutationFn: async (task: TaskListItem) => {
-      // Call start API to record start time
-      await tasksApi.start(task.id)
-      // Open the link in new tab
-      window.open(task.destination_url, '_blank', 'noopener,noreferrer')
-      return task
+      // Open window IMMEDIATELY (before async call) to avoid popup blocker
+      const newWindow = window.open('about:blank', '_blank', 'noopener,noreferrer')
+      
+      try {
+        // Call start API to record start time
+        const response = await tasksApi.start(task.id)
+        
+        // Update the opened window with actual URL
+        if (newWindow && response.success && response.data?.destination_url) {
+          newWindow.location.href = response.data.destination_url
+        } else if (newWindow) {
+          // Fallback: close if no URL
+          newWindow.close()
+        }
+        
+        return { task, success: response.success }
+      } catch (error) {
+        // Close window if API fails
+        if (newWindow) {
+          newWindow.close()
+        }
+        throw error
+      }
     },
-    onSuccess: (task) => {
-      setActiveTask(task)
+    onSuccess: (result) => {
+      if (result.success) {
+        setActiveTask(result.task)
+      }
     }
   })
 
