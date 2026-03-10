@@ -238,6 +238,13 @@ CREATE INDEX IF NOT EXISTS idx_task_completions_task_date ON task_completions(ta
 
 -- Unique index: prevents duplicate task completions per user per day
 CREATE UNIQUE INDEX IF NOT EXISTS idx_task_completions_user_task_date ON task_completions(user_id, task_id, task_date);
+
+-- Unique index: prevents duplicate point_transactions for same task per day
+-- This is critical for preventing double points bug in race conditions
+CREATE UNIQUE INDEX IF NOT EXISTS idx_point_transactions_user_task_date 
+ON point_transactions(user_id, task_id, date(created_at))
+WHERE task_id IS NOT NULL AND transaction_type = 'earned';
+
 CREATE INDEX IF NOT EXISTS idx_users_phone                ON users(phone);
 CREATE INDEX IF NOT EXISTS idx_users_referral_code        ON users(referral_code);
 CREATE INDEX IF NOT EXISTS idx_users_referrer_user_id     ON users(referrer_user_id);
