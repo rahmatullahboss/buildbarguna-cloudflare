@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authApi, setToken } from '../lib/api'
 import { saveUser } from '../lib/auth'
 import { Eye, EyeOff } from 'lucide-react'
+import LottieIcon from '../components/LottieIcon'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -90,7 +91,7 @@ export default function Login() {
         {/* Error */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3 mb-4 text-sm flex items-start gap-2">
-            <span className="flex-shrink-0 mt-0.5">⚠️</span>
+            <LottieIcon name="warning" className="w-5 h-5 flex-shrink-0" />
             {error}
           </div>
         )}
@@ -98,7 +99,9 @@ export default function Login() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Email or Phone */}
           <div>
-            <label className="label" htmlFor="identifier">📧 ইমেইল অথবা 📱 মোবাইল নম্বর</label>
+            <label className="label" htmlFor="identifier">
+              <LottieIcon name="email" className="w-4 h-4 inline-block mr-1" /> ইমেইল অথবা <LottieIcon name="phone" className="w-4 h-4 inline-block mr-1" /> মোবাইল নম্বর
+            </label>
             <input
               id="identifier"
               className="input"
@@ -113,7 +116,9 @@ export default function Login() {
 
           {/* Password with show/hide */}
           <div>
-            <label className="label" htmlFor="password">🔒 পাসওয়ার্ড</label>
+            <label className="label" htmlFor="password">
+              <LottieIcon name="lock" className="w-4 h-4 inline-block mr-1" /> পাসওয়ার্ড
+            </label>
             <div className="relative">
               <input
                 id="password"
@@ -154,7 +159,7 @@ export default function Login() {
                   <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                   লগইন হচ্ছে...
                 </span>
-              : '🔐 লগইন করুন'}
+              : <><LottieIcon name="lock" className="w-5 h-5 inline-block mr-1" /> লগইন করুন</>}
           </button>
         </form>
 
@@ -193,7 +198,7 @@ export default function Login() {
         {/* Trust badges */}
         <div className="mt-5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-4">
           <div className="flex items-center gap-2 justify-center">
-            <span className="text-lg">✅</span>
+            <LottieIcon name="halal" className="w-6 h-6" />
             <div className="text-center">
               <p className="text-xs font-semibold text-emerald-800">সম্পূর্ণ হালাল বিনিয়োগ</p>
               <p className="text-xs text-emerald-600">সুদমুক্ত • মুশারাকা নীতি • শরিয়াহ সম্মত</p>

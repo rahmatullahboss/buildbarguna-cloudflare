@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { TrendingUp, Users, Shield, CheckCircle, ArrowRight, Star, Download, Bell, BarChart2, Zap, Lock } from 'lucide-react'
 import { isLoggedIn } from '../lib/auth'
+import LottieIcon from '../components/LottieIcon'
 
 const APK_URL = 'https://pub-ab7b08208848418f9562358e8b65ad06.r2.dev/builds/android/buildbarguna-latest-release.apk'
 
@@ -143,12 +144,21 @@ export default function Home() {
       {/* Halal trust section */}
       <section className="py-16 bg-gradient-to-br from-emerald-50 to-teal-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
-          <div className="text-5xl mb-4">☪️</div>
+          <div className="mb-4 flex justify-center">
+            <LottieIcon name="halal" className="w-16 h-16" />
+          </div>
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">সম্পূর্ণ হালাল বিনিয়োগ</h2>
           <p className="text-gray-600 mb-6 max-w-xl mx-auto">আমাদের বিনিয়োগ পদ্ধতি ইসলামিক মুশারাকা নীতি মেনে চলে। কোনো সুদ নেই, কোনো হারাম উপার্জন নেই।</p>
           <div className="flex flex-wrap justify-center gap-3">
-            {['✅ সুদমুক্ত', '✅ মুশারাকা নীতি', '✅ লাভ-লোকসান ভাগাভাগি', '✅ সম্পূর্ণ স্বচ্ছ'].map(badge => (
-              <span key={badge} className="bg-white border border-emerald-200 text-emerald-800 text-sm font-semibold px-4 py-2 rounded-full shadow-sm">{badge}</span>
+            {[
+              { icon: 'checkmark', label: 'সুদমুক্ত' },
+              { icon: 'checkmark', label: 'মুশারাকা নীতি' },
+              { icon: 'checkmark', label: 'লাভ-লোকসান ভাগাভাগি' },
+              { icon: 'checkmark', label: 'সম্পূর্ণ স্বচ্ছ' }
+            ].map(item => (
+              <span key={item.label} className="bg-white border border-emerald-200 text-emerald-800 text-sm font-semibold px-4 py-2 rounded-full shadow-sm flex items-center gap-1.5">
+                <LottieIcon name={item.icon} className="w-4 h-4" /> {item.label}
+              </span>
             ))}
           </div>
         </div>
@@ -221,10 +231,10 @@ export default function Home() {
               {/* Content */}
               <div className="flex-1 text-center lg:text-left">
                 <div className="inline-flex items-center gap-2 bg-primary-500/20 border border-primary-500/30 text-primary-400 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
-                  <Download size={12} /> Android App
+                  <LottieIcon name="phone" className="w-4 h-4" /> Android App
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
-                  📱 আমাদের Android App<br />ডাউনলোড করুন
+                  <LottieIcon name="phone" className="w-8 h-8 inline-block mr-2" /> আমাদের Android App<br />ডাউনলোড করুন
                 </h2>
                 <p className="text-gray-400 text-sm mb-6 leading-relaxed">
                   সবসময় আপনার বিনিয়োগ নজর রাখুন — যেকোনো জায়গা থেকে। Native app অভিজ্ঞতা উপভোগ করুন।
@@ -269,7 +279,9 @@ export default function Home() {
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
         <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center relative z-10">
-          <div className="text-5xl mb-6">🚀</div>
+          <div className="mb-6 flex justify-center">
+            <LottieIcon name="rocket" className="w-20 h-20" />
+          </div>
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">আজই শুরু করুন</h2>
           <p className="text-white/80 mb-8 text-lg">বরগুনার শত শত উদ্যোক্তার সাথে যোগ দিন এবং আপনার বিনিয়োগ শুরু করুন।</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
