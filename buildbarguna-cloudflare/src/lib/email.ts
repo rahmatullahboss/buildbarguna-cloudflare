@@ -30,7 +30,7 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData): Prom
 
   try {
     await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'BuildBarguna <noreply@buildbarguna.com>',
+      from: process.env.EMAIL_FROM || 'BuildBarguna <noreply@buildbargunainitiative.org>',
       to: [data.to],
       subject: 'পাসওয়ার্ড রিসেট লিঙ্ক',
       html: getPasswordResetHtml(data),
@@ -53,7 +53,7 @@ export async function sendPasswordResetConfirmation(data: PasswordResetConfirmat
 
   try {
     await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'BuildBarguna <noreply@buildbarguna.com>',
+      from: process.env.EMAIL_FROM || 'BuildBarguna <noreply@buildbargunainitiative.org>',
       to: [data.to],
       subject: 'পাসওয়ার্ড সফলভাবে রিসেট হয়েছে',
       html: getPasswordResetConfirmationHtml(data),
@@ -76,7 +76,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<boolean>
 
   try {
     await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'BuildBarguna <noreply@buildbarguna.com>',
+      from: process.env.EMAIL_FROM || 'BuildBarguna <noreply@buildbargunainitiative.org>',
       to: [data.to],
       subject: 'বিল্ড বরগুনায় স্বাগতম!',
       html: getWelcomeHtml(data),
@@ -359,7 +359,7 @@ function getWelcomeHtml(data: WelcomeEmailData): string {
               <table role="presentation" style="margin: 0 auto 24px auto; border-collapse: collapse;">
                 <tr>
                   <td align="center" style="border-radius: 8px; background: linear-gradient(135deg, #1e3a5f 0%, #0d9488 100%);">
-                    <a href="https://buildbarguna.com/dashboard" target="_blank" style="display: inline-block; padding: 16px 40px; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; border-radius: 8px;">
+                    <a href="https://buildbargunainitiative.org/dashboard" target="_blank" style="display: inline-block; padding: 16px 40px; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; border-radius: 8px;">
                       🚀 ড্যাশবোর্ডে যান
                     </a>
                   </td>
@@ -399,7 +399,7 @@ function getWelcomeText(data: WelcomeEmailData): string {
 
 এখন আপনি আমাদের প্ল্যাটফর্মে হালাল বিনিয়োগ শুরু করতে পারেন এবং মুশারাকা নীতিতে লাভবান হতে পারেন।
 
-ড্যাশবোর্ডে যান: https://buildbarguna.com/dashboard
+ড্যাশবোর্ডে যান: https://buildbargunainitiative.org/dashboard
 
 বিল্ড বরগুনা
 হালাল বিনিয়োগের বিশ্বস্ত সঙ্গী

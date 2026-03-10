@@ -73,7 +73,8 @@ authRoutes.post('/register', zValidator('json', registerSchema), async (c) => {
   ).bind(email.toLowerCase()).first()
 
   if (existingEmail) {
-    return err(c, 'এই ইমেইল দিয়ে ইতিমধ্যে অ্যাকাউন্ট আছে', 409)
+    // Generic error message to prevent account enumeration
+    return err(c, 'এই অ্যাকাউন্ট ইতিমধ্যে বিদ্যমান', 409)
   }
 
   // Check existing user by phone (if provided)
@@ -83,22 +84,20 @@ authRoutes.post('/register', zValidator('json', registerSchema), async (c) => {
     ).bind(phone).first()
 
     if (existingPhone) {
-      return err(c, 'এই মোবাইল নম্বর দিয়ে ইতিমধ্যে অ্যাকাউন্ট আছে', 409)
+      // Generic error message to prevent account enumeration
+      return err(c, 'এই অ্যাকাউন্ট ইতিমধ্যে বিদ্যমান', 409)
     }
   }
 
   // Validate referral code if provided
   let referrerUserId: number | null = null
   if (referral_code) {
-    // Sanitize referral code: only allow alphanumeric characters
+    // Sanitize referral code: only allow alphanumeric characters, case-insensitive
     const sanitizedReferralCode = referral_code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
     
-    if (sanitizedReferralCode !== referral_code) {
-      console.warn('Referral code contained invalid characters, sanitized')
-    }
-    
+    // Use case-insensitive lookup
     const referrer = await c.env.DB.prepare(
-      'SELECT id FROM users WHERE referral_code = ? AND is_active = 1'
+      'SELECT id FROM users WHERE UPPER(referral_code) = ? AND is_active = 1'
     ).bind(sanitizedReferralCode).first<{ id: number }>()
     if (!referrer) {
       return err(c, 'রেফারেল কোড সঠিক নয়')
@@ -136,6 +135,14 @@ authRoutes.post('/login', zValidator('json', loginSchema), async (c) => {
     return err(c, `অনেকবার চেষ্টা করা হয়েছে। ${Math.ceil((rateLimit.resetAt - Date.now()) / 60000)} মিনিট পরে আবার চেষ্টা করুন।`, 429)
   }
 
+  // Check for account lockout (use separate rate limit key for lockout)
+  const lockoutKey = `lockout:${identifier.toLowerCase()}`
+  const lockoutRateLimit = await checkRateLimit(c.env, lockoutKey, 10, 1800) // 10 attempts = 30 min lockout
+  
+  if (!lockoutRateLimit.allowed) {
+    return err(c, 'অ্যাকাউন্ট অস্থায়ীভাবে লক করা হয়েছে। ৩০ মিনিট পরে আবার চেষ্টা করুন।', 429)
+  }
+
   // Query user by email or phone based on identifier type
   const user = await c.env.DB.prepare(
     isEmail
@@ -144,7 +151,8 @@ authRoutes.post('/login', zValidator('json', loginSchema), async (c) => {
   ).bind(isEmail ? identifier.toLowerCase() : identifier).first<User>()
 
   if (!user) {
-    return err(c, 'ইমেইল/মোবাইল নম্বর বা পাসওয়ার্ড সঠিক নয়', 401)
+    // Generic error message to prevent account enumeration
+    return err(c, 'ইনপুট সঠিক নয়', 401)
   }
 
   if (!user.is_active) {
@@ -153,7 +161,8 @@ authRoutes.post('/login', zValidator('json', loginSchema), async (c) => {
 
   const valid = await verifyPassword(password, user.password_hash)
   if (!valid) {
-    return err(c, 'ইমেইল/মোবাইল নম্বর বা পাসওয়ার্ড সঠিক নয়', 401)
+    // Generic error message
+    return err(c, 'ইনপুট সঠিক নয়', 401)
   }
 
   // Don't clear rate limit on success - prevents batch login attacks
@@ -255,8 +264,11 @@ authRoutes.post('/forgot-password', zValidator('json', forgotPasswordSchema), as
       'INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES (?, ?, ?)'
     ).bind(token, user.id, expiresAt).run()
 
-    // Generate reset link
-    const frontendUrl = c.env.R2_PUBLIC_URL?.replace('/storage', '') || 'https://buildbarguna.com'
+    // Generate reset link using FRONTEND_URL env var
+    const frontendUrl = c.env.FRONTEND_URL || c.env.R2_PUBLIC_URL?.replace('/storage', '') || ''
+    if (!frontendUrl) {
+      console.error('FRONTEND_URL not configured')
+    }
     const resetLink = `${frontendUrl}/reset-password?token=${token}`
 
     // Send password reset email using Resend
@@ -334,8 +346,8 @@ authRoutes.get('/google', async (c) => {
     const { codeVerifier, codeChallenge } = generatePKCE()
     const state = generateState()
 
-    // Get redirect URI based on environment
-    const isProduction = c.env.R2_PUBLIC_URL?.includes('buildbarguna.com') ?? false
+    // Get redirect URI based on environment - use FRONTEND_URL to detect production
+    const isProduction = !!c.env.FRONTEND_URL && c.env.FRONTEND_URL.includes('buildbargunainitiative.org')
     const redirectUri = getGoogleRedirectUrl(isProduction ? 'production' : undefined)
 
     // Store state in KV for later verification
@@ -358,27 +370,25 @@ authRoutes.get('/google/callback', async (c) => {
     const code = c.req.query('code')
     const state = c.req.query('state')
     const error = c.req.query('error')
+    const frontendUrl = c.env.FRONTEND_URL || ''
 
     // Check for OAuth errors
     if (error) {
-      const redirectUri = getGoogleRedirectUrl('production')
-      return c.redirect(`${redirectUri.replace('/api/auth/google/callback', '/login')}?error=google_auth_failed`)
+      return c.redirect(`${frontendUrl}/login?error=google_auth_failed`)
     }
 
     if (!code || !state) {
-      const redirectUri = getGoogleRedirectUrl('production')
-      return c.redirect(`${redirectUri.replace('/api/auth/google/callback', '/login')}?error=invalid_callback`)
+      return c.redirect(`${frontendUrl}/login?error=invalid_callback`)
     }
 
     // Retrieve and validate state
     const storedState = await consumeOAuthState(c.env.SESSIONS, state)
     if (!storedState) {
-      const redirectUri = getGoogleRedirectUrl('production')
-      return c.redirect(`${redirectUri.replace('/api/auth/google/callback', '/login')}?error=invalid_state`)
+      return c.redirect(`${frontendUrl}/login?error=invalid_state`)
     }
 
     // Exchange code for tokens
-    const isProduction = c.env.R2_PUBLIC_URL?.includes('buildbarguna.com') ?? false
+    const isProduction = !!c.env.FRONTEND_URL && !c.env.FRONTEND_URL.includes('localhost')
     const redirectUri = getGoogleRedirectUrl(isProduction ? 'production' : undefined)
     const tokenResponse = await exchangeCodeForToken(code, storedState.codeVerifier, redirectUri)
 
@@ -437,7 +447,7 @@ authRoutes.get('/google/callback', async (c) => {
     }
 
     if (!user || !user.is_active) {
-      return c.redirect(`${redirectUri.replace('/api/auth/google/callback', '/login')}?error=account_inactive`)
+      return c.redirect(`${frontendUrl}/login?error=account_inactive`)
     }
 
     // Generate JWT token
@@ -468,14 +478,14 @@ authRoutes.get('/google/callback', async (c) => {
     }), { expirationTtl: 300 })
 
     // Redirect to frontend with session ID only (not full user data)
-    const frontendUrl = c.env.R2_PUBLIC_URL?.replace('/storage', '') || 'https://buildbarguna.com'
+    const frontendUrl = c.env.R2_PUBLIC_URL?.replace('/storage', '') || 'https://buildbargunainitiative.org'
     const redirectUrl = new URL('/login', frontendUrl)
     redirectUrl.searchParams.set('oauth_session', sessionId)
 
     return c.redirect(redirectUrl.toString())
   } catch (error) {
     console.error('Google OAuth callback error:', error)
-    const frontendUrl = c.env.R2_PUBLIC_URL?.replace('/storage', '') || 'https://buildbarguna.com'
+    const frontendUrl = c.env.R2_PUBLIC_URL?.replace('/storage', '') || 'https://buildbargunainitiative.org'
     return c.redirect(`${frontendUrl}/login?error=google_auth_failed`)
   }
 })

@@ -17,6 +17,7 @@ export type Bindings = {
   GOOGLE_CLIENT_ID?: string // Google OAuth 2.0 Client ID
   RESEND_API_KEY?: string   // Resend email API key
   EMAIL_FROM?: string       // Sender email address
+  FRONTEND_URL?: string     // Frontend URL for redirects (e.g., https://buildbargunainitiative.org)
 }
 
 export type Variables = {

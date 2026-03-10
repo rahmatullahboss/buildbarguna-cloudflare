@@ -60,3 +60,4 @@ crons = ["0 18 1 * *", "0 * * * *"]  # Monthly earnings + Hourly cleanup
 # RESEND_API_KEY        — Resend email API key (for password reset emails)
 # EMAIL_FROM            — Sender email address (e.g., "BuildBarguna <noreply@buildbarguna.com>")
 # GOOGLE_CLIENT_ID      — Google OAuth 2.0 Client ID (for Google Sign-In)
+# FRONTEND_URL          — Frontend URL for redirects (e.g., https://buildbarguna.com)

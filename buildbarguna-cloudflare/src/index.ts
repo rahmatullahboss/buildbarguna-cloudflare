@@ -72,6 +72,19 @@ app.get('/api/health/migrations', async (c) => {
 
 // Global middleware
 app.use('/api/*', logger())
+
+// Request ID middleware for tracing
+app.use('/api/*', async (c, next) => {
+  // Use existing request ID or generate new one
+  const requestId = c.req.header('X-Request-ID') || crypto.randomUUID()
+  c.set('requestId', requestId)
+  
+  // Add request ID to response headers
+  c.res.headers.set('X-Request-ID', requestId)
+  
+  await next()
+})
+
 app.use('/api/*', async (c, next) => {
   await ensureMigrations(c.env)
   await next()

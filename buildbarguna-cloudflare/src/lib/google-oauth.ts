@@ -148,7 +148,7 @@ export async function consumeOAuthState(
 export function getGoogleRedirectUrl(environment?: string): string {
   // Use explicit environment variable if provided
   if (environment === 'production') {
-    return 'https://buildbarguna.com/api/auth/google/callback'
+    return 'https://buildbargunainitiative.org/api/auth/google/callback'
   }
   
   // Default to development

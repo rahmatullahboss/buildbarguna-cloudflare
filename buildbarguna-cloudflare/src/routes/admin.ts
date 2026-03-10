@@ -6,12 +6,45 @@ import { adminMiddleware } from '../middleware/admin'
 import { ok, err, getPagination, paginate } from '../lib/response'
 import { toBps } from '../lib/money'
 import { distributeMonthlyEarnings } from '../cron/earnings'
+import { checkRateLimit } from '../lib/rate-limiter'
 import type { Bindings, Variables, Project } from '../types'
 
 export const adminRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
+// XSS Prevention: Escape HTML special characters
+function sanitizeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;')
+}
+
+// Apply sanitization to string fields in an object
+function sanitizeObject<T extends Record<string, unknown>>(obj: T, fields: (keyof T)[]): T {
+  const sanitized = { ...obj }
+  for (const field of fields) {
+    if (typeof sanitized[field] === 'string') {
+      sanitized[field] = sanitizeHtml(sanitized[field] as string) as T[keyof T]
+    }
+  }
+  return sanitized
+}
+
 adminRoutes.use('*', authMiddleware)
 adminRoutes.use('*', adminMiddleware)
+
+// Rate limiting middleware for admin endpoints
+adminRoutes.use('*', async (c, next) => {
+  const userId = c.get('userId')
+  const rateLimit = await checkRateLimit(c.env, `admin:${userId}`, 100, 60)
+  if (!rateLimit.allowed) {
+    return err(c, 'Too many requests. Please try again later.', 429)
+  }
+  await next()
+})
 
 // ─── R2 PUBLIC URL ────────────────────────────────────────────────────────────
 
@@ -105,7 +138,10 @@ adminRoutes.post('/projects', zValidator('json', projectSchema), async (c) => {
 adminRoutes.put('/projects/:id', zValidator('json', projectSchema.partial()), async (c) => {
   const id = parseInt(c.req.param('id'))
   if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
-  const body = c.req.valid('json')
+  let body = c.req.valid('json')
+
+  // Sanitize string fields to prevent XSS
+  body = sanitizeObject(body, ['title', 'description', 'image_url'])
 
   // Whitelist allowed fields — never interpolate arbitrary keys into SQL
   const ALLOWED_FIELDS = ['title', 'description', 'image_url', 'total_capital', 'total_shares', 'share_price', 'status'] as const
@@ -499,7 +535,10 @@ adminRoutes.post('/rewards', zValidator('json', rewardSchema), async (c) => {
 adminRoutes.put('/rewards/:id', zValidator('json', rewardSchema.partial()), async (c) => {
   const id = parseInt(c.req.param('id'))
   if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
-  const body = c.req.valid('json')
+  let body = c.req.valid('json')
+  
+  // Sanitize string fields to prevent XSS
+  body = sanitizeObject(body, ['name', 'description', 'image_url'])
   
   const fields = Object.entries(body).filter(([, v]) => v !== undefined)
   if (fields.length === 0) return err(c, 'কোনো পরিবর্তন নেই')

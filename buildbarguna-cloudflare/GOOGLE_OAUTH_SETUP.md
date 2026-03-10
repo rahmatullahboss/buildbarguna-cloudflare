@@ -28,7 +28,7 @@ This guide explains how to set up Google Sign-In/Sign-Up for the BuildBarguna pl
 - **User support email**: Your email
 - **App logo**: Upload BuildBarguna logo (optional)
 - **App domain**: 
-  - Production: `https://buildbarguna.com`
+  - Production: `https://buildbargunainitiative.org`
   - Development: Leave blank
 - **Developer contact**: Your email
 
@@ -59,7 +59,7 @@ Add these origins:
 
 ```
 Production:
-https://buildbarguna.com
+https://buildbargunainitiative.org
 
 Development:
 http://localhost:5173
@@ -71,7 +71,7 @@ Add these redirect URIs:
 
 ```
 Production:
-https://buildbarguna.com/api/auth/google/callback
+https://buildbargunainitiative.org/api/auth/google/callback
 
 Development:
 http://localhost:5173/api/auth/google/callback
@@ -148,7 +148,7 @@ wrangler tail buildbarguna-worker
 npm run deploy
 
 # Test in production
-# Go to https://buildbarguna.com/login
+# Go to https://buildbargunainitiative.org/login
 ```
 
 ## Security Features

@@ -4,8 +4,8 @@
  * 
  * Features:
  * - Sliding window rate limiting
+ * - Persistent storage across Worker restarts (using ctx.storage)
  * - Automatic cleanup of expired entries
- * - Persistent across Worker restarts
  */
 
 import { DurableObject } from 'cloudflare:workers'
@@ -22,8 +22,7 @@ export interface RateLimitConfig {
 }
 
 export class RateLimiter extends DurableObject {
-  private rateLimitCache: Map<string, RateLimitEntry> = new Map()
-  private cleanupInterval: NodeJS.Timeout | null = null
+  private initialized = false
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
@@ -41,10 +40,27 @@ export class RateLimiter extends DurableObject {
   }
 
   /**
+   * Initialize the Durable Object and set up alarm
+   */
+  private async ensureInitialized(): Promise<void> {
+    if (this.initialized) return
+    
+    // Set alarm for cleanup in 15 minutes
+    const currentAlarm = await this.ctx.storage.getAlarm()
+    if (!currentAlarm) {
+      await this.ctx.storage.setAlarm(Date.now() + 15 * 60 * 1000)
+    }
+    this.initialized = true
+  }
+
+  /**
    * Check rate limit and increment counter
+   * Uses persistent storage to survive Worker restarts
    * Returns: { allowed: boolean, remaining: number, resetAt: number }
    */
   private async handleCheck(request: Request): Promise<Response> {
+    await this.ensureInitialized()
+    
     const { key, maxAttempts, windowSeconds } = await request.json<{
       key: string
       maxAttempts: number
@@ -52,15 +68,18 @@ export class RateLimiter extends DurableObject {
     }>()
 
     const now = Date.now()
-    const entry = this.rateLimitCache.get(key)
+    
+    // Get entry from persistent storage
+    const entry = await this.ctx.storage.get<RateLimitEntry>(`rl:${key}`)
 
     if (!entry) {
       // First attempt - allow
-      this.rateLimitCache.set(key, {
+      const newEntry: RateLimitEntry = {
         count: 1,
         firstAttempt: now,
         lastAttempt: now
-      })
+      }
+      await this.ctx.storage.put(`rl:${key}`, newEntry)
       return Response.json({
         allowed: true,
         remaining: maxAttempts - 1,
@@ -71,11 +90,12 @@ export class RateLimiter extends DurableObject {
     // Check if window has expired
     if (now - entry.firstAttempt >= windowSeconds * 1000) {
       // Window expired - reset and allow
-      this.rateLimitCache.set(key, {
+      const newEntry: RateLimitEntry = {
         count: 1,
         firstAttempt: now,
         lastAttempt: now
-      })
+      }
+      await this.ctx.storage.put(`rl:${key}`, newEntry)
       return Response.json({
         allowed: true,
         remaining: maxAttempts - 1,
@@ -96,7 +116,7 @@ export class RateLimiter extends DurableObject {
     // Increment counter
     entry.count++
     entry.lastAttempt = now
-    this.rateLimitCache.set(key, entry)
+    await this.ctx.storage.put(`rl:${key}`, entry)
 
     return Response.json({
       allowed: true,
@@ -110,7 +130,7 @@ export class RateLimiter extends DurableObject {
    */
   private async handleReset(request: Request): Promise<Response> {
     const { key } = await request.json<{ key: string }>()
-    this.rateLimitCache.delete(key)
+    await this.ctx.storage.delete(`rl:${key}`)
     return Response.json({ success: true })
   }
 
@@ -119,7 +139,7 @@ export class RateLimiter extends DurableObject {
    */
   private async handleStatus(request: Request): Promise<Response> {
     const { key, windowSeconds } = await request.json<{ key: string; windowSeconds: number }>()
-    const entry = this.rateLimitCache.get(key)
+    const entry = await this.ctx.storage.get<RateLimitEntry>(`rl:${key}`)
     const now = Date.now()
 
     if (!entry) {
@@ -128,7 +148,7 @@ export class RateLimiter extends DurableObject {
 
     // Check if expired
     if (now - entry.firstAttempt >= windowSeconds * 1000) {
-      this.rateLimitCache.delete(key)
+      await this.ctx.storage.delete(`rl:${key}`)
       return Response.json({ exists: false })
     }
 
@@ -143,14 +163,20 @@ export class RateLimiter extends DurableObject {
 
   /**
    * Periodic cleanup of expired entries
+   * Called by alarm trigger
    */
   async alarm(): Promise<void> {
     const now = Date.now()
     let deleted = 0
 
-    for (const [key, entry] of this.rateLimitCache.entries()) {
-      if (now - entry.firstAttempt > 3600 * 1000) { // 1 hour
-        this.rateLimitCache.delete(key)
+    // List all keys and clean up expired ones
+    const keys = await this.ctx.storage.list({ prefix: 'rl:' })
+    
+    for (const [key, value] of keys) {
+      const entry = value as RateLimitEntry
+      // Clean up entries older than 1 hour
+      if (now - entry.firstAttempt > 3600 * 1000) {
+        await this.ctx.storage.delete(key)
         deleted++
       }
     }
@@ -158,15 +184,6 @@ export class RateLimiter extends DurableObject {
     console.log(`RateLimiter cleanup: removed ${deleted} expired entries`)
 
     // Schedule next cleanup in 15 minutes
-    this.ctx.storage.setAlarm(Date.now() + 15 * 60 * 1000)
-  }
-
-  /**
-   * Initialize cleanup alarm on first creation
-   */
-  async init(): Promise<void> {
-    // Set alarm for 15 minutes from now
-    this.ctx.storage.setAlarm(Date.now() + 15 * 60 * 1000)
-    console.log('RateLimiter initialized with cleanup alarm')
+    await this.ctx.storage.setAlarm(Date.now() + 15 * 60 * 1000)
   }
 }

@@ -3,7 +3,8 @@ import { sign, verify } from 'hono/jwt'
 
 export type JWTPayload = {
   sub: string       // user id as string
-  phone: string
+  phone: string | null
+  email: string | null   // NEW: email for login
   role: 'member' | 'admin'
   jti: string       // unique token id for blacklist
   exp: number

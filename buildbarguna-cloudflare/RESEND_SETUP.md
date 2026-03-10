@@ -23,7 +23,7 @@ This guide explains how to set up Resend for sending transactional emails (passw
 
 1. In Resend dashboard, go to **Domains**
 2. Click **Add Domain**
-3. Enter your domain (e.g., `buildbarguna.com`)
+3. Enter your domain (e.g., `buildbargunainitiative.org`)
 4. Choose a region (US or Europe)
 
 ### Configure DNS Records
@@ -32,12 +32,12 @@ Resend will provide DNS records to verify your domain:
 
 ```
 Type: MX
-Name: @ (or buildbarguna.com)
+Name: @ (or buildbargunainitiative.org)
 Value: feedback-smtp.us-east-1.amazonses.com
 Priority: 10
 
 Type: TXT
-Name: @ (or buildbarguna.com)
+Name: @ (or buildbargunainitiative.org)
 Value: v=spf1 include:resend.com ~all
 
 Type: TXT
@@ -81,7 +81,7 @@ wrangler secret put RESEND_API_KEY
 
 # Add sender email (optional, has default)
 wrangler secret put EMAIL_FROM
-# Enter: BuildBarguna <noreply@buildbarguna.com>
+# Enter: BuildBarguna <noreply@buildbargunainitiative.org>
 ```
 
 ### Update wrangler.toml (already done)
@@ -120,7 +120,7 @@ wrangler tail buildbarguna-worker
 npm run deploy
 
 # Test in production
-# Go to https://buildbarguna.com/forgot-password
+# Go to https://buildbargunainitiative.org/forgot-password
 ```
 
 ## Email Templates
@@ -145,7 +145,7 @@ Update the `EMAIL_FROM` secret:
 
 ```bash
 wrangler secret put EMAIL_FROM
-# Enter: BuildBarguna <support@buildbarguna.com>
+# Enter: BuildBarguna <support@buildbargunainitiative.org>
 ```
 
 ### Modify Email Templates
