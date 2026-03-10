@@ -76,9 +76,10 @@ taskRoutes.get('/', async (c) => {
   const buildTaskItem = (task: typeof tasks[0]): TaskListItem | null => {
     const todayData = todayCompletions.get(task.id)
     const completedToday = todayData ? todayData.count >= 1 : false
-    const remainingToday = task.is_one_time === 1 ? 0 : Math.max(0, task.daily_limit_calc - (todayData?.count || 0))
+    // For one-time tasks: if not completed ever, remaining is 1; otherwise 0
+    const remainingToday = task.is_one_time === 1 ? 1 : Math.max(0, task.daily_limit_calc - (todayData?.count || 0))
     const completedEver = oneTimeCompletions.get(task.id) || 0
-    
+
     // For one-time tasks: if already completed ever, don't return it (hide from list)
     if (task.is_one_time === 1 && completedEver > 0) {
       return null
