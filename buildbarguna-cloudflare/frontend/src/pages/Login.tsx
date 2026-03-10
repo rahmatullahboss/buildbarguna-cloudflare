@@ -34,10 +34,10 @@ export default function Login() {
           if (json.success && json.data) {
             setToken(json.data.token)
             saveUser(json.data.user)
-            // Remove query params
-            navigate('/login', { replace: true })
-            // Redirect to dashboard
-            navigate(json.data.user.role === 'admin' ? '/admin' : '/dashboard')
+            // Redirect to dashboard (single navigation, remove query params via state)
+            const targetUrl = json.data.user.role === 'admin' ? '/admin' : '/dashboard'
+            window.history.replaceState(null, '', '/login') // Clean URL without navigation
+            navigate(targetUrl, { replace: true })
           } else {
             setError('সেশন এক্সপায়ার্ড হয়েছে। আবার লগইন করুন।')
             setTimeout(() => setError(''), 5000)
