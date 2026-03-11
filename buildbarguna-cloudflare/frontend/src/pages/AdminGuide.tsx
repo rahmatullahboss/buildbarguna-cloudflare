@@ -496,16 +496,19 @@ function AdminGuideComponent() {
   const currentSection = adminGuideSections.find(s => s.id === selectedSection)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       {/* Header - Fixed */}
-      <div className="bg-white shadow-md border-b border-blue-100 sticky top-0 z-40">
+      <div className="bg-white/80 backdrop-blur-lg shadow-lg border-b border-blue-100 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
+              <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg hover:shadow-xl transition-shadow">
                 <Book className="w-8 h-8 text-white" />
               </div>
-              <h1 className="text-3xl font-bold text-gray-900">অ্যাডমিন গাইড</h1>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">অ্যাডমিন গাইড</h1>
+                <p className="text-sm text-gray-500">প্ল্যাটফর্ম পরিচালনার সম্পূর্ণ গাইড</p>
+              </div>
             </div>
             
             <button
@@ -523,11 +526,14 @@ function AdminGuideComponent() {
           {/* Sidebar - Desktop */}
           <div className="hidden lg:block w-80 flex-shrink-0">
             <div className="sticky top-28 pb-24">
-              <div className="bg-white rounded-3xl shadow-lg border border-blue-100 overflow-hidden">
-                <div className="p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
-                  <h2 className="text-xl font-bold text-gray-900">সূচিপত্র</h2>
+              <div className="bg-white/80 backdrop-blur rounded-3xl shadow-xl border border-blue-100/50 overflow-hidden">
+                <div className="p-6 border-b bg-gradient-to-r from-blue-50/50 to-indigo-50/50">
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <span className="w-2 h-8 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full"></span>
+                    সূচিপত্র
+                  </h2>
                 </div>
-                <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
+                <div className="max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-thin scrollbar-thumb-blue-200 scrollbar-track-transparent">
                   {adminGuideSections.map((section) => (
                     <button
                       key={section.id}
@@ -535,7 +541,7 @@ function AdminGuideComponent() {
                         setSelectedSection(section.id)
                         setShowMobileMenu(false)
                       }}
-                      className={`w-full flex items-center gap-4 px-6 py-4 text-left hover:bg-blue-50 transition-all border-l-4 ${
+                      className={`w-full flex items-center gap-4 px-6 py-4 text-left hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all border-l-4 ${
                         selectedSection === section.id
                           ? 'border-blue-600 bg-gradient-to-r from-blue-50 to-indigo-50'
                           : 'border-transparent'
@@ -552,18 +558,23 @@ function AdminGuideComponent() {
               </div>
 
               {/* Quick Info Card */}
-              <div className="mt-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-3xl p-6 text-white shadow-xl">
-                <h3 className="text-xl font-bold mb-3">💡 দ্রুত টিপস</h3>
+              <div className="mt-6 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-3xl p-6 text-white shadow-xl hover:shadow-2xl transition-shadow">
+                <h3 className="text-xl font-bold mb-3 flex items-center gap-2">
+                  <span className="text-2xl">💡</span> দ্রুত টিপস
+                </h3>
                 <p className="text-base opacity-95 leading-relaxed">
                   অ্যাডমিন পাসওয়ার্ড কখনো শেয়ার করবেন না
                 </p>
+                <div className="mt-4 pt-4 border-t border-white/20">
+                  <p className="text-sm opacity-80">🔒 নিরাপত্তা সর্বোচ্চ অগ্রাধিকার</p>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Mobile Sidebar */}
           {showMobileMenu && (
-            <div className="lg:hidden fixed inset-0 z-50 bg-black bg-opacity-50" onClick={() => setShowMobileMenu(false)}>
+            <div className="lg:hidden fixed inset-0 z-50 bg-black bg-opacity-50 backdrop-blur-sm" onClick={() => setShowMobileMenu(false)}>
               <div className="absolute left-0 top-0 h-full w-80 bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
                   <h2 className="text-xl font-bold text-gray-900">সূচিপত্র</h2>
@@ -579,7 +590,7 @@ function AdminGuideComponent() {
                         setSelectedSection(section.id)
                         setShowMobileMenu(false)
                       }}
-                      className={`w-full flex items-center gap-4 px-6 py-4 text-left hover:bg-blue-50 transition-all border-l-4 ${
+                      className={`w-full flex items-center gap-4 px-6 py-4 text-left hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all border-l-4 ${
                         selectedSection === section.id
                           ? 'border-blue-600 bg-gradient-to-r from-blue-50 to-indigo-50'
                           : 'border-transparent'
@@ -598,13 +609,21 @@ function AdminGuideComponent() {
           <div className="flex-1 min-w-0">
             {!currentSection ? (
               // Welcome Screen
-              <div className="bg-white rounded-3xl shadow-xl border border-blue-100 p-10">
+              <div className="bg-white/80 backdrop-blur rounded-3xl shadow-xl border border-blue-100/50 p-10">
                 <div className="text-center mb-10">
-                  <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 mb-6 shadow-xl">
+                  <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 mb-6 shadow-xl animate-pulse">
                     <Book className="w-12 h-12 text-white" />
                   </div>
-                  <h2 className="text-4xl font-bold text-gray-900 mb-3">অ্যাডমিন গাইড</h2>
-                  <p className="text-xl text-gray-600">অ্যাডমিনিস্ট্রেশনের সম্পূর্ণ গাইড</p>
+                  <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-3">অ্যাডমিন গাইড</h2>
+                  <p className="text-xl text-gray-600">প্ল্যাটফর্ম পরিচালনার সম্পূর্ণ গাইড</p>
+                  <div className="mt-6 flex flex-wrap gap-3 justify-center">
+                    <span className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-sm font-medium px-4 py-2 rounded-full">
+                      <span>📊</span> {adminGuideSections.length}টি সেকশন
+                    </span>
+                    <span className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 text-sm font-medium px-4 py-2 rounded-full">
+                      <span>⚡</span> দ্রুত রেফারেন্স
+                    </span>
+                  </div>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
@@ -612,14 +631,14 @@ function AdminGuideComponent() {
                     <button
                       key={section.id}
                       onClick={() => setSelectedSection(section.id)}
-                      className="flex items-center gap-5 p-6 rounded-2xl border-2 border-blue-100 hover:shadow-xl hover:border-blue-300 transition-all text-left bg-gradient-to-br from-blue-50 to-indigo-50"
+                      className="group flex items-center gap-5 p-6 rounded-2xl border-2 border-blue-100 hover:border-blue-300 hover:shadow-xl transition-all text-left bg-gradient-to-br from-blue-50/50 to-indigo-50/50 hover:from-blue-50 hover:to-indigo-50"
                     >
-                      <span className="text-4xl">{section.icon}</span>
+                      <span className="text-4xl group-hover:scale-110 transition-transform">{section.icon}</span>
                       <div className="flex-1">
-                        <h3 className="text-lg font-bold text-gray-900">{section.title}</h3>
-                        <p className="text-base text-gray-600 mt-1">দেখতে ক্লিক করুন</p>
+                        <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{section.title}</h3>
+                        <p className="text-base text-gray-600 mt-1 group-hover:text-gray-700">দেখতে ক্লিক করুন</p>
                       </div>
-                      <ChevronRight className="w-6 h-6 text-gray-400" />
+                      <ChevronRight className="w-6 h-6 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
                     </button>
                   ))}
                 </div>
@@ -637,11 +656,16 @@ function AdminGuideComponent() {
                 </button>
 
                 {/* Content */}
-                <div className="bg-white rounded-3xl shadow-xl border border-blue-100 overflow-hidden">
-                  <div className="p-8 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+                <div className="bg-white/80 backdrop-blur rounded-3xl shadow-xl border border-blue-100/50 overflow-hidden">
+                  <div className="p-8 border-b bg-gradient-to-r from-blue-50/50 to-indigo-50/50">
                     <div className="flex items-center gap-4">
-                      <span className="text-5xl">{currentSection.icon}</span>
-                      <h2 className="text-3xl font-bold text-gray-900">{currentSection.title}</h2>
+                      <div className="p-4 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg">
+                        <span className="text-4xl">{currentSection.icon}</span>
+                      </div>
+                      <div>
+                        <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{currentSection.title}</h2>
+                        <p className="text-sm text-gray-500 mt-1">বিস্তারিত তথ্যের জন্য নিচে দেখুন</p>
+                      </div>
                     </div>
                   </div>
                   <div className="p-8 text-lg leading-relaxed">
@@ -661,11 +685,12 @@ function AdminGuideComponent() {
                         {prevSection && (
                           <button
                             onClick={() => setSelectedSection(prevSection.id)}
-                            className="flex-1 bg-white border-2 border-blue-100 rounded-2xl px-6 py-5 hover:shadow-xl hover:border-blue-300 transition-all text-left"
+                            className="flex-1 bg-white/80 backdrop-blur border-2 border-blue-100 rounded-2xl px-6 py-5 hover:shadow-xl hover:border-blue-300 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all text-left group"
                           >
-                            <div className="text-sm text-gray-500 mb-2 font-medium">পূর্ববর্তী</div>
-                            <div className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                              <ChevronRight className="w-5 h-5 rotate-180" />
+                            <div className="text-sm text-gray-500 mb-2 font-medium flex items-center gap-2">
+                              <span className="text-lg">←</span> পূর্ববর্তী
+                            </div>
+                            <div className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors flex items-center gap-2">
                               {prevSection.title}
                             </div>
                           </button>
@@ -673,12 +698,13 @@ function AdminGuideComponent() {
                         {nextSection && (
                           <button
                             onClick={() => setSelectedSection(nextSection.id)}
-                            className="flex-1 bg-white border-2 border-blue-100 rounded-2xl px-6 py-5 hover:shadow-xl hover:border-blue-300 transition-all text-right"
+                            className="flex-1 bg-white/80 backdrop-blur border-2 border-blue-100 rounded-2xl px-6 py-5 hover:shadow-xl hover:border-blue-300 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all text-right group"
                           >
-                            <div className="text-sm text-gray-500 mb-2 font-medium">পরবর্তী</div>
-                            <div className="text-lg font-bold text-gray-900 flex items-center gap-2 justify-end">
+                            <div className="text-sm text-gray-500 mb-2 font-medium flex items-center gap-2 justify-end">
+                              পরবর্তী <span className="text-lg">→</span>
+                            </div>
+                            <div className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors flex items-center gap-2 justify-end">
                               {nextSection.title}
-                              <ChevronRight className="w-5 h-5" />
                             </div>
                           </button>
                         )}
