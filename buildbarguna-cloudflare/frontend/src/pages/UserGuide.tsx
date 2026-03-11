@@ -526,7 +526,7 @@ const userGuideSections: GuideSection[] = [
           
           <div>
             <h3 className="text-lg font-semibold text-gray-900">রেফারেল বোনাস কত?</h3>
-            <p className="text-gray-700">৳৫০ (কনফিগারেবল, সর্বোচ্চ ৳১,০০০)।</p>
+            <p className="text-gray-700">৳২০ (কনফিগারেবল, সর্বোচ্চ ৳১,০০০)।</p>
           </div>
           
           <div>
