@@ -328,7 +328,31 @@ export type AvailableBalance = {
   total_earned_paisa: number
   total_withdrawn_paisa: number   // completed only
   pending_paisa: number           // pending + approved (reserved)
-  available_paisa: number         // earned - withdrawn - pending
+  available_paisa: number         // earned - withdrawn - reserved
+}
+
+// ─── User Balance Types ─────────────────────────────────────────────────────────
+
+export type UserBalance = {
+  id: number
+  user_id: number
+  total_earned_paisa: number
+  total_withdrawn_paisa: number
+  reserved_paisa: number
+  created_at: string
+  updated_at: string
+}
+
+export type BalanceAuditLog = {
+  id: number
+  user_id: number
+  amount_paisa: number
+  change_type: 'earn' | 'withdraw_reserve' | 'withdraw_release' | 'withdraw_complete' | 'withdraw_reject' | 'adjustment'
+  reference_type: string | null
+  reference_id: number | null
+  admin_id: number | null
+  note: string | null
+  created_at: string
 }
 
 /** DB row shape returned from portfolio JOIN query */

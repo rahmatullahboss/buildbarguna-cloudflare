@@ -14,49 +14,112 @@ const adminGuideSections: GuideSection[] = [
     title: 'ভূমিকা',
     icon: '👨‍💼',
     content: (
-      <div className="space-y-4">
-        <h2 className="text-2xl font-bold text-gray-900">অ্যাডমিন ভূমিকা</h2>
-        <p className="text-gray-700">
-          BuildBarguna প্ল্যাটফর্মে অ্যাডমিনের দায়িত্ব হলো প্ল্যাটফর্মের স্বাভাবিক কার্যক্রম পরিচালনা করা, ব্যবহারকারীদের অনুরোধ প্রক্রিয়া করা, এবং সিস্টেমের নিরাপত্তা নিশ্চিত করা।
-        </p>
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <span className="text-3xl">🎯</span> অ্যাডমিন ভূমিকা
+          </h2>
+          <p className="text-gray-700 leading-relaxed">
+            BuildBarguna প্ল্যাটফর্মে অ্যাডমিনের দায়িত্ব হলো প্ল্যাটফর্মের স্বাভাবিক কার্যক্রম পরিচালনা করা, ব্যবহারকারীদের অনুরোধ প্রক্রিয়া করা, এবং সিস্টেমের নিরাপত্তা নিশ্চিত করা।
+          </p>
+        </div>
         
-        <h3 className="text-xl font-semibold text-gray-800">অ্যাডমিনের ধরন</h3>
-        <div className="space-y-3">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="font-semibold text-blue-900">সুপার অ্যাডমিন</h4>
-            <ul className="list-disc list-inside text-sm text-blue-800 mt-1">
-              <li>সব অ্যাডমিন ফাংশন</li>
-              <li>অ্যাডমিন ম্যানেজমেন্ট</li>
-              <li>সিস্টেম সেটিংস</li>
+        <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2 mt-6">
+          <span className="w-1 h-6 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full"></span>
+          অ্যাডমিনের ধরন
+        </h3>
+        <div className="grid md:grid-cols-3 gap-4">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-5 rounded-2xl text-white shadow-lg hover:shadow-xl transition-shadow">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-3xl">👑</span>
+              <h4 className="font-bold text-lg">সুপার অ্যাডমিন</h4>
+            </div>
+            <ul className="space-y-2 text-sm opacity-95">
+              <li className="flex items-start gap-2">
+                <span className="text-white mt-0.5">✓</span>
+                <span>সব অ্যাডমিন ফাংশন</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-white mt-0.5">✓</span>
+                <span>অ্যাডমিন ম্যানেজমেন্ট</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-white mt-0.5">✓</span>
+                <span>সিস্টেম সেটিংস</span>
+              </li>
             </ul>
           </div>
-          <div className="bg-purple-50 p-4 rounded-lg">
-            <h4 className="font-semibold text-purple-900">সিনিয়র অ্যাডমিন</h4>
-            <ul className="list-disc list-inside text-sm text-purple-800 mt-1">
-              <li>সব অনুমোদন কাজ</li>
-              <li>রিপোর্ট এক্সেস</li>
-              <li>ব্যবহারকারী ম্যানেজমেন্ট</li>
+          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-5 rounded-2xl text-white shadow-lg hover:shadow-xl transition-shadow">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-3xl">⭐</span>
+              <h4 className="font-bold text-lg">সিনিয়র অ্যাডমিন</h4>
+            </div>
+            <ul className="space-y-2 text-sm opacity-95">
+              <li className="flex items-start gap-2">
+                <span className="text-white mt-0.5">✓</span>
+                <span>সব অনুমোদন কাজ</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-white mt-0.5">✓</span>
+                <span>রিপোর্ট এক্সেস</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-white mt-0.5">✓</span>
+                <span>ব্যবহারকারী ম্যানেজমেন্ট</span>
+              </li>
             </ul>
           </div>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="font-semibold text-gray-900">জুনিয়র অ্যাডমিন</h4>
-            <ul className="list-disc list-inside text-sm text-gray-800 mt-1">
-              <li>মৌলিক অনুমোদন</li>
-              <li>ব্যবহারকারী সাপোর্ট</li>
-              <li>সাধারণ কাজ</li>
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-5 rounded-2xl text-white shadow-lg hover:shadow-xl transition-shadow">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-3xl">🌟</span>
+              <h4 className="font-bold text-lg">জুনিয়র অ্যাডমিন</h4>
+            </div>
+            <ul className="space-y-2 text-sm opacity-95">
+              <li className="flex items-start gap-2">
+                <span className="text-white mt-0.5">✓</span>
+                <span>মৌলিক অনুমোদন</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-white mt-0.5">✓</span>
+                <span>ব্যবহারকারী সাপোর্ট</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-white mt-0.5">✓</span>
+                <span>সাধারণ কাজ</span>
+              </li>
             </ul>
           </div>
         </div>
 
-        <h3 className="text-xl font-semibold text-gray-800 mt-4">নিরাপত্তা</h3>
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
-          <p className="font-semibold text-red-900">⚠️ গুরুত্বপূর্ণ:</p>
-          <ul className="list-disc list-inside text-sm text-red-800 mt-2 space-y-1">
-            <li>অ্যাডমিন পাসওয়ার্ড কখনো শেয়ার করবেন না</li>
-            <li>নিয়মিত পাসওয়ার্ড পরিবর্তন করুন</li>
-            <li>পাবলিক কম্পিউটারে লগইন করবেন না</li>
-            <li>লগআউট বাটন ব্যবহার করে বের হন</li>
-          </ul>
+        <div className="bg-red-50 border-l-4 border-red-500 p-5 rounded-r-2xl">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div>
+              <p className="font-bold text-red-900 mb-2">গুরুত্বপূর্ণ নিরাপত্তা নির্দেশনা:</p>
+              <ul className="space-y-2 text-sm text-red-800">
+                <li className="flex items-start gap-2">
+                  <span className="text-red-600 font-bold">•</span>
+                  <span>অ্যাডমিন পাসওয়ার্ড কখনো শেয়ার করবেন না</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-600 font-bold">•</span>
+                  <span>নিয়মিত পাসওয়ার্ড পরিবর্তন করুন (৩০ দিন পরপর)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-600 font-bold">•</span>
+                  <span>পাবলিক কম্পিউটারে লগইন করবেন না</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-600 font-bold">•</span>
+                  <span>লগআউট বাটন ব্যবহার করে বের হন</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-600 font-bold">•</span>
+                  <span>সন্দেহজনক কার্যকলাপ তাৎক্ষণিক রিপোর্ট করুন</span>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -66,48 +129,85 @@ const adminGuideSections: GuideSection[] = [
     title: 'ড্যাশবোর্ড',
     icon: '📊',
     content: (
-      <div className="space-y-4">
-        <h2 className="text-2xl font-bold text-gray-900">অ্যাডমিন ড্যাশবোর্ড</h2>
-        
-        <h3 className="text-xl font-semibold text-gray-800">মূল মেট্রিক্স</h3>
-        <ul className="grid md:grid-cols-2 gap-3">
-          <li className="bg-blue-50 p-3 rounded-lg">
-            <span className="text-sm text-blue-800">মোট ব্যবহারকারী</span>
-          </li>
-          <li className="bg-blue-50 p-3 rounded-lg">
-            <span className="text-sm text-blue-800">সক্রিয় ব্যবহারকারী (৩০ দিন)</span>
-          </li>
-          <li className="bg-blue-50 p-3 rounded-lg">
-            <span className="text-sm text-blue-800">নতুন ব্যবহারকারী (আজ)</span>
-          </li>
-          <li className="bg-blue-50 p-3 rounded-lg">
-            <span className="text-sm text-blue-800">মোট প্রজেক্ট</span>
-          </li>
-          <li className="bg-blue-50 p-3 rounded-lg">
-            <span className="text-sm text-blue-800">সক্রিয় প্রজেক্ট</span>
-          </li>
-          <li className="bg-blue-50 p-3 rounded-lg">
-            <span className="text-sm text-blue-800">মোট বিনিয়োগ</span>
-          </li>
-        </ul>
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6 border border-indigo-100">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <span className="text-3xl">🎯</span> অ্যাডমিন ড্যাশবোর্ড ওভারভিউ
+          </h2>
+          <p className="text-gray-700 leading-relaxed">
+            ড্যাশবোর্ড থেকে আপনি প্ল্যাটফর্মের সামগ্রিক চিত্র দেখতে পাবেন এবং দ্রুত অ্যাকশন নিতে পারবেন।
+          </p>
+        </div>
 
-        <h3 className="text-xl font-semibold text-gray-800 mt-4">অনুমোদন প্রয়োজন</h3>
-        <ul className="list-disc list-inside space-y-2 text-gray-700">
-          <li>পেন্ডিং শেয়ার রিকোয়েস্ট</li>
-          <li>পেন্ডিং উইথড্র রিকোয়েস্ট</li>
-          <li>পেন্ডিং রিওয়ার্ড রিডিম্পশন</li>
-          <li>পেন্ডিং পয়েন্ট উইথড্র</li>
-        </ul>
+        <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <span className="w-1 h-6 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full"></span>
+          মূল মেট্রিক্স
+        </h3>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            { label: 'মোট ব্যবহারকারী', icon: '👥', color: 'from-blue-500 to-blue-600' },
+            { label: 'সক্রিয় ব্যবহারকারী (৩০ দিন)', icon: '✅', color: 'from-green-500 to-green-600' },
+            { label: 'নতুন ব্যবহারকারী (আজ)', icon: '🆕', color: 'from-purple-500 to-purple-600' },
+            { label: 'মোট প্রজেক্ট', icon: '🏗️', color: 'from-orange-500 to-orange-600' },
+            { label: 'সক্রিয় প্রজেক্ট', icon: '🟢', color: 'from-teal-500 to-teal-600' },
+            { label: 'মোট বিনিয়োগ', icon: '💰', color: 'from-indigo-500 to-indigo-600' },
+          ].map((stat) => (
+            <div key={stat.label} className={`bg-gradient-to-br ${stat.color} p-5 rounded-2xl text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1`}>
+              <div className="flex items-center justify-between">
+                <span className="text-3xl">{stat.icon}</span>
+                <span className="text-2xl font-bold opacity-50">→</span>
+              </div>
+              <p className="text-sm font-medium mt-3">{stat.label}</p>
+            </div>
+          ))}
+        </div>
 
-        <h3 className="text-xl font-semibold text-gray-800 mt-4">দ্রুত অ্যাকশন</h3>
-        <p className="text-gray-700">ড্যাশবোর্ড থেকে সরাসরি:</p>
-        <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
-          <li>শেয়ার অনুমোদন</li>
-          <li>উইথড্র অনুমোদন</li>
-          <li>নতুন প্রজেক্ট তৈরি</li>
-          <li>ব্যবহারকারী দেখুন</li>
-          <li>রিপোর্ট ডাউনলোড</li>
-        </ul>
+        <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2 mt-6">
+          <span className="w-1 h-6 bg-gradient-to-b from-orange-600 to-red-600 rounded-full"></span>
+          অনুমোদন প্রয়োজন
+        </h3>
+        <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-6">
+          <div className="grid md:grid-cols-2 gap-4">
+            {[
+              { label: 'পেন্ডিং শেয়ার রিকোয়েস্ট', icon: '📈', urgent: true },
+              { label: 'পেন্ডিং উইথড্র রিকোয়েস্ট', icon: '💸', urgent: true },
+              { label: 'পেন্ডিং রিওয়ার্ড রিডিম্পশন', icon: '🎁', urgent: false },
+              { label: 'পেন্ডিং পয়েন্ট উইথড্র', icon: '🎯', urgent: false },
+            ].map((item) => (
+              <div key={item.label} className={`flex items-center gap-3 p-4 rounded-xl ${item.urgent ? 'bg-red-50 border border-red-200' : 'bg-white border border-orange-100'}`}>
+                <span className="text-2xl">{item.icon}</span>
+                <div className="flex-1">
+                  <p className={`font-semibold ${item.urgent ? 'text-red-900' : 'text-gray-900'}`}>{item.label}</p>
+                  {item.urgent && <p className="text-xs text-red-600 mt-1">⚡ দ্রুত অনুমোদন প্রয়োজন</p>}
+                </div>
+                {item.urgent && <span className="text-red-600 font-bold text-xl">!</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-100">
+          <h3 className="text-xl font-bold text-green-900 mb-4 flex items-center gap-2">
+            <span className="text-2xl">⚡</span> দ্রুত অ্যাকশন
+          </h3>
+          <div className="flex flex-wrap gap-3">
+            {[
+              { label: 'শেয়ার অনুমোদন', icon: '✓' },
+              { label: 'উইথড্র অনুমোদন', icon: '✓' },
+              { label: 'নতুন প্রজেক্ট তৈরি', icon: '+' },
+              { label: 'ব্যবহারকারী দেখুন', icon: '👁️' },
+              { label: 'রিপোর্ট ডাউনলোড', icon: '📥' },
+            ].map((action) => (
+              <button
+                key={action.label}
+                className="inline-flex items-center gap-2 bg-white hover:bg-green-50 text-green-700 font-medium px-5 py-3 rounded-xl border-2 border-green-200 hover:border-green-300 transition-all hover:shadow-md"
+              >
+                <span className="text-lg">{action.icon}</span>
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     )
   },

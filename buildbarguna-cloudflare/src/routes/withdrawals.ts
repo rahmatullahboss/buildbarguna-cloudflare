@@ -6,7 +6,7 @@ import { adminMiddleware } from '../middleware/admin'
 import { ok, err, getPagination, paginate } from '../lib/response'
 import type {
   Bindings, Variables, Withdrawal, WithdrawalWithUser,
-  WithdrawalSettings, AvailableBalance
+  WithdrawalSettings, AvailableBalance, UserBalance
 } from '../types'
 
 const withdrawalRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
@@ -35,10 +35,26 @@ async function getSettings(db: D1Database): Promise<WithdrawalSettings> {
  * Compute available balance for a user atomically.
  * available = total_earned - total_completed_withdrawn - total_pending_reserved
  *
- * Uses a single transaction to prevent race conditions.
+ * Uses user_balances table if available, otherwise calculates dynamically.
  */
 async function getAvailableBalance(db: D1Database, userId: number): Promise<AvailableBalance> {
-  // Use a single query with subqueries to get consistent snapshot
+  // First try to get balance from user_balances table (explicit tracking)
+  const explicitBalance = await db.prepare(
+    `SELECT total_earned_paisa, total_withdrawn_paisa, reserved_paisa 
+     FROM user_balances WHERE user_id = ?`
+  ).bind(userId).first<UserBalance>()
+
+  // If user_balances exists, use it
+  if (explicitBalance) {
+    return {
+      total_earned_paisa: explicitBalance.total_earned_paisa,
+      total_withdrawn_paisa: explicitBalance.total_withdrawn_paisa,
+      pending_paisa: explicitBalance.reserved_paisa,
+      available_paisa: explicitBalance.total_earned_paisa - explicitBalance.total_withdrawn_paisa - explicitBalance.reserved_paisa
+    }
+  }
+
+  // Fall back to dynamic calculation from earnings and withdrawals
   const result = await db.prepare(`
     SELECT
       (SELECT COALESCE(SUM(amount), 0) FROM earnings WHERE user_id = ?) +
@@ -219,31 +235,87 @@ adminWithdrawalRoutes.get('/', async (c) => {
   return ok(c, paginate(rows.results, countRow?.total ?? 0, page, limit))
 })
 
-// PATCH /api/admin/withdrawals/:id/approve — approve request
+// PATCH /api/admin/withdrawals/:id/approve — approve request + deduct money
 adminWithdrawalRoutes.patch('/:id/approve', async (c) => {
   const id = parseInt(c.req.param('id'))
-  if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+  if (isNaN(id)) return err(c, 'Invalid ID')
   const adminId = c.get('userId')
 
   // Fetch withdrawal
   const withdrawal = await c.env.DB.prepare(
     `SELECT * FROM withdrawals WHERE id = ? AND status = 'pending'`
   ).bind(id).first<Withdrawal>()
-  if (!withdrawal) return err(c, 'অনুরোধ পাওয়া যায়নি বা ইতিমধ্যে প্রক্রিয়া করা হয়েছে', 404)
+  if (!withdrawal) return err(c, 'Request not found or already processed', 404)
 
   // Re-validate balance at approval time (race condition safety)
   const balance = await getAvailableBalance(c.env.DB, withdrawal.user_id)
   if (withdrawal.amount_paisa > balance.available_paisa) {
-    return err(c, 'ব্যবহারকারীর পর্যাপ্ত ব্যালেন্স নেই, অনুমোদন করা সম্ভব হয়নি', 409)
+    return err(c, 'Insufficient balance - approval not possible', 409)
   }
 
-  const result = await c.env.DB.prepare(
+  // Check if user has a balance record, if not create one
+  let balanceRecord = await c.env.DB.prepare(
+    `SELECT * FROM user_balances WHERE user_id = ?`
+  ).bind(withdrawal.user_id).first<UserBalance>()
+
+  if (!balanceRecord) {
+    // Initialize balance from current earnings
+    const totalEarned = balance.total_earned_paisa
+    await c.env.DB.prepare(
+      `INSERT INTO user_balances (user_id, total_earned_paisa, total_withdrawn_paisa, reserved_paisa)
+       VALUES (?, ?, 0, 0)`
+    ).bind(withdrawal.user_id, totalEarned).run()
+    
+    // Create audit log for initialization
+    await c.env.DB.prepare(
+      `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
+       VALUES (?, ?, 'adjustment', 'initialization', ?, ?, 'Initialized from earnings')`
+    ).bind(withdrawal.user_id, totalEarned, id, adminId).run()
+    
+    balanceRecord = { 
+      id: 0, 
+      user_id: withdrawal.user_id, 
+      total_earned_paisa: totalEarned, 
+      total_withdrawn_paisa: 0, 
+      reserved_paisa: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+  }
+
+  // Check available balance in user_balances
+  const explicitAvailable = balanceRecord.total_earned_paisa - balanceRecord.total_withdrawn_paisa - balanceRecord.reserved_paisa
+  if (withdrawal.amount_paisa > explicitAvailable) {
+    return err(c, 'Insufficient explicit balance - approval not possible', 409)
+  }
+
+  // Update withdrawal status to approved
+  const updateResult = await c.env.DB.prepare(
     `UPDATE withdrawals SET status = 'approved', approved_by = ?, approved_at = datetime('now')
      WHERE id = ? AND status = 'pending'`
   ).bind(adminId, id).run()
 
-  if (!result.meta.changes) return err(c, 'অনুরোধ ইতিমধ্যে প্রক্রিয়া করা হয়েছে', 409)
-  return ok(c, { message: 'উত্তোলন অনুরোধ অনুমোদন করা হয়েছে। এখন bKash এ পাঠান।' })
+  if (!updateResult.meta.changes) return err(c, 'Request already processed', 409)
+
+  // Deduct money from user's balance - add to reserved
+  await c.env.DB.prepare(
+    `UPDATE user_balances SET 
+       reserved_paisa = reserved_paisa + ?,
+       updated_at = datetime('now')
+     WHERE user_id = ?`
+  ).bind(withdrawal.amount_paisa, withdrawal.user_id).run()
+
+  // Create audit log for the deduction
+  await c.env.DB.prepare(
+    `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
+     VALUES (?, ?, 'withdraw_reserve', 'withdrawal', ?, ?, 'Withdrawal approved - amount reserved')`
+  ).bind(withdrawal.user_id, -withdrawal.amount_paisa, id, adminId).run()
+
+  return ok(c, { 
+    message: 'Withdrawal request approved. Money deducted from balance.',
+    amount_paisa: withdrawal.amount_paisa,
+    status: 'approved'
+  })
 })
 
 // PATCH /api/admin/withdrawals/:id/complete — mark completed + add TxID
@@ -268,6 +340,10 @@ adminWithdrawalRoutes.patch('/:id/complete', zValidator('json', completeSchema),
   ).bind(bkash_txid).first()
   if (dupTx) return err(c, 'এই TxID ইতিমধ্যে ব্যবহার করা হয়েছে', 409)
 
+  // Get admin ID from context (we need to add it to the function signature)
+  const adminId = c.get('userId')
+
+  // Update withdrawal status to completed
   const result = await c.env.DB.prepare(
     `UPDATE withdrawals
      SET status = 'completed', bkash_txid = ?, completed_at = datetime('now')
@@ -275,10 +351,33 @@ adminWithdrawalRoutes.patch('/:id/complete', zValidator('json', completeSchema),
   ).bind(bkash_txid, id).run()
 
   if (!result.meta.changes) return err(c, 'অনুরোধ ইতিমধ্যে প্রক্রিয়া করা হয়েছে', 409)
+
+  // Move money from reserved to withdrawn in user_balances
+  const balanceRecord = await c.env.DB.prepare(
+    `SELECT * FROM user_balances WHERE user_id = ?`
+  ).bind(withdrawal.user_id).first<UserBalance>()
+
+  if (balanceRecord) {
+    // Move from reserved to withdrawn
+    await c.env.DB.prepare(
+      `UPDATE user_balances SET 
+         reserved_paisa = reserved_paisa - ?,
+         total_withdrawn_paisa = total_withdrawn_paisa + ?,
+         updated_at = datetime('now')
+       WHERE user_id = ?`
+    ).bind(withdrawal.amount_paisa, withdrawal.amount_paisa, withdrawal.user_id).run()
+
+    // Create audit log
+    await c.env.DB.prepare(
+      `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
+       VALUES (?, ?, 'withdraw_complete', 'withdrawal', ?, ?, 'Withdrawal completed - money transferred to bKash')`
+    ).bind(withdrawal.user_id, -withdrawal.amount_paisa, id, adminId, `TxID: ${bkash_txid}`).run()
+  }
+
   return ok(c, { message: `bKash TxID ${bkash_txid} দিয়ে উত্তোলন সম্পন্ন হয়েছে।` })
 })
 
-// PATCH /api/admin/withdrawals/:id/reject — reject with reason
+// PATCH /api/admin/withdrawals/:id/reject — reject with reason + release reserved money
 const rejectSchema = z.object({
   admin_note: z.string().min(1, 'প্রত্যাখ্যানের কারণ দিন')
 })
@@ -286,8 +385,17 @@ const rejectSchema = z.object({
 adminWithdrawalRoutes.patch('/:id/reject', zValidator('json', rejectSchema), async (c) => {
   const id = parseInt(c.req.param('id'))
   if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+  const adminId = c.get('userId')
   const { admin_note } = c.req.valid('json')
 
+  // Get withdrawal to check current status and amount
+  const withdrawal = await c.env.DB.prepare(
+    `SELECT * FROM withdrawals WHERE id = ? AND status IN ('pending', 'approved')`
+  ).bind(id).first<Withdrawal>()
+
+  if (!withdrawal) return err(c, 'অনুরোধ পাওয়া যায়নি বা ইতিমধ্যে প্রক্রিয়া করা হয়েছে', 404)
+
+  // Update withdrawal status to rejected
   const result = await c.env.DB.prepare(
     `UPDATE withdrawals
      SET status = 'rejected', admin_note = ?, rejected_at = datetime('now')
@@ -295,6 +403,30 @@ adminWithdrawalRoutes.patch('/:id/reject', zValidator('json', rejectSchema), asy
   ).bind(admin_note, id).run()
 
   if (!result.meta.changes) return err(c, 'অনুরোধ পাওয়া যায়নি বা ইতিমধ্যে প্রক্রিয়া করা হয়েছে', 404)
+
+  // If withdrawal was approved, release the reserved money back to user
+  if (withdrawal.status === 'approved') {
+    const balanceRecord = await c.env.DB.prepare(
+      `SELECT * FROM user_balances WHERE user_id = ?`
+    ).bind(withdrawal.user_id).first<UserBalance>()
+
+    if (balanceRecord) {
+      // Release reserved money back to available
+      await c.env.DB.prepare(
+        `UPDATE user_balances SET 
+           reserved_paisa = reserved_paisa - ?,
+           updated_at = datetime('now')
+         WHERE user_id = ?`
+      ).bind(withdrawal.amount_paisa, withdrawal.user_id).run()
+
+      // Create audit log for release
+      await c.env.DB.prepare(
+        `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
+         VALUES (?, ?, 'withdraw_release', 'withdrawal', ?, ?, 'Withdrawal rejected - money released back to user')`
+      ).bind(withdrawal.user_id, withdrawal.amount_paisa, id, adminId, admin_note).run()
+    }
+  }
+
   return ok(c, { message: 'উত্তোলন অনুরোধ প্রত্যাখ্যান করা হয়েছে।' })
 })
 
