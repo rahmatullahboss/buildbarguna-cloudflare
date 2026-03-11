@@ -405,7 +405,7 @@ const userGuideSections: GuideSection[] = [
         
         <h3 className="text-xl font-semibold text-gray-800">বোনাস কাঠামো</h3>
         <ul className="list-disc list-inside space-y-2 text-gray-700">
-          <li>প্রথম বিনিয়োগে: ৳২০ (কনফিগারেবল)</li>
+          <li>প্রথম বিনিয়োগে: ৳২০</li>
           <li>সর্বোচ্চ: ৳১,০০০ পর্যন্ত হতে পারে</li>
           <li>রেফারি যখন প্রথম শেয়ার কিনবে</li>
         </ul>
@@ -526,7 +526,7 @@ const userGuideSections: GuideSection[] = [
           
           <div>
             <h3 className="text-lg font-semibold text-gray-900">রেফারেল বোনাস কত?</h3>
-            <p className="text-gray-700">৳২০ (কনফিগারেবল, সর্বোচ্চ ৳১,০০০)।</p>
+            <p className="text-gray-700">৳২০ (সর্বোচ্চ ৳১,০০০)।</p>
           </div>
           
           <div>
