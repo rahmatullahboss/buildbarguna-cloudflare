@@ -93,7 +93,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           lg:pt-14 lg:pb-0 lg:h-auto lg:flex-1
         `}>
           {/* Nav links — scrollable if items overflow */}
-          <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+          <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
             {/* Member section */}
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 pb-1 pt-1">মেম্বার</p>
             {memberNav.map(({ to, label, icon: Icon }) => (
@@ -102,14 +102,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 to={to}
                 onClick={() => setMenuOpen(false)}
                 aria-label={label}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
                   ${location.pathname === to
                     ? 'bg-primary-50 text-primary-700'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
               >
-                <Icon size={18} />
+                <Icon size={16} />
                 {label}
-                {location.pathname === to && <ChevronRight size={14} className="ml-auto" />}
+                {location.pathname === to && <ChevronRight size={12} className="ml-auto" />}
               </Link>
             ))}
 
@@ -126,14 +126,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     to={to}
                     onClick={() => setMenuOpen(false)}
                     aria-label={label}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
                       ${location.pathname === to
                         ? 'bg-amber-50 text-amber-700'
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
                   >
-                    <Icon size={18} />
+                    <Icon size={16} />
                     {label}
-                    {location.pathname === to && <ChevronRight size={14} className="ml-auto text-amber-500" />}
+                    {location.pathname === to && <ChevronRight size={12} className="ml-auto text-amber-500" />}
                   </Link>
                 ))}
               </>
@@ -141,14 +141,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </nav>
 
           {/* Sidebar Footer: Logout + Created by DigitalCare */}
-          <div className="flex-shrink-0 p-4 border-t border-gray-100">
+          <div className="flex-shrink-0 p-3 border-t border-gray-100">
             {/* Logout button */}
             <button
               onClick={handleLogout}
               aria-label="লগআউট করুন"
-              className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-600 transition-colors w-full px-3 py-2 rounded-lg hover:bg-red-50 mb-3"
+              className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-600 transition-colors w-full px-3 py-1.5 rounded-md hover:bg-red-50 mb-2"
             >
-              <LogOut size={18} />
+              <LogOut size={16} />
               লগআউট
             </button>
             
