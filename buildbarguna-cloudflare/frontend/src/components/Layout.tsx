@@ -90,7 +90,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           flex flex-col
           ${menuOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:static lg:translate-x-0 lg:shadow-none lg:border-r lg:border-gray-200
-          lg:pt-14 lg:pb-0 lg:h-auto lg:flex-1
+          lg:pt-0 lg:pb-0 lg:h-auto lg:flex-none
         `}>
           {/* Nav links — scrollable if items overflow */}
           <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">

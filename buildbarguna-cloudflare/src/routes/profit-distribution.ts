@@ -2,6 +2,19 @@
 // 2. DISTRIBUTE PROFIT (Send to all shareholders)
 // ──────────────────────────────────────────────────────────────
 
+import { Hono } from 'hono'
+import { zValidator } from '@hono/zod-validator'
+import { z } from 'zod'
+import { authMiddleware } from '../middleware/auth'
+import { adminMiddleware } from '../middleware/admin'
+import { ok, err } from '../lib/response'
+import type { Bindings, Variables } from '../types'
+
+const profitRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
+
+profitRoutes.use('*', authMiddleware)
+profitRoutes.use('*', adminMiddleware)
+
 const distributeSchema = z.object({
   company_share_percentage: z.number().int().min(0).max(100).default(30),
   period_start: z.string().optional(),
@@ -128,3 +141,5 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
     failed_count: failedCount
   }, 201)
 })
+
+export { profitRoutes }
