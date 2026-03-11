@@ -251,7 +251,7 @@ adminWithdrawalRoutes.patch('/:id/approve', async (c) => {
   try {
     // Step 1: Check/create user_balances atomically with reservation
     let balanceRecord = await c.env.DB.prepare(
-      `SELECT * FROM user_balances WHERE user_id = ? FOR UPDATE`
+      `SELECT * FROM user_balances WHERE user_id = ?`
     ).bind(withdrawal.user_id).first<UserBalance>()
 
     if (!balanceRecord) {
@@ -366,7 +366,7 @@ adminWithdrawalRoutes.patch('/:id/complete', zValidator('json', completeSchema),
 
     // Step 2: Move money from reserved to withdrawn in user_balances
     const balanceRecord = await c.env.DB.prepare(
-      `SELECT * FROM user_balances WHERE user_id = ? FOR UPDATE`
+      `SELECT * FROM user_balances WHERE user_id = ?`
     ).bind(withdrawal.user_id).first<UserBalance>()
 
     if (balanceRecord && balanceRecord.reserved_paisa >= withdrawal.amount_paisa) {
@@ -410,7 +410,7 @@ adminWithdrawalRoutes.patch('/:id/reject', zValidator('json', rejectSchema), asy
   try {
     // Get withdrawal to check current status and amount
     const withdrawal = await c.env.DB.prepare(
-      `SELECT * FROM withdrawals WHERE id = ? AND status IN ('pending', 'approved') FOR UPDATE`
+      `SELECT * FROM withdrawals WHERE id = ? AND status IN ('pending', 'approved')`
     ).bind(id).first<Withdrawal>()
 
     if (!withdrawal) return err(c, 'অনুরোধ পাওয়া যায়নি বা ইতিমধ্যে প্রক্রিয়া করা হয়েছে', 404)
@@ -429,7 +429,7 @@ adminWithdrawalRoutes.patch('/:id/reject', zValidator('json', rejectSchema), asy
     // If withdrawal was approved, release the reserved money back to user
     if (wasApproved) {
       const balanceRecord = await c.env.DB.prepare(
-        `SELECT * FROM user_balances WHERE user_id = ? FOR UPDATE`
+        `SELECT * FROM user_balances WHERE user_id = ?`
       ).bind(withdrawal.user_id).first<UserBalance>()
 
       if (balanceRecord && balanceRecord.reserved_paisa >= withdrawal.amount_paisa) {
