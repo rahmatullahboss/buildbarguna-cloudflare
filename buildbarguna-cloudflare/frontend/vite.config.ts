@@ -46,6 +46,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,woff,woff2}'],
+        navigateFallbackDenylist: [/^\/api/, /\/api\//],
         runtimeCaching: [
           {
             // Cache-first strategy for static assets (app shell)

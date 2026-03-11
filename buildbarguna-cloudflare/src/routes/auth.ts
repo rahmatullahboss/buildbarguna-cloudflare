@@ -350,8 +350,8 @@ authRoutes.get('/google', async (c) => {
     const isProduction = !!c.env.FRONTEND_URL && c.env.FRONTEND_URL.includes('buildbargunainitiative.org')
     const redirectUri = getGoogleRedirectUrl(isProduction ? 'production' : undefined)
 
-    // Store state in KV for later verification
-    await storeOAuthState(c.env.SESSIONS, state, { codeVerifier })
+    // Store state in D1 for later verification
+    await storeOAuthState(c.env.DB, state, { codeVerifier })
 
     // Build authorization URL
     const authUrl = await buildGoogleAuthUrl(redirectUri, state, codeChallenge, c.env)
@@ -382,7 +382,7 @@ authRoutes.get('/google/callback', async (c) => {
     }
 
     // Retrieve and validate state
-    const storedState = await consumeOAuthState(c.env.SESSIONS, state)
+    const storedState = await consumeOAuthState(c.env.DB, state)
     if (!storedState) {
       return c.redirect(`${frontendUrl}/login?error=invalid_state`)
     }
@@ -463,9 +463,9 @@ authRoutes.get('/google/callback', async (c) => {
       c.env.JWT_SECRET
     )
 
-    // Store user data in KV temporarily (5 minutes expiry)
+    // Store user data in D1 temporarily (5 minutes expiry)
     const sessionId = crypto.randomUUID()
-    await c.env.SESSIONS.put(`oauth:session:${sessionId}`, JSON.stringify({
+    const sessionData = JSON.stringify({
       token,
       user: {
         id: user.id,
@@ -475,17 +475,31 @@ authRoutes.get('/google/callback', async (c) => {
         role: user.role,
         referral_code: user.referral_code
       }
-    }), { expirationTtl: 300 })
+    })
+    const expiresAt = Math.floor(Date.now() / 1000) + 300 // 5 minutes
+    
+    // Ensure table exists
+    await c.env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS oauth_states (
+        state TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        expires_at INTEGER NOT NULL
+      )
+    `).run()
+
+    await c.env.DB.prepare(
+      'INSERT OR REPLACE INTO oauth_states (state, data, expires_at) VALUES (?, ?, ?)'
+    ).bind(`session:${sessionId}`, sessionData, expiresAt).run()
 
     // Redirect to frontend with session ID only (not full user data)
-    const oauthBaseUrl = c.env.R2_PUBLIC_URL?.replace('/storage', '') || 'https://buildbargunainitiative.org'
+    const oauthBaseUrl = c.env.FRONTEND_URL || 'https://buildbargunainitiative.org'
     const redirectUrl = new URL('/login', oauthBaseUrl)
     redirectUrl.searchParams.set('oauth_session', sessionId)
 
     return c.redirect(redirectUrl.toString())
   } catch (error) {
     console.error('Google OAuth callback error:', error)
-    const oauthBaseUrl = c.env.R2_PUBLIC_URL?.replace('/storage', '') || 'https://buildbargunainitiative.org'
+    const oauthBaseUrl = c.env.FRONTEND_URL || 'https://buildbargunainitiative.org'
     return c.redirect(`${oauthBaseUrl}/login?error=google_auth_failed`)
   }
 })
@@ -493,22 +507,21 @@ authRoutes.get('/google/callback', async (c) => {
 // GET /api/auth/session/:sessionId - Retrieve OAuth session (one-time use)
 authRoutes.get('/session/:sessionId', async (c) => {
   const { sessionId } = c.req.param()
-  
+
   try {
-    const sessionData = await c.env.SESSIONS.get(`oauth:session:${sessionId}`)
-    
-    if (!sessionData) {
+    const row = await c.env.DB.prepare('SELECT data, expires_at FROM oauth_states WHERE state = ?').bind(`session:${sessionId}`).first<{ data: string, expires_at: number }>()
+
+    if (!row || row.expires_at < Math.floor(Date.now() / 1000)) {
       return err(c, 'সেশন এক্সপায়ার্ড অথবা পাওয়া যায়নি', 404)
     }
-    
+
     // Delete session after retrieval (one-time use)
-    await c.env.SESSIONS.delete(`oauth:session:${sessionId}`)
-    
-    const { token, user } = JSON.parse(sessionData)
-    return ok(c, { token, user })
+    await c.env.DB.prepare('DELETE FROM oauth_states WHERE state = ?').bind(`session:${sessionId}`).run()
+
+    return ok(c, JSON.parse(row.data))
   } catch (error) {
     console.error('Session retrieval error:', error)
-    return err(c, 'সেশন রিট্রিভ করতে ব্যর্থ', 500)
+    return err(c, 'সেশন উদ্ধার করা সম্ভব হয়নি', 500)
   }
 })
 

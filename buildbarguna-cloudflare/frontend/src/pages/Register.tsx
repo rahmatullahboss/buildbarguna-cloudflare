@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authApi, referralsApi } from '../lib/api'
-import { Gift } from 'lucide-react'
+import { Gift, User, Mail, Phone, Lock, CheckCircle } from 'lucide-react'
 import LottieIcon from '../components/LottieIcon'
 
 export default function Register() {
@@ -77,29 +77,29 @@ export default function Register() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="label"><LottieIcon name="user" className="w-4 h-4 inline-block mr-1" /> পূর্ণ নাম</label>
+            <label className="label"><User size={16} className="inline-block mr-1" /> পূর্ণ নাম</label>
             <input className="input" type="text" placeholder="আপনার নাম" value={form.name}
               onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required />
           </div>
           <div>
-            <label className="label"><LottieIcon name="email" className="w-4 h-4 inline-block mr-1" /> ইমেইল ঠিকানা <span className="text-red-500">*</span></label>
+            <label className="label"><Mail size={16} className="inline-block mr-1" /> ইমেইল ঠিকানা <span className="text-red-500">*</span></label>
             <input className="input" type="email" placeholder="আপনার ইমেইল দিন" value={form.email}
               onChange={e => setForm(p => ({ ...p, email: e.target.value }))} required />
           </div>
           <div>
-            <label className="label"><LottieIcon name="phone" className="w-4 h-4 inline-block mr-1" /> মোবাইল নম্বর <span className="text-gray-400 font-normal text-xs">(ঐচ্ছিক)</span></label>
+            <label className="label"><Phone size={16} className="inline-block mr-1" /> মোবাইল নম্বর <span className="text-gray-400 font-normal text-xs">(ঐচ্ছিক)</span></label>
             <input className="input" type="tel" placeholder="01XXXXXXXXX" value={form.phone}
               onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
               pattern="01[3-9][0-9]{8}"
               title="সঠিক বাংলাদেশি মোবাইল নম্বর দিন (যেমন: 01712345678)" />
           </div>
           <div>
-            <label className="label"><LottieIcon name="lock" className="w-4 h-4 inline-block mr-1" /> পাসওয়ার্ড</label>
+            <label className="label"><Lock size={16} className="inline-block mr-1" /> পাসওয়ার্ড</label>
             <input className="input" type="password" placeholder="কমপক্ষে ৬ অক্ষর" value={form.password}
               onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required minLength={6} />
           </div>
           <div>
-            <label className="label"><LottieIcon name="gift" className="w-4 h-4 inline-block mr-1" /> রেফারেল কোড <span className="text-gray-400 font-normal text-xs">(ঐচ্ছিক)</span></label>
+            <label className="label"><Gift size={16} className="inline-block mr-1" /> রেফারেল কোড <span className="text-gray-400 font-normal text-xs">(ঐচ্ছিক)</span></label>
             <div className="relative">
               <input
                 className={`input pr-10 font-mono tracking-widest ${refValid === false ? 'border-red-400 focus:ring-red-300' : refValid === true ? 'border-green-400 focus:ring-green-300' : ''}`}
@@ -129,7 +129,7 @@ export default function Register() {
               ? <span className="flex items-center justify-center gap-2">
                   <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />রেজিস্ট্রেশন হচ্ছে...
                 </span>
-              : <><LottieIcon name="checkmark" className="w-5 h-5 inline-block mr-1" /> রেজিস্ট্রেশন করুন</>}
+              : <><CheckCircle size={18} className="inline-block mr-1" /> রেজিস্ট্রেশন করুন</>}
           </button>
         </form>
 

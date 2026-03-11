@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authApi, setToken } from '../lib/api'
 import { saveUser } from '../lib/auth'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, CheckCircle } from 'lucide-react'
 import LottieIcon from '../components/LottieIcon'
 
 export default function Login() {
@@ -100,7 +100,7 @@ export default function Login() {
           {/* Email or Phone */}
           <div>
             <label className="label" htmlFor="identifier">
-              <LottieIcon name="email" className="w-4 h-4 inline-block mr-1" /> ইমেইল অথবা <LottieIcon name="phone" className="w-4 h-4 inline-block mr-1" /> মোবাইল নম্বর
+              <Mail size={16} className="inline-block mr-1" /> ইমেইল অথবা <Mail size={16} className="inline-block mr-1" /> মোবাইল নম্বর
             </label>
             <input
               id="identifier"
@@ -117,7 +117,7 @@ export default function Login() {
           {/* Password with show/hide */}
           <div>
             <label className="label" htmlFor="password">
-              <LottieIcon name="lock" className="w-4 h-4 inline-block mr-1" /> পাসওয়ার্ড
+              <Lock size={16} className="inline-block mr-1" /> পাসওয়ার্ড
             </label>
             <div className="relative">
               <input
@@ -159,7 +159,7 @@ export default function Login() {
                   <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                   লগইন হচ্ছে...
                 </span>
-              : <><LottieIcon name="lock" className="w-5 h-5 inline-block mr-1" /> লগইন করুন</>}
+              : <><CheckCircle size={18} className="inline-block mr-1" /> লগইন করুন</>}
           </button>
         </form>
 

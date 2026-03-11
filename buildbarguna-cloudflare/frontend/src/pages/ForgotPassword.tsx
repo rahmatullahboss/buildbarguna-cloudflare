@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { authApi } from '../lib/api'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Mail, CheckCircle, AlertTriangle, Lightbulb, Lock } from 'lucide-react'
 import LottieIcon from '../components/LottieIcon'
 
 export default function ForgotPassword() {
@@ -82,7 +82,7 @@ export default function ForgotPassword() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
             <div>
-              <label className="label" htmlFor="email"><LottieIcon name="email" className="w-4 h-4 inline-block mr-1" /> ইমেইল ঠিকানা</label>
+              <label className="label" htmlFor="email"><Mail size={16} className="inline-block mr-1" /> ইমেইল ঠিকানা</label>
               <input
                 id="email"
                 className="input"
@@ -106,7 +106,7 @@ export default function ForgotPassword() {
                     <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                     পাঠানো হচ্ছে...
                   </span>
-                : <><LottieIcon name="email" className="w-5 h-5 inline-block mr-1" /> রিসেট লিঙ্ক দিন</>}
+                : <><Mail size={18} className="inline-block mr-1" /> রিসেট লিঙ্ক দিন</>}
             </button>
           </form>
         )}
@@ -114,7 +114,7 @@ export default function ForgotPassword() {
         {/* Info box */}
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-2xl p-4">
           <p className="text-xs text-blue-800">
-            <span className="font-semibold flex items-center gap-1"><LottieIcon name="phone" className="w-4 h-4" /> মনে রাখবেন:</span>
+            <span className="font-semibold flex items-center gap-1"><Lightbulb size={14} /> মনে রাখবেন:</span>
           </p>
           <ul className="text-xs text-blue-700 mt-2 space-y-1">
             <li>• রিসেট লিঙ্কটি ১৫ মিনিটের জন্য বৈধ</li>
@@ -125,7 +125,7 @@ export default function ForgotPassword() {
 
         {/* Trust badge */}
         <div className="mt-6 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-3 text-center">
-          <p className="text-xs font-semibold text-emerald-800 flex items-center justify-center gap-1"><LottieIcon name="lock" className="w-4 h-4" /> নিরাপদ পাসওয়ার্ড রিসেট</p>
+          <p className="text-xs font-semibold text-emerald-800 flex items-center justify-center gap-1"><Lock size={14} /> নিরাপদ পাসওয়ার্ড রিসেট</p>
           <p className="text-xs text-emerald-600 mt-0.5">আপনার অ্যাকাউন্ট সুরক্ষিত রাখতে আমরা সর্বোচ্চ চেষ্টা করি</p>
         </div>
       </div>

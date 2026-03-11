@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authApi } from '../lib/api'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Lock, CheckCircle, AlertTriangle } from 'lucide-react'
 import LottieIcon from '../components/LottieIcon'
 
 export default function ResetPassword() {
@@ -103,7 +103,7 @@ export default function ResetPassword() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* New Password */}
             <div>
-              <label className="label" htmlFor="password"><LottieIcon name="lock" className="w-4 h-4 inline-block mr-1" /> নতুন পাসওয়ার্ড</label>
+              <label className="label" htmlFor="password"><Lock size={16} className="inline-block mr-1" /> নতুন পাসওয়ার্ড</label>
               <div className="relative">
                 <input
                   id="password"
@@ -128,7 +128,7 @@ export default function ResetPassword() {
 
             {/* Confirm Password */}
             <div>
-              <label className="label" htmlFor="confirmPassword"><LottieIcon name="lock" className="w-4 h-4 inline-block mr-1" /> পাসওয়ার্ড নিশ্চিত করুন</label>
+              <label className="label" htmlFor="confirmPassword"><Lock size={16} className="inline-block mr-1" /> পাসওয়ার্ড নিশ্চিত করুন</label>
               <div className="relative">
                 <input
                   id="confirmPassword"
@@ -175,14 +175,14 @@ export default function ResetPassword() {
                     <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                     রিসেট হচ্ছে...
                   </span>
-                : <><LottieIcon name="lock" className="w-5 h-5 inline-block mr-1" /> পাসওয়ার্ড রিসেট করুন</>}
+                : <><Lock size={18} className="inline-block mr-1" /> পাসওয়ার্ড রিসেট করুন</>}
             </button>
           </form>
         )}
 
         {/* Trust badge */}
         <div className="mt-6 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-3 text-center">
-          <p className="text-xs font-semibold text-emerald-800 flex items-center justify-center gap-1"><LottieIcon name="lock" className="w-4 h-4" /> নিরাপদ পাসওয়ার্ড রিসেট</p>
+          <p className="text-xs font-semibold text-emerald-800 flex items-center justify-center gap-1"><Lock size={14} /> নিরাপদ পাসওয়ার্ড রিসেট</p>
           <p className="text-xs text-emerald-600 mt-0.5">আপনার অ্যাকাউন্ট সুরক্ষিত রাখতে আমরা সর্বোচ্চ চেষ্টা করি</p>
         </div>
       </div>

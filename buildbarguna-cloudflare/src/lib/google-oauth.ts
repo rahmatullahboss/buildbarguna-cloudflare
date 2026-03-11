@@ -128,28 +128,52 @@ export interface GoogleUserInfo {
 }
 
 /**
- * Store OAuth state in KV for later verification
+ * Store OAuth state in D1 for later verification
  * State is stored with 10 minute expiry
  */
 export async function storeOAuthState(
-  kv: KVNamespace,
+  db: D1Database,
   state: string,
   data: { codeVerifier: string; redirectPath?: string }
 ): Promise<void> {
-  await kv.put(`oauth:state:${state}`, JSON.stringify(data), { expirationTtl: 600 })
+  // Ensure table exists
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS oauth_states (
+      state TEXT PRIMARY KEY,
+      data TEXT NOT NULL,
+      expires_at INTEGER NOT NULL
+    )
+  `).run()
+
+  const expiresAt = Math.floor(Date.now() / 1000) + 600 // 10 minutes
+
+  await db.prepare(
+    'INSERT OR REPLACE INTO oauth_states (state, data, expires_at) VALUES (?, ?, ?)'
+  ).bind(state, JSON.stringify(data), expiresAt).run()
+  
+  // Cleanup old states lazily (ignore errors)
+  db.prepare('DELETE FROM oauth_states WHERE expires_at < ?').bind(Math.floor(Date.now() / 1000)).run().catch(() => {})
 }
 
 /**
- * Retrieve and delete OAuth state from KV
+ * Retrieve and delete OAuth state from D1
  */
 export async function consumeOAuthState(
-  kv: KVNamespace,
+  db: D1Database,
   state: string
 ): Promise<{ codeVerifier: string; redirectPath?: string } | null> {
-  const data = await kv.get(`oauth:state:${state}`)
-  if (data) {
-    await kv.delete(`oauth:state:${state}`)
-    return JSON.parse(data)
+  try {
+    const row = await db.prepare('SELECT data, expires_at FROM oauth_states WHERE state = ?').bind(state).first<{ data: string, expires_at: number }>()
+    
+    if (row) {
+      await db.prepare('DELETE FROM oauth_states WHERE state = ?').bind(state).run()
+      
+      if (row.expires_at > Math.floor(Date.now() / 1000)) {
+        return JSON.parse(row.data)
+      }
+    }
+  } catch (e) {
+    console.error('Error consuming OAuth state from D1:', e)
   }
   return null
 }

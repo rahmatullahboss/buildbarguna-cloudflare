@@ -286,52 +286,37 @@ app.use('*', async (c, next) => {
   await next()
 })
 
-// Rate limiting middleware using KV store with in-memory fallback
+// Rate limiting middleware using in-memory cache
 const rateLimitCache = new Map<string, { count: number; expiry: number }>()
 const RATE_LIMIT_WINDOW = 60 // 60 seconds
 const RATE_LIMIT_MAX = 100
+
+// We do lazy cleanup on each request occasionally to avoid memory leaks
+let lastCleanup = Date.now()
 
 app.use('/api/*', async (c, next) => {
   const ip = c.req.header('CF-Connecting-IP') || 'unknown'
   const key = `rate_limit:${ip}`
   const now = Date.now()
   
-  // Check in-memory cache first (fast path - no KV needed)
+  // Lazy cleanup every 5 minutes
+  if (now - lastCleanup > 300000) {
+    lastCleanup = now
+    for (const [k, v] of rateLimitCache.entries()) {
+      if (v.expiry <= now) rateLimitCache.delete(k)
+    }
+  }
+
   const cached = rateLimitCache.get(key)
   
   if (cached && cached.expiry > now) {
-    // In-memory rate limit check
     if (cached.count > RATE_LIMIT_MAX) {
-      console.log(`[RateLimit] Blocked ${ip} - ${cached.count} requests (memory)`)
+      console.log(`[RateLimit] Blocked ${ip} - ${cached.count} requests`)
       return c.json({ success: false, error: 'অনুরোধের সীমা অতিক্রম করেছে' }, 429)
     }
     cached.count++
   } else {
-    // Check KV for existing count (fallback from previous instance)
-    try {
-      const current = await c.env.SESSIONS.get(key)
-      const count = current ? parseInt(current, 10) : 0
-      
-      if (count > RATE_LIMIT_MAX) {
-        console.log(`[RateLimit] Blocked ${ip} - ${count} requests (KV)`)
-        return c.json({ success: false, error: 'অনুরোধের সীমা অতিক্রম করেছে' }, 429)
-      }
-      
-      // Update in-memory cache
-      rateLimitCache.set(key, { count: count + 1, expiry: now + RATE_LIMIT_WINDOW * 1000 })
-      
-      // Try to update KV (non-blocking, best-effort)
-      // Use try-catch to handle KV write limit errors gracefully
-      try {
-        await c.env.SESSIONS.put(key, (count + 1).toString(), { expirationTtl: RATE_LIMIT_WINDOW })
-      } catch (kvError) {
-        console.warn('[RateLimit] KV write failed, continuing with memory-only:', kvError)
-      }
-    } catch (error) {
-      // KV read failed - fall back to in-memory only
-      console.warn('[RateLimit] KV read failed, using memory-only:', error)
-      rateLimitCache.set(key, { count: 1, expiry: now + RATE_LIMIT_WINDOW * 1000 })
-    }
+    rateLimitCache.set(key, { count: 1, expiry: now + RATE_LIMIT_WINDOW * 1000 })
   }
   
   await next()
