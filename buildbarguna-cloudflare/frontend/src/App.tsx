@@ -49,6 +49,10 @@ const CompanyExpenses = lazy(() => import('./pages/admin/CompanyExpenses'))
 const AdminTutorial   = lazy(() => import('./pages/admin/AdminTutorial'))
 const AdminTasks = lazy(() => import('./pages/admin/AdminTasks'))
 
+// Guide pages
+const UserGuide = lazy(() => import('./pages/UserGuide'))
+const AdminGuide = lazy(() => import('./pages/AdminGuide'))
+
 // Minimal full-page loading fallback with shimmer cards
 function PageLoader() {
   return (
@@ -93,6 +97,7 @@ export default function App() {
         <Route path="/tasks"         element={<ProtectedRoute><Layout><Tasks /></Layout></ProtectedRoute>} />
         <Route path="/member-registration" element={<ProtectedRoute><MemberRegistration /></ProtectedRoute>} />
         <Route path="/membership" element={<ProtectedRoute><Layout><Membership /></Layout></ProtectedRoute>} />
+        <Route path="/guide" element={<ProtectedRoute><Layout><UserGuide /></Layout></ProtectedRoute>} />
 
         {/* Admin routes */}
         <Route path="/admin"                element={<AdminRoute><Layout><AdminDashboard /></Layout></AdminRoute>} />
@@ -109,6 +114,7 @@ export default function App() {
         <Route path="/admin/members"        element={<AdminRoute><Layout><AdminMembers /></Layout></AdminRoute>} />
         <Route path="/admin/referrals"      element={<AdminRoute><Layout><AdminReferrals /></Layout></AdminRoute>} />
         <Route path="/admin/tutorial"       element={<AdminRoute><Layout><AdminTutorial /></Layout></AdminRoute>} />
+        <Route path="/admin/guide"          element={<AdminRoute><Layout><AdminGuide /></Layout></AdminRoute>} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />

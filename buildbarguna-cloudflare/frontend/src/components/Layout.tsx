@@ -3,7 +3,7 @@ import { authApi, clearToken } from '../lib/api'
 import { getUser, isAdmin } from '../lib/auth'
 import {
   Home, Briefcase, PieChart, TrendingUp,
-  LogOut, Settings, Menu, X, ChevronRight, BarChart2, ArrowDownCircle, Gift, Building2, BookOpen, FileText, CheckSquare, ListTodo, User
+  LogOut, Settings, Menu, X, ChevronRight, BarChart2, ArrowDownCircle, Gift, Building2, BookOpen, FileText, CheckSquare, ListTodo, User, Book
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -27,6 +27,7 @@ const memberNav = [
   { to: '/withdraw', label: 'উত্তোলন', icon: ArrowDownCircle },
   { to: '/referrals', label: 'রেফারেল', icon: Gift },
   { to: '/profile/edit', label: 'প্রোফাইল এডিট', icon: User },
+  { to: '/guide', label: 'ব্যবহারকারী গাইড', icon: Book },
 ]
 
 const adminNav = [
@@ -41,7 +42,8 @@ const adminNav = [
   { to: '/admin/members', label: 'মেম্বারশিপ', icon: CheckSquare },
   { to: '/admin/referrals', label: 'রেফারেল ব্যবস্থাপনা', icon: Gift },
   { to: '/admin/company-expenses', label: 'কোম্পানি খরচ', icon: Building2 },
-  { to: '/admin/tutorial', label: 'গাইড', icon: BookOpen },
+  { to: '/admin/tutorial', label: 'টিউটোরিয়াল', icon: BookOpen },
+  { to: '/admin/guide', label: 'অ্যাডমিন গাইড', icon: Book },
 ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -61,7 +63,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Top bar — fixed height, never scrolls */}
-      <header className="bg-gradient-to-r from-primary-800 via-primary-700 to-teal-700 text-white z-50 shadow-lg flex-shrink-0">
+      <header className="bg-gradient-to-r from-primary-800 via-primary-700 to-teal-700 text-white z-50 shadow-lg flex-shrink-0 fixed top-0 left-0 right-0">
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
           <Link to="/dashboard" className="font-bold text-lg tracking-tight flex items-center gap-2">
             <img src="/bbi logo.jpg" alt="BBI Logo" className="h-8 w-8 object-contain" />
@@ -77,15 +79,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
+      {/* Spacer for fixed header */}
+      <div className="h-14 flex-shrink-0" />
+
       {/* Body row — fills remaining height, no overflow */}
       <div className="flex flex-1 min-h-0">
         {/* Sidebar — scrolls independently, never affects page */}
         <aside className={`
-          fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-xl transform transition-transform duration-200 pt-[calc(3.5rem+var(--sat))]
+          fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-xl transform transition-transform duration-200 pt-[calc(3.5rem+var(--sat))] pb-[calc(4rem+var(--sab))]
           flex flex-col
           ${menuOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:static lg:translate-x-0 lg:shadow-none lg:border-r lg:border-gray-200
-          lg:pt-0 lg:h-full
+          lg:pt-14 lg:pb-0 lg:h-auto lg:flex-1
         `}>
           {/* Nav links — scrollable if items overflow */}
           <nav className="flex-1 overflow-y-auto p-4 space-y-1">
@@ -165,7 +170,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {menuOpen && <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setMenuOpen(false)} />}
 
         {/* Main content — scrolls independently, pb-20 on mobile for bottom nav */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-32 lg:pb-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 pt-6 pb-32 lg:pb-6 lg:pt-6">
           <div key={location.pathname} className="max-w-5xl mx-auto w-full page-enter">
             {children}
           </div>
