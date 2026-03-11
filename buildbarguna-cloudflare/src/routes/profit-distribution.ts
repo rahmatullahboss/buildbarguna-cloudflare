@@ -273,14 +273,18 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
 
   const distributionId = distResult.meta.last_row_id
 
-  // Distribute profit to each shareholder and add to earnings
-  const insertResults = await Promise.allSettled(
-    shareholders.results.map(async (sh) => {
-      const ownershipPct = Math.floor((sh.shares_held / totalSharesSold) * 10000) // basis points
-      const profitAmount = Math.floor((investorPool * sh.shares_held) / totalSharesSold)
+  // Distribute profit to each shareholder and add to earnings (Batched for performance)
+  const statements: any[] = []
+  const currentMonth = new Date().toISOString().slice(0, 7)
+  const investorRateBps = (100 - data.company_share_percentage) * 100 // e.g., 70% = 7000 bps
 
-      // Insert shareholder profit record
-      await c.env.DB.prepare(
+  for (const sh of shareholders.results) {
+    const ownershipPct = Math.floor((sh.shares_held / totalSharesSold) * 10000) // basis points
+    const profitAmount = Math.floor((investorPool * sh.shares_held) / totalSharesSold)
+
+    // 1. Shareholder profit record
+    statements.push(
+      c.env.DB.prepare(
         `INSERT INTO shareholder_profits 
          (distribution_id, project_id, user_id, shares_held, 
           total_shares, ownership_percentage, profit_amount, 
@@ -294,18 +298,12 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
         totalSharesSold,
         ownershipPct,
         profitAmount
-      ).run()
+      )
+    )
 
-      // Add to earnings table (for withdrawal capability)
-      // We store the actual profit distributed to each shareholder
-      // The "rate" field represents the return rate in basis points on their investment
-      // rate = (profit_amount / investment_value) * 10000
-      // investment_value = shares_held * share_price (but we don't have share_price here)
-      // So we'll store the investor percentage as reference instead
-      const currentMonth = new Date().toISOString().slice(0, 7)
-      const investorRateBps = (100 - data.company_share_percentage) * 100 // e.g., 70% = 7000 bps
-      
-      await c.env.DB.prepare(
+    // 2. Earnings record
+    statements.push(
+      c.env.DB.prepare(
         `INSERT INTO earnings (user_id, project_id, month, shares, rate, amount)
          VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(user_id, project_id, month) DO UPDATE SET amount = amount + excluded.amount`
@@ -314,16 +312,24 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
         projectId,
         currentMonth,
         sh.shares_held,
-        investorRateBps, // Store investor share percentage as basis points
+        investorRateBps,
         profitAmount
-      ).run()
-    })
-  )
+      )
+    )
+  }
 
-  // Check for failures
-  const failedCount = insertResults.filter(r => r.status === 'rejected').length
-  if (failedCount > 0) {
-    console.error(`[profit-distribution] ${failedCount} shareholders failed to credit`)
+  // Execute in batches of 100 (D1 limit)
+  let failedCount = 0
+  if (statements.length > 0) {
+    for (let i = 0; i < statements.length; i += 100) {
+      const chunk = statements.slice(i, i + 100)
+      try {
+        await c.env.DB.batch(chunk)
+      } catch (err) {
+        console.error(`[profit-distribution] Batch failed:`, err)
+        failedCount += chunk.length / 2 // Approximately half are users
+      }
+    }
   }
 
   return ok(c, {
