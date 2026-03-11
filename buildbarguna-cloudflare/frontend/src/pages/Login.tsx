@@ -28,13 +28,23 @@ export default function Login() {
       // Fetch user data from backend using session ID
       const fetchSession = async () => {
         try {
-          const WORKER_URL = import.meta.env.VITE_WORKER_URL ?? 'https://buildbarguna-worker.rahmatullahzisan01.workers.dev'
-          const res = await fetch(`${WORKER_URL}/api/auth/session/${sessionId}`)
+          const WORKER_URL = import.meta.env.VITE_WORKER_URL ?? 'https://buildbargunainitiative.org'
+          const res = await fetch(`${WORKER_URL}/api/auth/session/${sessionId}`, {
+            credentials: 'include'
+          })
           const json = await res.json()
           
           if (json.success && json.data) {
             setToken(json.data.token)
             saveUser(json.data.user)
+            
+            // Check if user needs to complete profile (Google signup without phone)
+            if (json.data.needsProfileCompletion) {
+              window.history.replaceState(null, '', '/login')
+              navigate('/complete-profile', { replace: true })
+              return
+            }
+            
             // Redirect to dashboard (single navigation, remove query params via state)
             const targetUrl = json.data.user.role === 'admin' ? '/admin' : '/dashboard'
             window.history.replaceState(null, '', '/login') // Clean URL without navigation

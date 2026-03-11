@@ -15,6 +15,7 @@ export type Bindings = {
   R2_SECRET_ACCESS_KEY: string
   R2_BUCKET_NAME: string
   GOOGLE_CLIENT_ID?: string // Google OAuth 2.0 Client ID
+  GOOGLE_CLIENT_SECRET?: string // Google OAuth 2.0 Client Secret
   RESEND_API_KEY?: string   // Resend email API key
   EMAIL_FROM?: string       // Sender email address
   FRONTEND_URL?: string     // Frontend URL for redirects (e.g., https://buildbargunainitiative.org)

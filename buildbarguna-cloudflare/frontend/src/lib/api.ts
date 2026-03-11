@@ -87,7 +87,11 @@ export const authApi = {
   forgotPassword: (email: string) =>
     request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
   resetPassword: (token: string, password: string) =>
-    request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) })
+    request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
+  completeProfile: (body: { phone: string; referral_code?: string }) =>
+    request<{ token?: string; user: UserProfile }>('/auth/complete-profile', { method: 'POST', body: JSON.stringify(body) }),
+  updateProfile: (body: { name?: string; phone?: string; referral_code?: string }) =>
+    request<{ user: UserProfile }>('/auth/profile', { method: 'PUT', body: JSON.stringify(body) })
 }
 
 // Projects

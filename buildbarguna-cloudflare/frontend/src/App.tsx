@@ -11,6 +11,8 @@ import Register from './pages/Register'
 import Tutorial from './pages/Tutorial'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import CompleteProfile from './pages/CompleteProfile'
+import EditProfile from './pages/EditProfile'
 
 // Smart root route: redirect logged-in users to dashboard
 function RootRoute() {
@@ -75,6 +77,8 @@ export default function App() {
         <Route path="/tutorial" element={<Layout><Tutorial /></Layout>} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/complete-profile" element={<CompleteProfile />} />
+        <Route path="/profile/edit" element={<ProtectedRoute><Layout><EditProfile /></Layout></ProtectedRoute>} />
 
         {/* Protected member routes */}
         <Route path="/dashboard"      element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />

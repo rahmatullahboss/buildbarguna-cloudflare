@@ -28,10 +28,11 @@ head_sampling_rate = 1
 
 # ── Static assets — React SPA build output ───────────────────────────────────
 [assets]
+binding = "ASSETS"
 directory = "dist"
 html_handling = "auto-trailing-slash"
 not_found_handling = "single-page-application"
-run_worker_first = true
+run_worker_first = ["/api/*"]
 
 # ── D1 Database ───────────────────────────────────────────────────────────────
 [[d1_databases]]

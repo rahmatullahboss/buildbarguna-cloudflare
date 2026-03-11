@@ -387,7 +387,7 @@ authRoutes.get('/google/callback', async (c) => {
       return c.redirect(`${frontendUrl}/login?error=invalid_state`)
     }
 
-    // Exchange code for tokens
+    // Exchange code for tokens — direct HTTP POST to Google token endpoint
     const isProduction = !!c.env.FRONTEND_URL && !c.env.FRONTEND_URL.includes('localhost')
     const redirectUri = getGoogleRedirectUrl(isProduction ? 'production' : undefined)
     const tokenResponse = await exchangeCodeForToken(code, storedState.codeVerifier, redirectUri, c.env)
@@ -417,12 +417,13 @@ authRoutes.get('/google/callback', async (c) => {
       const referralCode = generateReferralCode()
 
       const result = await c.env.DB.prepare(
-        `INSERT INTO users (name, email, google_id, password_hash, referral_code, email_verified, is_active)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO users (name, email, google_id, phone, password_hash, referral_code, email_verified, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         googleUser.name,
         googleUser.email,
         googleUser.id,
+        `_google_${googleUser.id}`, // Unique placeholder — user can set real phone later
         passwordHash,
         referralCode,
         googleUser.verified_email ? 1 : 0,
@@ -450,6 +451,9 @@ authRoutes.get('/google/callback', async (c) => {
       return c.redirect(`${frontendUrl}/login?error=account_inactive`)
     }
 
+    // Check if user needs to complete profile (Google users have placeholder phone)
+    const needsProfileCompletion = user.phone?.startsWith('_google_') ?? true
+
     // Generate JWT token
     const jti = generateJti()
     const token = await createToken(
@@ -474,7 +478,8 @@ authRoutes.get('/google/callback', async (c) => {
         phone: user.phone,
         role: user.role,
         referral_code: user.referral_code
-      }
+      },
+      needsProfileCompletion
     })
     const expiresAt = Math.floor(Date.now() / 1000) + 300 // 5 minutes
     
@@ -508,6 +513,11 @@ authRoutes.get('/google/callback', async (c) => {
 authRoutes.get('/session/:sessionId', async (c) => {
   const { sessionId } = c.req.param()
 
+  // CORS headers for cross-origin requests from buildbargunainitiative.org
+  const allowedOrigin = c.req.header('Origin') === 'https://buildbargunainitiative.org' 
+    ? 'https://buildbargunainitiative.org' 
+    : c.req.header('Origin')
+
   try {
     const row = await c.env.DB.prepare('SELECT data, expires_at FROM oauth_states WHERE state = ?').bind(`session:${sessionId}`).first<{ data: string, expires_at: number }>()
 
@@ -518,10 +528,153 @@ authRoutes.get('/session/:sessionId', async (c) => {
     // Delete session after retrieval (one-time use)
     await c.env.DB.prepare('DELETE FROM oauth_states WHERE state = ?').bind(`session:${sessionId}`).run()
 
-    return ok(c, JSON.parse(row.data))
+    const response = ok(c, JSON.parse(row.data))
+    // Add CORS headers
+    if (allowedOrigin) {
+      response.headers.set('Access-Control-Allow-Origin', allowedOrigin)
+      response.headers.set('Access-Control-Allow-Credentials', 'true')
+    }
+    return response
   } catch (error) {
     console.error('Session retrieval error:', error)
     return err(c, 'সেশন উদ্ধার করা সম্ভব হয়নি', 500)
   }
+})
+
+// Complete profile after Google signup (phone + referral)
+const completeProfileSchema = z.object({
+  phone: z.string().regex(/^01[3-9]\d{8}$/, 'সঠিক বাংলাদেশি মোবাইল নম্বর দিন'),
+  referral_code: z.string().optional()
+})
+
+authRoutes.post('/complete-profile', authMiddleware, zValidator('json', completeProfileSchema), async (c) => {
+  const userId = c.get('userId')
+  const { phone, referral_code } = c.req.valid('json')
+
+  // Check if phone is already taken
+  const existingPhone = await c.env.DB.prepare(
+    'SELECT id FROM users WHERE phone = ? AND id != ?'
+  ).bind(phone, userId).first()
+
+  if (existingPhone) {
+    return err(c, 'এই মোবাইল নম্বর ইতিমধ্যে ব্যবহৃত হয়েছে', 409)
+  }
+
+  // Validate referral code if provided
+  let referrerUserId: number | null = null
+  if (referral_code) {
+    const sanitizedReferralCode = referral_code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+    const referrer = await c.env.DB.prepare(
+      'SELECT id FROM users WHERE UPPER(referral_code) = ? AND is_active = 1 AND id != ?'
+    ).bind(sanitizedReferralCode, userId).first<{ id: number }>()
+
+    if (!referrer) {
+      return err(c, 'রেফারেল কোড সঠিক নয়')
+    }
+    referrerUserId = referrer.id
+  }
+
+  // Update user profile
+  const result = await c.env.DB.prepare(
+    'UPDATE users SET phone = ?, referral_code = COALESCE(?, referral_code), referred_by = COALESCE(?, referred_by), referrer_user_id = COALESCE(?, referrer_user_id) WHERE id = ?'
+  ).bind(phone, referral_code ?? null, referral_code ?? null, referrerUserId, userId).run()
+
+  if (!result.success) {
+    return err(c, 'প্রোফাইল আপডেট ব্যর্থ হয়েছে', 500)
+  }
+
+  // Fetch updated user
+  const user = await c.env.DB.prepare(
+    'SELECT id, name, phone, email, role, referral_code, referred_by, is_active, created_at FROM users WHERE id = ?'
+  ).bind(userId).first<Omit<User, 'password_hash'>>()
+
+  if (!user) {
+    return err(c, 'ব্যবহারকারী পাওয়া যায়নি', 404)
+  }
+
+  return ok(c, { user })
+})
+
+// Update user profile (PUT /api/auth/profile)
+const updateProfileSchema = z.object({
+  name: z.string().min(2, 'নাম কমপক্ষে ২ অক্ষরের হতে হবে').optional(),
+  phone: z.string().regex(/^01[3-9]\d{8}$/, 'সঠিক বাংলাদেশি মোবাইল নম্বর দিন').optional(),
+  referral_code: z.string().optional()
+})
+
+authRoutes.put('/profile', authMiddleware, zValidator('json', updateProfileSchema), async (c) => {
+  const userId = c.get('userId')
+  const { name, phone, referral_code } = c.req.valid('json')
+
+  // Check if phone is already taken (if updating phone)
+  if (phone) {
+    const existingPhone = await c.env.DB.prepare(
+      'SELECT id FROM users WHERE phone = ? AND id != ?'
+    ).bind(phone, userId).first()
+
+    if (existingPhone) {
+      return err(c, 'এই মোবাইল নম্বর ইতিমধ্যে ব্যবহৃত হয়েছে', 409)
+    }
+  }
+
+  // Validate referral code if provided
+  let referrerUserId: number | null = null
+  if (referral_code) {
+    const sanitizedReferralCode = referral_code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+    const referrer = await c.env.DB.prepare(
+      'SELECT id FROM users WHERE UPPER(referral_code) = ? AND is_active = 1 AND id != ?'
+    ).bind(sanitizedReferralCode, userId).first<{ id: number }>()
+
+    if (!referrer) {
+      return err(c, 'রেফারেল কোড সঠিক নয়')
+    }
+    referrerUserId = referrer.id
+  }
+
+  // Build update query dynamically
+  const updates: string[] = []
+  const values: (string | number)[] = []
+
+  if (name) {
+    updates.push('name = ?')
+    values.push(name)
+  }
+  if (phone) {
+    updates.push('phone = ?')
+    values.push(phone)
+  }
+  if (referral_code) {
+    updates.push('referral_code = ?')
+    values.push(referral_code)
+    updates.push('referred_by = ?')
+    values.push(referral_code)
+    updates.push('referrer_user_id = ?')
+    values.push(referrerUserId!)
+  }
+
+  if (updates.length === 0) {
+    return err(c, 'কোনো তথ্য আপডেট করা হয়নি', 400)
+  }
+
+  values.push(userId)
+
+  const result = await c.env.DB.prepare(
+    `UPDATE users SET ${updates.join(', ')} WHERE id = ?`
+  ).bind(...values).run()
+
+  if (!result.success) {
+    return err(c, 'প্রোফাইল আপডেট ব্যর্থ হয়েছে', 500)
+  }
+
+  // Fetch updated user
+  const user = await c.env.DB.prepare(
+    'SELECT id, name, phone, email, role, referral_code, referred_by, is_active, created_at FROM users WHERE id = ?'
+  ).bind(userId).first<Omit<User, 'password_hash'>>()
+
+  if (!user) {
+    return err(c, 'ব্যবহারকারী পাওয়া যায়নি', 404)
+  }
+
+  return ok(c, { user })
 })
 

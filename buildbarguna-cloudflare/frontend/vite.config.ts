@@ -65,7 +65,8 @@ export default defineConfig({
           },
           {
             // Network-first strategy for API requests
-            urlPattern: /^https?:\/\/.*\/api\//i,
+            // EXCLUDE /api/auth/* — auth routes (OAuth redirects) must NEVER be cached
+            urlPattern: /^https?:\/\/.*\/api\/(?!auth).+/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'buildbarguna-api-cache',

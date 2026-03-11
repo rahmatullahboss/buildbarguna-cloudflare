@@ -112,6 +112,7 @@ app.use('/api/*', cors({
       // Production domains
       'https://buildbarguna-worker.workers.dev',
       'https://buildbarguna-worker.rahmatullahzisan01.workers.dev',
+      'https://buildbargunainitiative.org',
       // Local development
       'http://localhost:5173',
       'http://localhost:8787',
@@ -389,6 +390,11 @@ app.get('/api/download/app', (c) => {
 
 // Favicon — serve empty 204
 app.get('/favicon.ico', (c) => new Response(null, { status: 204 }))
+
+// Catch-all for /api/* routes that didn't match (return 404, don't fall to SPA)
+app.on(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], '/api/*', (c) => {
+  return c.json({ success: false, error: 'API endpoint not found' }, 404)
+})
 
 // Export: fetch handler + scheduled (Cron Trigger)
 export default {

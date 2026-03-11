@@ -3,7 +3,7 @@ import { authApi, clearToken } from '../lib/api'
 import { getUser, isAdmin } from '../lib/auth'
 import {
   Home, Briefcase, PieChart, TrendingUp,
-  LogOut, Settings, Menu, X, ChevronRight, BarChart2, ArrowDownCircle, Gift, Building2, BookOpen, FileText, CheckSquare, ListTodo
+  LogOut, Settings, Menu, X, ChevronRight, BarChart2, ArrowDownCircle, Gift, Building2, BookOpen, FileText, CheckSquare, ListTodo, User
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -26,6 +26,7 @@ const memberNav = [
   { to: '/membership', label: 'মেম্বারশিপ', icon: FileText },
   { to: '/withdraw', label: 'উত্তোলন', icon: ArrowDownCircle },
   { to: '/referrals', label: 'রেফারেল', icon: Gift },
+  { to: '/profile/edit', label: 'প্রোফাইল এডিট', icon: User },
 ]
 
 const adminNav = [

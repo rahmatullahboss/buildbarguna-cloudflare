@@ -11,6 +11,7 @@ const GOOGLE_USERINFO_ENDPOINT = 'https://www.googleapis.com/oauth2/v2/userinfo'
 
 export interface Env {
   GOOGLE_CLIENT_ID?: string
+  GOOGLE_CLIENT_SECRET?: string
 }
 
 // Cached authorization server discovery
@@ -66,35 +67,57 @@ export async function buildGoogleAuthUrl(
 }
 
 /**
- * Exchange authorization code for tokens
+ * Google token endpoint response type
+ */
+export interface GoogleTokenResponse {
+  access_token: string
+  expires_in: number
+  scope: string
+  token_type: string
+  id_token?: string
+  refresh_token?: string
+}
+
+/**
+ * Exchange authorization code for tokens using direct HTTP request to Google
+ * This bypasses oauth4webapi complexity and calls Google's token endpoint directly
  */
 export async function exchangeCodeForToken(
   code: string,
   codeVerifier: string,
   redirectUri: string,
   env?: Env
-): Promise<oauth.TokenEndpointResponse> {
-  const as = await getAuthorizationServer()
-  const client = { client_id: env?.GOOGLE_CLIENT_ID || '' }
-  
-  // Create callback parameters from the authorization code
-  const callbackParams = new URLSearchParams()
-  callbackParams.set('code', code)
-  callbackParams.set('state', '') // State is validated separately
-  
-  const clientAuth = oauth.ClientSecretPost('')
-  
-  const tokenResponse = await oauth.authorizationCodeGrantRequest(
-    as,
-    client,
-    clientAuth,
-    callbackParams,
-    redirectUri,
-    codeVerifier
-  )
+): Promise<GoogleTokenResponse> {
+  const clientId = env?.GOOGLE_CLIENT_ID || ''
+  const clientSecret = env?.GOOGLE_CLIENT_SECRET || ''
 
-  return oauth.processAuthorizationCodeResponse(as, client, tokenResponse)
+  if (!clientSecret) {
+    throw new Error('GOOGLE_CLIENT_SECRET is not configured')
+  }
+
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code',
+      code_verifier: codeVerifier,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.text()
+    throw new Error(`Google token exchange failed (${response.status}): ${errorBody}`)
+  }
+
+  return response.json() as Promise<GoogleTokenResponse>
 }
+
 
 /**
  * Fetch user info from Google

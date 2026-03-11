@@ -1,0 +1,115 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { authApi, setToken } from '../lib/api'
+import { saveUser } from '../lib/auth'
+import { Phone, Gift, CheckCircle } from 'lucide-react'
+import LottieIcon from '../components/LottieIcon'
+
+export default function CompleteProfile() {
+  const navigate = useNavigate()
+  const [form, setForm] = useState({ phone: '', referral_code: '' })
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    const res = await authApi.completeProfile({ phone: form.phone, referral_code: form.referral_code || undefined })
+    setLoading(false)
+    
+    if (!res.success) {
+      setError((res as { error: string }).error)
+      setTimeout(() => setError(''), 5000)
+      return
+    }
+
+    // Update token and user
+    if (res.data.token) {
+      setToken(res.data.token)
+    }
+    saveUser(res.data.user)
+    
+    // Redirect to dashboard
+    navigate(res.data.user.role === 'admin' ? '/admin' : '/dashboard')
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-teal-700 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Decorative background circles */}
+      <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative z-10">
+        {/* Logo + title */}
+        <div className="text-center mb-8">
+          <div className="w-20 h-20 bg-gradient-to-br from-primary-500 to-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg overflow-hidden">
+            <img src="/bbi logo.jpg" alt="BBI Logo" className="w-full h-full object-cover" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">প্রোফাইল সম্পূর্ণ করুন</h1>
+          <p className="text-gray-500 text-sm mt-2">আপনার প্রোফাইল আপডেট করুন</p>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3 mb-4 text-sm flex items-start gap-2">
+            <LottieIcon name="warning" className="w-5 h-5 flex-shrink-0" />
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Phone Number */}
+          <div>
+            <label className="label" htmlFor="phone">
+              <Phone size={16} className="inline-block mr-1" /> মোবাইল নম্বর
+            </label>
+            <input
+              id="phone"
+              className="input"
+              type="tel"
+              placeholder="01XXXXXXXXX"
+              value={form.phone}
+              onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
+              pattern="01[3-9]\d{8}"
+              title="সঠিক বাংলাদেশি মোবাইল নম্বর দিন"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">উদাহরণ: 01712345678</p>
+          </div>
+
+          {/* Referral Code (Optional) */}
+          <div>
+            <label className="label" htmlFor="referral_code">
+              <Gift size={16} className="inline-block mr-1" /> রেফারেল কোড <span className="text-gray-400 font-normal">(ঐচ্ছিক)</span>
+            </label>
+            <input
+              id="referral_code"
+              className="input"
+              type="text"
+              placeholder="রেফারেল কোড দিন (যদি থাকে)"
+              value={form.referral_code}
+              onChange={e => setForm(p => ({ ...p, referral_code: e.target.value.toUpperCase() }))}
+            />
+            <p className="text-xs text-gray-500 mt-1">যদি কেউ আপনাকে রেফার করে থাকে</p>
+          </div>
+
+          <button
+            type="submit"
+            className="btn-primary w-full py-3.5 text-base mt-2"
+            disabled={loading}
+            aria-label="সম্পূর্ণ করুন"
+          >
+            {loading
+              ? <span className="flex items-center justify-center gap-2">
+                  <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  সংরক্ষণ হচ্ছে...
+                </span>
+              : <><CheckCircle size={18} className="inline-block mr-1" /> সম্পূর্ণ করুন</>}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
