@@ -364,7 +364,7 @@ const adminGuideSections: GuideSection[] = [
           API: PATCH /api/admin/referrals/settings
         </p>
         <div className="bg-gray-100 p-3 rounded-lg text-sm">
-          <p>referral_bonus_paisa: 5000 (৳৫০)</p>
+          <p>referral_bonus_paisa: 2000 (৳২০)</p>
           <p className="text-red-600 mt-1">সর্বোচ্চ: ৳১,০০০ (১০০,০০০ পয়সা)</p>
         </div>
 

@@ -405,7 +405,7 @@ const userGuideSections: GuideSection[] = [
         
         <h3 className="text-xl font-semibold text-gray-800">বোনাস কাঠামো</h3>
         <ul className="list-disc list-inside space-y-2 text-gray-700">
-          <li>প্রথম বিনিয়োগে: ৳৫০ (কনফিগারেবল)</li>
+          <li>প্রথম বিনিয়োগে: ৳২০ (কনফিগারেবল)</li>
           <li>সর্বোচ্চ: ৳১,০০০ পর্যন্ত হতে পারে</li>
           <li>রেফারি যখন প্রথম শেয়ার কিনবে</li>
         </ul>
@@ -547,9 +547,15 @@ const userGuideSections: GuideSection[] = [
 
         <h3 className="text-xl font-semibold text-gray-800 mt-8">যোগাযোগ</h3>
         <div className="bg-blue-50 p-4 rounded-lg">
-          <p className="text-gray-700"><strong>ইমেইল:</strong> support@buildbargunainitiative.org</p>
-          <p className="text-gray-700"><strong>ফোন:</strong> +880 XXXXXXXXXX</p>
-          <p className="text-gray-700"><strong>সময়:</strong> রবি-বৃহস্পতি, সকাল ১০টা - সন্ধ্যা ৬টা</p>
+          <p className="text-gray-700">
+            যেকোনো প্রয়োজনে অ্যাপের <strong>হেল্পলাইন</strong> সেকশন চেক করুন অথবা অ্যাডমিনদের সাথে যোগাযোগ করুন।
+          </p>
+          <p className="text-gray-600 text-sm mt-2">
+            <strong>ইমেইল:</strong> support@buildbargunainitiative.org
+          </p>
+          <p className="text-gray-600 text-sm">
+            <strong>সময়:</strong> রবি-বৃহস্পতি, সকাল ১০টা - সন্ধ্যা ৬টা
+          </p>
         </div>
       </div>
     )
