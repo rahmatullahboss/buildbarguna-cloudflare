@@ -162,6 +162,45 @@ adminRoutes.patch('/projects/:id/status', zValidator('json', z.object({ status: 
   const id = parseInt(c.req.param('id'))
   if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
   const { status } = c.req.valid('json')
+
+  const project = await c.env.DB.prepare('SELECT status, share_price FROM projects WHERE id = ?').bind(id).first<{ status: string, share_price: number }>()
+  if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
+
+  if (project.status !== 'closed' && status === 'closed') {
+    // Project is being closed. Refund capital to all shareholders.
+    const shareholders = await c.env.DB.prepare(
+      'SELECT user_id, quantity FROM user_shares WHERE project_id = ? AND quantity > 0'
+    ).bind(id).all<{ user_id: number, quantity: number }>()
+
+    if (shareholders.results.length > 0) {
+      const adminId = c.get('userId')
+      
+      for (const sh of shareholders.results) {
+        const refundAmount = sh.quantity * project.share_price
+        
+        // Insert a record into earnings table as a special 'capital_refund' month
+        const refundMonth = 'refund-' + new Date().toISOString().slice(0, 7)
+        await c.env.DB.prepare(
+          `INSERT INTO earnings (user_id, project_id, month, shares, rate, amount)
+           VALUES (?, ?, ?, ?, 0, ?)
+           ON CONFLICT(user_id, project_id, month) DO UPDATE SET amount = amount + excluded.amount`
+        ).bind(sh.user_id, id, refundMonth, sh.quantity, refundAmount).run()
+        
+        // Also update explicit balance if exists
+        const balanceUpdate = await c.env.DB.prepare(
+          `UPDATE user_balances SET total_earned_paisa = total_earned_paisa + ?, updated_at = datetime('now') WHERE user_id = ?`
+        ).bind(refundAmount, sh.user_id).run()
+
+        if (balanceUpdate.meta.changes > 0) {
+          await c.env.DB.prepare(
+            `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
+             VALUES (?, ?, 'earn', 'capital_refund', ?, ?, ?)`
+          ).bind(sh.user_id, refundAmount, id, adminId, `Capital refund for project ${id} closure`).run()
+        }
+      }
+    }
+  }
+
   await c.env.DB.prepare('UPDATE projects SET status = ? WHERE id = ?').bind(status, id).run()
   return ok(c, { message: 'প্রজেক্ট স্ট্যাটাস আপডেট হয়েছে' })
 })
@@ -282,10 +321,20 @@ adminRoutes.patch('/shares/:id/approve', async (c) => {
         ).bind(buyer.referrer_user_id, purchase.user_id, bonusPaisa).run()
 
         // Only credit balance if bonus was newly inserted (not a duplicate)
-        // Bonus goes into referral_bonuses only — NOT earnings table.
-        // Balance query in withdrawals.ts already includes referral_bonuses sum.
-        if (bonusInsert.meta.changes === 0) {
-          // Already credited — idempotent, do nothing
+        if (bonusInsert.meta.changes > 0) {
+          const bonusId = bonusInsert.meta.last_row_id
+          
+          // Update explicit user_balances if it exists
+          const balanceUpdate = await c.env.DB.prepare(
+            `UPDATE user_balances SET total_earned_paisa = total_earned_paisa + ?, updated_at = datetime('now') WHERE user_id = ?`
+          ).bind(bonusPaisa, buyer.referrer_user_id).run()
+
+          if (balanceUpdate.meta.changes > 0) {
+            await c.env.DB.prepare(
+              `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
+               VALUES (?, ?, 'earn', 'referral_bonus', ?, ?, ?)`
+            ).bind(buyer.referrer_user_id, bonusPaisa, bonusId, c.get('userId'), `Referral bonus for user ${purchase.user_id}`).run()
+          }
         }
       }
     }

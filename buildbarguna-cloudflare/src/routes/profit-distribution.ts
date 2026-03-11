@@ -317,6 +317,18 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
         investorRateBps, // Store investor share percentage as basis points
         profitAmount
       ).run()
+
+      // Update explicit user_balances if it exists
+      const balanceUpdate = await c.env.DB.prepare(
+        `UPDATE user_balances SET total_earned_paisa = total_earned_paisa + ?, updated_at = datetime('now') WHERE user_id = ?`
+      ).bind(profitAmount, sh.user_id).run()
+
+      if (balanceUpdate.meta.changes > 0) {
+        await c.env.DB.prepare(
+          `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
+           VALUES (?, ?, 'earn', 'profit_distribution', ?, ?, ?)`
+        ).bind(sh.user_id, profitAmount, distributionId, userId, `Profit distribution for project ${projectId}`).run()
+      }
     })
   )
 
