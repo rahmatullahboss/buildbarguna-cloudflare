@@ -44,23 +44,41 @@ export async function distributeMonthlyEarnings(env: Bindings, month?: string): 
 
     if (!shareholders.results.length) return
 
-    const statements = shareholders.results
-      .map(holder => {
-        // Use share_price based formula — more accurate than proportion of total_capital
-        // Formula: floor(shares × share_price × rate_bps / 10000)
-        const amount = calcEarningBySharePrice(
-          holder.quantity,
-          row.share_price,
-          row.rate
-        )
-        if (amount <= 0) return null
+    const statements: D1PreparedStatement[] = []
+    for (const holder of shareholders.results) {
+      // Use share_price based formula — more accurate than proportion of total_capital
+      // Formula: floor(shares × share_price × rate_bps / 10000)
+      const amount = calcEarningBySharePrice(
+        holder.quantity,
+        row.share_price,
+        row.rate
+      )
+      if (amount <= 0) continue
 
-        return env.DB.prepare(
+      // Earnings record (INSERT OR IGNORE keeps idempotency)
+      statements.push(
+        env.DB.prepare(
           `INSERT OR IGNORE INTO earnings (user_id, project_id, month, shares, rate, amount)
            VALUES (?, ?, ?, ?, ?, ?)`
         ).bind(holder.user_id, row.project_id, targetMonth, holder.quantity, row.rate, amount)
-      })
-      .filter(Boolean) as D1PreparedStatement[]
+      )
+
+      // CRITICAL FIX: Also update user_balances so earnings are immediately withdrawable
+      // Uses INSERT OR IGNORE + UPDATE pattern to handle users without a balance row
+      statements.push(
+        env.DB.prepare(
+          `UPDATE user_balances SET total_earned_paisa = total_earned_paisa + ?, updated_at = datetime('now') WHERE user_id = ?`
+        ).bind(amount, holder.user_id)
+      )
+
+      // Audit trail for balance change
+      statements.push(
+        env.DB.prepare(
+          `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, note)
+           VALUES (?, ?, 'earn', 'monthly_earnings', ?, ?)`
+        ).bind(holder.user_id, amount, row.project_id, `Earnings for ${targetMonth}`)
+      )
+    }
 
     if (!statements.length) return
 

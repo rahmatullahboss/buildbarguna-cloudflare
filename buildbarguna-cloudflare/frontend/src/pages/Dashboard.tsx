@@ -221,7 +221,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Withdrawal summary card */}
       {wbal && wbal.available_paisa > 0 && (
         <div className="card bg-gradient-to-br from-purple-50 to-violet-50 border-purple-100">
           <div className="flex items-center justify-between mb-3">
@@ -232,27 +231,26 @@ export default function Dashboard() {
               উত্তোলন করুন <ArrowRight size={12} />
             </Link>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white rounded-xl p-3 border border-purple-100 text-center">
-              <p className="text-xs text-gray-400 mb-1">মোট মুনাফা</p>
-              <p className="font-bold text-gray-700 text-sm">{formatTaka(wbal.total_earned_paisa)}</p>
+          <div className="flex items-baseline justify-between mb-3">
+            <div>
+              <p className="text-xs text-gray-400 mb-0.5">উত্তোলনযোগ্য</p>
+              <p className="text-2xl font-bold text-purple-700">{formatTaka(wbal.available_paisa)}</p>
             </div>
-            <div className="bg-white rounded-xl p-3 border border-purple-100 text-center">
-              <p className="text-xs text-gray-400 mb-1">উত্তোলিত</p>
-              <p className="font-bold text-gray-500 text-sm">{formatTaka(wbal.total_withdrawn_paisa)}</p>
-            </div>
-            <div className="bg-white rounded-xl p-3 border border-purple-100 text-center">
-              <p className="text-xs text-gray-400 mb-1">উপলব্ধ</p>
-              <p className="font-bold text-purple-700 text-sm">{formatTaka(wbal.available_paisa)}</p>
+            <div className="text-right">
+              <p className="text-xs text-gray-400">মোট অর্জিত</p>
+              <p className="font-semibold text-gray-600">{formatTaka(wbal.total_earned_paisa)}</p>
             </div>
           </div>
-          {wbal.pending_paisa > 0 && (
-            <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
-              <ArrowDownCircle size={12} /> {formatTaka(wbal.pending_paisa)} অপেক্ষমাণ অনুরোধে রিজার্ভ আছে
-            </p>
-          )}
+          <p className="text-xs text-gray-400">
+            সম্পন্ন: {formatTaka(wbal.total_withdrawn_paisa)}
+            {(wbal as any).approved_paisa > 0 && (
+              <> • <span className="text-blue-600 font-medium">অনুমোদিত (bKash পাঠানো হবে): {formatTaka((wbal as any).approved_paisa)}</span></>
+            )}
+            {wbal.pending_paisa > 0 && <> • অপেক্ষমাণ: {formatTaka(wbal.pending_paisa)}</>}
+          </p>
         </div>
       )}
+
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">

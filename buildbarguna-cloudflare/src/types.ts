@@ -327,7 +327,9 @@ export type WithdrawalSettings = {
 export type AvailableBalance = {
   total_earned_paisa: number
   total_withdrawn_paisa: number   // completed only
-  pending_paisa: number           // pending + approved (reserved)
+  pending_paisa: number           // status='pending' only awaiting admin review
+  approved_paisa: number          // status='approved' — admin approved, bKash send pending
+  reserved_paisa: number          // pending + approved (total locked)
   available_paisa: number         // earned - withdrawn - reserved
 }
 

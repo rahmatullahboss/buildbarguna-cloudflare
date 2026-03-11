@@ -38,19 +38,36 @@ async function getSettings(db: D1Database): Promise<WithdrawalSettings> {
  * Uses user_balances table if available, otherwise calculates dynamically.
  */
 async function getAvailableBalance(db: D1Database, userId: number): Promise<AvailableBalance> {
+  // Always fetch live pending/approved breakdown from withdrawals table
+  const liveCounts = await db.prepare(`
+    SELECT
+      COALESCE(SUM(CASE WHEN status = 'pending'  THEN amount_paisa ELSE 0 END), 0) as pending_live,
+      COALESCE(SUM(CASE WHEN status = 'approved' THEN amount_paisa ELSE 0 END), 0) as approved_live
+    FROM withdrawals WHERE user_id = ? AND status IN ('pending', 'approved')
+  `).bind(userId).first<{ pending_live: number; approved_live: number }>()
+
+  const pendingPaisa  = liveCounts?.pending_live  ?? 0
+  const approvedPaisa = liveCounts?.approved_live ?? 0
+  const reservedPaisa = pendingPaisa + approvedPaisa
+
   // First try to get balance from user_balances table (explicit tracking)
   const explicitBalance = await db.prepare(
-    `SELECT total_earned_paisa, total_withdrawn_paisa, reserved_paisa 
+    `SELECT total_earned_paisa, total_withdrawn_paisa, reserved_paisa
      FROM user_balances WHERE user_id = ?`
   ).bind(userId).first<UserBalance>()
 
-  // If user_balances exists, use it
+  // If user_balances exists, use it for earned/withdrawn totals
   if (explicitBalance) {
     return {
-      total_earned_paisa: explicitBalance.total_earned_paisa,
+      total_earned_paisa:    explicitBalance.total_earned_paisa,
       total_withdrawn_paisa: explicitBalance.total_withdrawn_paisa,
-      pending_paisa: explicitBalance.reserved_paisa,
-      available_paisa: explicitBalance.total_earned_paisa - explicitBalance.total_withdrawn_paisa - explicitBalance.reserved_paisa
+      pending_paisa:         pendingPaisa,
+      approved_paisa:        approvedPaisa,
+      reserved_paisa:        reservedPaisa,
+      available_paisa:
+        explicitBalance.total_earned_paisa -
+        explicitBalance.total_withdrawn_paisa -
+        reservedPaisa
     }
   }
 
@@ -59,19 +76,19 @@ async function getAvailableBalance(db: D1Database, userId: number): Promise<Avai
     SELECT
       (SELECT COALESCE(SUM(amount), 0) FROM earnings WHERE user_id = ?) +
       (SELECT COALESCE(SUM(amount_paisa), 0) FROM referral_bonuses WHERE referrer_user_id = ?) as total_earned,
-      (SELECT COALESCE(SUM(amount_paisa), 0) FROM withdrawals WHERE user_id = ? AND status = 'completed') as total_withdrawn,
-      (SELECT COALESCE(SUM(amount_paisa), 0) FROM withdrawals WHERE user_id = ? AND status IN ('pending', 'approved')) as pending
-  `).bind(userId, userId, userId, userId).first<{ total_earned: number; total_withdrawn: number; pending: number }>()
+      (SELECT COALESCE(SUM(amount_paisa), 0) FROM withdrawals WHERE user_id = ? AND status = 'completed') as total_withdrawn
+  `).bind(userId, userId, userId).first<{ total_earned: number; total_withdrawn: number }>()
 
-  const totalEarned = result?.total_earned ?? 0
+  const totalEarned    = result?.total_earned    ?? 0
   const totalWithdrawn = result?.total_withdrawn ?? 0
-  const pendingPaisa = result?.pending ?? 0
 
   return {
-    total_earned_paisa: totalEarned,
+    total_earned_paisa:    totalEarned,
     total_withdrawn_paisa: totalWithdrawn,
-    pending_paisa: pendingPaisa,
-    available_paisa: totalEarned - totalWithdrawn - pendingPaisa
+    pending_paisa:         pendingPaisa,
+    approved_paisa:        approvedPaisa,
+    reserved_paisa:        reservedPaisa,
+    available_paisa:       totalEarned - totalWithdrawn - reservedPaisa
   }
 }
 
@@ -258,7 +275,11 @@ adminWithdrawalRoutes.patch('/:id/approve', async (c) => {
       // Get current dynamic balance including existing pending/approved withdrawals as reserved
       const currentBalance = await getAvailableBalance(c.env.DB, withdrawal.user_id)
       const totalEarned = currentBalance.total_earned_paisa
-      const existingReserved = currentBalance.pending_paisa // pending + approved
+      // CRITICAL FIX: Exclude the current withdrawal from reserved count.
+      // getAvailableBalance() counts ALL pending/approved withdrawals including this one,
+      // but Step 4 below will add this withdrawal's amount to reserved_paisa.
+      // Without this fix, the amount gets double-counted and the balance check always fails.
+      const existingReserved = Math.max(0, currentBalance.pending_paisa - withdrawal.amount_paisa)
 
       // Insert with existing reserved amount accounted for
       await c.env.DB.prepare(

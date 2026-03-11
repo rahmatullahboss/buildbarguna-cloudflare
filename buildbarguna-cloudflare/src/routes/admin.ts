@@ -168,35 +168,48 @@ adminRoutes.patch('/projects/:id/status', zValidator('json', z.object({ status: 
 
   if (project.status !== 'closed' && status === 'closed') {
     // Project is being closed. Refund capital to all shareholders.
+    // SECURITY FIX: Batch operations to avoid D1 timeout with large shareholder counts
     const shareholders = await c.env.DB.prepare(
       'SELECT user_id, quantity FROM user_shares WHERE project_id = ? AND quantity > 0'
     ).bind(id).all<{ user_id: number, quantity: number }>()
 
     if (shareholders.results.length > 0) {
       const adminId = c.get('userId')
-      
+      const refundMonth = 'refund-' + new Date().toISOString().slice(0, 7)
+
+      // Collect all statements and batch them to avoid per-shareholder await loops
+      const statements: D1PreparedStatement[] = []
       for (const sh of shareholders.results) {
         const refundAmount = sh.quantity * project.share_price
-        
-        // Insert a record into earnings table as a special 'capital_refund' month
-        const refundMonth = 'refund-' + new Date().toISOString().slice(0, 7)
-        await c.env.DB.prepare(
-          `INSERT INTO earnings (user_id, project_id, month, shares, rate, amount)
-           VALUES (?, ?, ?, ?, 0, ?)
-           ON CONFLICT(user_id, project_id, month) DO UPDATE SET amount = amount + excluded.amount`
-        ).bind(sh.user_id, id, refundMonth, sh.quantity, refundAmount).run()
-        
-        // Also update explicit balance if exists
-        const balanceUpdate = await c.env.DB.prepare(
-          `UPDATE user_balances SET total_earned_paisa = total_earned_paisa + ?, updated_at = datetime('now') WHERE user_id = ?`
-        ).bind(refundAmount, sh.user_id).run()
 
-        if (balanceUpdate.meta.changes > 0) {
-          await c.env.DB.prepare(
+        // Earnings record
+        statements.push(
+          c.env.DB.prepare(
+            `INSERT INTO earnings (user_id, project_id, month, shares, rate, amount)
+             VALUES (?, ?, ?, ?, 0, ?)
+             ON CONFLICT(user_id, project_id, month) DO UPDATE SET amount = amount + excluded.amount`
+          ).bind(sh.user_id, id, refundMonth, sh.quantity, refundAmount)
+        )
+
+        // Update user_balances
+        statements.push(
+          c.env.DB.prepare(
+            `UPDATE user_balances SET total_earned_paisa = total_earned_paisa + ?, updated_at = datetime('now') WHERE user_id = ?`
+          ).bind(refundAmount, sh.user_id)
+        )
+
+        // Audit log
+        statements.push(
+          c.env.DB.prepare(
             `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
              VALUES (?, ?, 'earn', 'capital_refund', ?, ?, ?)`
-          ).bind(sh.user_id, refundAmount, id, adminId, `Capital refund for project ${id} closure`).run()
-        }
+          ).bind(sh.user_id, refundAmount, id, adminId, `Capital refund for project ${id} closure`)
+        )
+      }
+
+      // D1 batch limit is 100 statements — chunk and execute
+      for (let i = 0; i < statements.length; i += 100) {
+        await c.env.DB.batch(statements.slice(i, i + 100))
       }
     }
   }
@@ -588,12 +601,15 @@ adminRoutes.put('/rewards/:id', zValidator('json', rewardSchema.partial()), asyn
   
   // Sanitize string fields to prevent XSS
   body = sanitizeObject(body, ['name', 'description', 'image_url'])
-  
-  const fields = Object.entries(body).filter(([, v]) => v !== undefined)
+
+  // SECURITY FIX: Whitelist allowed fields — never interpolate arbitrary keys into SQL
+  const ALLOWED_FIELDS = ['name', 'description', 'points_required', 'quantity', 'image_url'] as const
+  const fields = (Object.keys(body) as string[])
+    .filter((k): k is typeof ALLOWED_FIELDS[number] => ALLOWED_FIELDS.includes(k as any) && body[k as keyof typeof body] !== undefined)
   if (fields.length === 0) return err(c, 'কোনো পরিবর্তন নেই')
-  
-  const setClauses = fields.map(([k]) => `${k} = ?`).join(', ')
-  const values = fields.map(([, v]) => v)
+
+  const setClauses = fields.map(k => `${k} = ?`).join(', ')
+  const values = fields.map(k => body[k as keyof typeof body])
   
   await c.env.DB.prepare(`UPDATE rewards SET ${setClauses}, updated_at = datetime('now') WHERE id = ?`)
     .bind(...values, id).run()
@@ -637,6 +653,44 @@ adminRoutes.patch('/redemptions/:id/status', async (c) => {
   
   const adminNote = body.admin_note as string || null
   
+  // SECURITY FIX: If rejecting/cancelling, refund the user's points
+  if (status === 'rejected' || status === 'cancelled') {
+    // Fetch the redemption to know how many points to refund
+    const redemption = await c.env.DB.prepare(
+      `SELECT rr.user_id, rr.status as current_status, r.points_required
+       FROM reward_redemptions rr
+       JOIN rewards r ON rr.reward_id = r.id
+       WHERE rr.id = ? AND rr.status = 'pending'`
+    ).bind(id).first<{ user_id: number; current_status: string; points_required: number }>()
+
+    if (!redemption) {
+      return err(c, 'রিডিম পাওয়া যায়নি অথবা ইতিমধ্যে প্রসেস করা হয়েছে', 404)
+    }
+
+    // Atomically update status first to prevent double-refund
+    const statusUpdate = await c.env.DB.prepare(
+      `UPDATE reward_redemptions SET status = ?, admin_note = ?, updated_at = datetime('now') WHERE id = ? AND status = 'pending'`
+    ).bind(status, adminNote, id).run()
+
+    if (!statusUpdate.meta.changes || statusUpdate.meta.changes === 0) {
+      return err(c, 'রিডিম ইতিমধ্যে প্রসেস করা হয়েছে', 409)
+    }
+
+    // Refund points — status already changed so no double-refund risk
+    await c.env.DB.prepare(
+      `UPDATE user_points SET available_points = available_points + ?, updated_at = datetime('now') WHERE user_id = ?`
+    ).bind(redemption.points_required, redemption.user_id).run()
+
+    // Create refund transaction record
+    await c.env.DB.prepare(
+      `INSERT INTO point_transactions (user_id, points, transaction_type, description, month_year)
+       VALUES (?, ?, 'refunded', ?, strftime('%Y-%m', 'now'))`
+    ).bind(redemption.user_id, redemption.points_required, `Reward redemption ${status} — points refunded`).run()
+
+    return ok(c, { message: `রিওয়ার্ড রিডিম ${status === 'rejected' ? 'প্রত্যাখ্যাত' : 'বাতিল'} হয়েছে। পয়েন্ট ফেরত দেওয়া হয়েছে।` })
+  }
+
+  // For non-refund statuses (approved, fulfilled) — original logic
   const updateFields: string[] = ['status = ?', 'updated_at = datetime(\'now\')']
   const params: any[] = [status]
   
@@ -702,6 +756,13 @@ adminRoutes.post('/users/:id/points/adjust', zValidator('json', z.object({
   const currentUserPoints = await c.env.DB.prepare(
     'SELECT available_points, lifetime_earned, lifetime_redeemed FROM user_points WHERE user_id = ?'
   ).bind(userId).first<{ available_points: number; lifetime_earned: number; lifetime_redeemed: number }>()
+
+  // SECURITY FIX: Prevent negative balance — admin can never push points below zero
+  if (points < 0 && currentUserPoints) {
+    if (currentUserPoints.available_points + points < 0) {
+      return err(c, `পয়েন্ট ঋণাত্মক হতে পারে না। বর্তমান ব্যালেন্স: ${currentUserPoints.available_points}`, 400)
+    }
+  }
   
   // Update user points
   await c.env.DB.prepare(
@@ -870,28 +931,44 @@ adminRoutes.patch('/point-withdrawals/:id/reject', zValidator('json', rejectSche
 
   const { admin_note } = c.req.valid('json')
 
-  // Get withdrawal
+  // Get withdrawal details for the response
   const withdrawal = await c.env.DB.prepare(
     `SELECT pw.*, u.name as user_name, u.phone as user_phone
      FROM point_withdrawals pw
      JOIN users u ON pw.user_id = u.id
-     WHERE pw.id = ? AND pw.status = 'pending'`
+     WHERE pw.id = ?`
   ).bind(withdrawalId).first<{
     id: number
     user_id: number
     amount_points: number
     amount_taka: number
+    status: string
     user_name: string
     user_phone: string
   }>()
 
-  if (!withdrawal) {
+  if (!withdrawal || withdrawal.status !== 'pending') {
     return err(c, 'উত্তোলন পাওয়া যায়নি অথবা ইতিমধ্যে প্রসেস করা হয়েছে', 404)
+  }
+
+  // SECURITY FIX: Update status FIRST with WHERE status = 'pending' guard
+  // This prevents double-refund if two admins click reject simultaneously
+  const statusUpdate = await c.env.DB.prepare(
+    `UPDATE point_withdrawals SET
+       status = 'rejected',
+       admin_note = ?,
+       processed_at = datetime('now')
+     WHERE id = ? AND status = 'pending'`
+  ).bind(admin_note, withdrawalId).run()
+
+  // If no rows changed, another admin already processed it
+  if (!statusUpdate.meta.changes || statusUpdate.meta.changes === 0) {
+    return err(c, 'উত্তোলন ইতিমধ্যে প্রসেস করা হয়েছে', 409)
   }
 
   const currentMonth = new Date().toISOString().slice(0, 7)
 
-  // Refund points to user (since they were deducted on withdrawal request)
+  // Refund points to user — safe because status is already 'rejected'
   await c.env.DB.prepare(
     `UPDATE user_points SET
        available_points = available_points + ?,
@@ -904,15 +981,6 @@ adminRoutes.patch('/point-withdrawals/:id/reject', zValidator('json', rejectSche
     `INSERT INTO point_transactions (user_id, points, transaction_type, description, month_year)
      VALUES (?, ?, 'refunded', ?, ?)`
   ).bind(withdrawal.user_id, withdrawal.amount_points, `Withdrawal rejected - points refunded`, currentMonth).run()
-
-  // Update withdrawal status
-  await c.env.DB.prepare(
-    `UPDATE point_withdrawals SET
-       status = 'rejected',
-       admin_note = ?,
-       processed_at = datetime('now')
-     WHERE id = ?`
-  ).bind(admin_note, withdrawalId).run()
 
   // Create audit log
   await c.env.DB.prepare(
