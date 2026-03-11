@@ -269,8 +269,8 @@ adminWithdrawalRoutes.patch('/:id/approve', async (c) => {
       // Create audit log for initialization (reference_id = NULL for init)
       await c.env.DB.prepare(
         `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
-         VALUES (?, ?, 'adjustment', 'initialization', NULL, ?, 'Initialized from earnings - existing reserved: ?')`
-      ).bind(withdrawal.user_id, totalEarned, adminId, existingReserved).run()
+         VALUES (?, ?, 'adjustment', 'initialization', NULL, ?, ?)`
+      ).bind(withdrawal.user_id, totalEarned, adminId, `Initialized from earnings - existing reserved: ${existingReserved}`).run()
 
       balanceRecord = {
         id: 0,
@@ -382,8 +382,8 @@ adminWithdrawalRoutes.patch('/:id/complete', zValidator('json', completeSchema),
       // Create audit log
       await c.env.DB.prepare(
         `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
-         VALUES (?, ?, 'withdraw_complete', 'withdrawal', ?, ?, 'Withdrawal completed - money transferred to bKash')`
-      ).bind(withdrawal.user_id, -withdrawal.amount_paisa, id, adminId, `TxID: ${bkash_txid}`).run()
+         VALUES (?, ?, 'withdraw_complete', 'withdrawal', ?, ?, ?)`
+      ).bind(withdrawal.user_id, -withdrawal.amount_paisa, id, adminId, `Withdrawal completed - money transferred to bKash. TxID: ${bkash_txid}`).run()
     } else if (balanceRecord) {
       // Log warning but don't fail - balance might be tracked differently
       console.warn(`[withdrawal-complete] Warning: reserved amount mismatch for user ${withdrawal.user_id}`)
@@ -444,8 +444,8 @@ adminWithdrawalRoutes.patch('/:id/reject', zValidator('json', rejectSchema), asy
         // Create audit log for release
         await c.env.DB.prepare(
           `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
-           VALUES (?, ?, 'withdraw_release', 'withdrawal', ?, ?, 'Withdrawal rejected - money released back to user')`
-        ).bind(withdrawal.user_id, withdrawal.amount_paisa, id, adminId, admin_note).run()
+           VALUES (?, ?, 'withdraw_release', 'withdrawal', ?, ?, ?)`
+        ).bind(withdrawal.user_id, withdrawal.amount_paisa, id, adminId, `Withdrawal rejected - money released back to user. Reason: ${admin_note}`).run()
       } else if (balanceRecord) {
         console.warn(`[withdrawal-reject] Warning: reserved amount mismatch for user ${withdrawal.user_id}`)
       }
