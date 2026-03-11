@@ -1,7 +1,10 @@
--- Migration 023: Make users.phone column nullable for Google OAuth support
+-- Migration 023 (corrected): Make users.phone column nullable for Google OAuth support
 -- Google users don't have a phone number, so phone must be nullable
 -- SQLite doesn't support ALTER COLUMN, so we recreate the table
--- Note: D1 does not support explicit BEGIN/COMMIT, but runs this as atomic batch
+-- D1 does not support BEGIN/COMMIT but does support PRAGMA defer_foreign_keys
+
+-- Defer FK checks to end of transaction (D1 compatible approach)
+PRAGMA defer_foreign_keys=ON;
 
 -- Step 1: Create new users table with phone as nullable
 CREATE TABLE users_new (
@@ -37,3 +40,4 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id_unique ON users(google_id)
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users(email) WHERE email IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_email_phone ON users(email, phone);
+CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);

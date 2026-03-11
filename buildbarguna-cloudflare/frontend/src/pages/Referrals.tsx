@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { referralsApi } from '../lib/api'
 import { formatTaka } from '../lib/auth'
-import { Copy, Gift, Users, CheckCircle, Clock, Share2 } from 'lucide-react'
+import { Copy, Gift, Users, CheckCircle, Clock, Share2, Sparkles } from 'lucide-react'
 import Disclaimer from '../components/Disclaimer'
 
 export default function Referrals() {
@@ -81,6 +81,10 @@ export default function Referrals() {
     )
   }
 
+  const bonusPerReferral = (stats as any)?.bonus_per_referral_paisa ?? 5000
+  const potentialBonus = (stats as any)?.potential_bonus_paisa ?? 0
+  const pendingReferralsCount = (stats as any)?.pending_referrals_count ?? 0
+
   return (
     <div className="space-y-6">
       {/* Hero Banner */}
@@ -95,7 +99,7 @@ export default function Referrals() {
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div className="card text-center p-4">
           <div className="bg-blue-100 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-2">
             <Users size={20} className="text-blue-600" />
@@ -115,9 +119,32 @@ export default function Referrals() {
             <Gift size={20} className="text-amber-600" />
           </div>
           <p className="text-xl font-bold text-amber-600">{formatTaka(stats?.total_bonus_paisa ?? 0)}</p>
-          <p className="text-xs text-gray-500 mt-1">মোট বোনাস</p>
+          <p className="text-xs text-gray-500 mt-1">মোট বোনাস পেয়েছেন</p>
         </div>
+        {/* Potential bonus card — only show if pending referrals exist */}
+        {pendingReferralsCount > 0 && (
+          <div className="card text-center p-4 bg-gradient-to-br from-purple-50 to-violet-50 border-purple-100">
+            <div className="bg-purple-100 w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-2">
+              <Sparkles size={20} className="text-purple-600" />
+            </div>
+            <p className="text-xl font-bold text-purple-600">{formatTaka(potentialBonus)}</p>
+            <p className="text-xs text-gray-500 mt-1">সম্ভাব্য বোনাস</p>
+            <p className="text-[10px] text-purple-400 mt-0.5">{pendingReferralsCount} জন শেয়ার কিনলে পাবেন</p>
+          </div>
+        )}
       </div>
+
+      {/* Potential bonus info banner */}
+      {pendingReferralsCount > 0 && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 flex items-start gap-2">
+          <Sparkles size={14} className="text-purple-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-purple-700">
+            আপনার রেফার করা <strong>{pendingReferralsCount} জন</strong> এখনো শেয়ার কেনেননি।
+            তারা শেয়ার কিনলে প্রতিজনে <strong>{formatTaka(bonusPerReferral)}</strong> বোনাস আপনার ব্যালেন্সে যোগ হবে
+            এবং উত্তোলনযোগ্য হবে।
+          </p>
+        </div>
+      )}
 
       {/* Share card */}
       <div className="card bg-gradient-to-br from-primary-50 to-emerald-50 border-primary-100 space-y-4">
@@ -172,7 +199,7 @@ export default function Referrals() {
           {[
             { step: '১', text: 'আপনার রেফারেল কোড বা লিংক বন্ধুকে পাঠান' },
             { step: '২', text: 'বন্ধু সেই কোড দিয়ে রেজিস্ট্রেশন করেন' },
-            { step: '৩', text: 'বন্ধু প্রথমবার শেয়ার কিনলে আপনি বোনাস পান' },
+            { step: '৩', text: `বন্ধু প্রথমবার শেয়ার কিনলে আপনি ${formatTaka(bonusPerReferral)} বোনাস পান` },
             { step: '৪', text: 'বোনাস আপনার ব্যালেন্সে যোগ হয় — উত্তোলন করতে পারবেন' },
           ].map(item => (
             <div key={item.step} className="flex items-start gap-3">
@@ -212,18 +239,17 @@ export default function Referrals() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {r.has_invested ? (
+                  {r.bonus_credited ? (
                     <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Gift size={10} /> {formatTaka(bonusPerReferral)} পেয়েছেন
+                    </span>
+                  ) : r.has_invested ? (
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full flex items-center gap-1">
                       <CheckCircle size={10} /> বিনিয়োগ করেছেন
                     </span>
                   ) : (
-                    <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Clock size={10} /> বিনিয়োগ করেননি
-                    </span>
-                  )}
-                  {r.bonus_credited && (
-                    <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Gift size={10} /> বোনাস
+                    <span className="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Sparkles size={10} /> {formatTaka(bonusPerReferral)} পাবেন
                     </span>
                   )}
                 </div>

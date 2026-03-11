@@ -77,8 +77,9 @@ authRoutes.post('/register', zValidator('json', registerSchema), async (c) => {
     return err(c, 'এই অ্যাকাউন্ট ইতিমধ্যে বিদ্যমান', 409)
   }
 
-  // Check existing user by phone (if provided)
-  if (phone && phone.trim() !== '') {
+  // Check existing user by phone (if provided and not empty)
+  const hasPhone = phone && phone.trim() !== ''
+  if (hasPhone) {
     const existingPhone = await c.env.DB.prepare(
       'SELECT id FROM users WHERE phone = ?'
     ).bind(phone).first()
@@ -108,10 +109,15 @@ authRoutes.post('/register', zValidator('json', registerSchema), async (c) => {
   const password_hash = await hashPassword(password)
   const myReferralCode = generateReferralCode()
 
+  // If phone not provided, use a unique placeholder so NOT NULL constraint is satisfied.
+  // Placeholder format matches the Google OAuth pattern (_google_<id>).
+  // Phone login won't match these since they don't start with '01'.
+  const phoneValue = (phone && phone.trim() !== '') ? phone : `_nophone_${crypto.randomUUID()}`
+
   const result = await c.env.DB.prepare(
     `INSERT INTO users (name, email, phone, password_hash, referral_code, referred_by, referrer_user_id)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).bind(name, email.toLowerCase(), phone || null, password_hash, myReferralCode, referral_code ?? null, referrerUserId).run()
+  ).bind(name, email.toLowerCase(), phoneValue, password_hash, myReferralCode, referral_code ?? null, referrerUserId).run()
 
   if (!result.success) {
     return err(c, 'রেজিস্ট্রেশন ব্যর্থ হয়েছে', 500)

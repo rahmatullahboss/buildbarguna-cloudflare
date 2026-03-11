@@ -86,7 +86,7 @@ referralRoutes.get('/stats', async (c) => {
 
   const origin = new URL(c.req.url).origin
 
-  const [referredUsers, bonusSummary, recentReferrals] = await Promise.all([
+  const [referredUsers, bonusSummary, recentReferrals, pendingReferrals, bonusSetting] = await Promise.all([
     // Total referred user count — use referrer_user_id FK (not string code)
     c.env.DB.prepare(
       `SELECT COUNT(*) as total FROM users WHERE referrer_user_id = ?`
@@ -115,8 +115,30 @@ referralRoutes.get('/stats', async (c) => {
        WHERE u.referrer_user_id = ?
        ORDER BY u.created_at DESC
        LIMIT 20`
-    ).bind(userId, userId).all()
+    ).bind(userId, userId).all(),
+
+    // Count referred users who haven't invested yet (potential bonuses)
+    c.env.DB.prepare(
+      `SELECT COUNT(*) as cnt FROM users u
+       WHERE u.referrer_user_id = ?
+         AND NOT EXISTS (
+           SELECT 1 FROM share_purchases sp
+           WHERE sp.user_id = u.id AND sp.status = 'approved'
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM referral_bonuses rb
+           WHERE rb.referred_user_id = u.id AND rb.referrer_user_id = ?
+         )`
+    ).bind(userId, userId).first<{ cnt: number }>(),
+
+    // Current bonus amount setting
+    c.env.DB.prepare(
+      `SELECT value FROM withdrawal_settings WHERE key = 'referral_bonus_paisa'`
+    ).first<{ value: string }>()
   ])
+
+  const bonusPerReferral = parseInt(bonusSetting?.value ?? '5000', 10)
+  const pendingCount = pendingReferrals?.cnt ?? 0
 
   // Mask names for privacy — show first char + ***
   const maskedReferrals = (recentReferrals.results as Array<{
@@ -137,6 +159,9 @@ referralRoutes.get('/stats', async (c) => {
     total_referred: referredUsers?.total ?? 0,
     total_bonus_paisa: bonusSummary?.total_bonus_paisa ?? 0,
     bonuses_earned: bonusSummary?.bonuses_earned ?? 0,
+    pending_referrals_count: pendingCount,
+    potential_bonus_paisa: pendingCount * bonusPerReferral,
+    bonus_per_referral_paisa: bonusPerReferral,
     referrals: maskedReferrals
   })
 })
