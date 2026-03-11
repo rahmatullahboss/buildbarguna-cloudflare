@@ -32,26 +32,40 @@ let migrationBootstrap: Promise<void> | null = null
 async function ensureMigrations(env: Bindings) {
   if (!migrationBootstrap) {
     migrationBootstrap = (async () => {
-      const needsMigration = await env.SESSIONS.get('needs_migration')
+      try {
+        const needsMigration = await env.SESSIONS.get('needs_migration')
 
-      if (needsMigration !== 'true') {
-        return
+        if (needsMigration !== 'true') {
+          return
+        }
+
+        console.log('[Startup] Migration flag detected, running migrations...')
+        const result = await runMigrations(env)
+
+        if (!result.success) {
+          console.error('[Startup] Migration failed:', result.error)
+          return
+        }
+
+        console.log('[Startup] Migrations complete:', result.applied)
+        
+        try {
+          await env.SESSIONS.put('needs_migration', 'false', { expirationTtl: 86400 })
+        } catch (kvErr) {
+          console.warn('[Startup] Could not update migration flag in KV (limit might be exhausted):', kvErr)
+        }
+      } catch (err) {
+        console.warn('[Startup] KV check failed (limit might be exhausted), proceeding without migration check:', err)
       }
-
-      console.log('[Startup] Migration flag detected, running migrations...')
-      const result = await runMigrations(env)
-
-      if (!result.success) {
-        console.error('[Startup] Migration failed:', result.error)
-        return
-      }
-
-      console.log('[Startup] Migrations complete:', result.applied)
-      await env.SESSIONS.put('needs_migration', 'false', { expirationTtl: 86400 })
     })()
   }
 
-  await migrationBootstrap
+  try {
+    await migrationBootstrap
+  } catch (err) {
+    console.error('[Startup] Unhandled error in migration bootstrap:', err)
+    // Don't throw here, allow the app to boot even if migrations fail
+  }
 }
 
 // Add migration status endpoint for monitoring

@@ -177,11 +177,8 @@ export default function Login() {
         <button
           type="button"
           onClick={() => {
-            const isNative = window.location.protocol === 'capacitor:' || window.location.protocol === 'file:'
-            const baseUrl = isNative
-              ? (import.meta.env.VITE_WORKER_URL ?? 'https://buildbarguna-worker.rahmatullahzisan01.workers.dev')
-              : window.location.origin
-            window.location.href = `${baseUrl}/api/auth/google`
+            const WORKER_URL = import.meta.env.VITE_WORKER_URL ?? 'https://buildbargunainitiative.org'
+            window.location.href = `${WORKER_URL}/api/auth/google`
           }}
           className="w-full py-3.5 px-4 border-2 border-gray-300 rounded-xl flex items-center justify-center gap-3 text-gray-700 font-medium hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
           aria-label="Google দিয়ে লগইন করুন"

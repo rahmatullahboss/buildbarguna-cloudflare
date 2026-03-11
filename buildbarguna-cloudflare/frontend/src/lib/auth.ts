@@ -32,7 +32,7 @@ export function getUser(): UserProfile | null {
     if (!raw) return null
     const user = JSON.parse(raw) as UserProfile
     // Validate shape — never trust storage blindly
-    if (!user.id || !user.phone || !user.role) return null
+    if (!user.id || !user.role) return null
     if (!['member', 'admin'].includes(user.role)) return null
     return user
   } catch {
