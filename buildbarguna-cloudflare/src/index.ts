@@ -102,6 +102,8 @@ app.use('/api/*', async (c, next) => {
 app.use('/api/*', async (c, next) => {
   await ensureMigrations(c.env)
   await next()
+  // Prevent Cloudflare CDN from caching API responses
+  c.res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
 })
 app.use('/api/*', cors({
   // Restrict to known origins — never use '*' with Authorization header
