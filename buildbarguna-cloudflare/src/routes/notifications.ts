@@ -10,7 +10,7 @@ notificationsRoutes.use('*', authMiddleware)
 // GET /api/notifications - Get user's notifications
 notificationsRoutes.get('/', async (c) => {
   const userId = c.get('userId')
-  const limit = parseInt(c.req.query('limit') || '50')
+  const limit = Math.min(parseInt(c.req.query('limit') || '50') || 50, 100)
   const unreadOnly = c.req.query('unread') === 'true'
   
   let query = `

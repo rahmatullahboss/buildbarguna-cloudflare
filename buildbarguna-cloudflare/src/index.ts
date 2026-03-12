@@ -18,7 +18,7 @@ import { adminRoutes } from './routes/admin'
 import { uploadRoutes } from './routes/upload'
 import { referralRoutes, adminReferralRoutes } from './routes/referrals'
 import { financeRoutes } from './routes/project-finance'
-import { profitRoutes } from './routes/profit-distribution'
+import { profitRoutes, userProfitRoutes } from './routes/profit-distribution'
 import { companyExpenseRoutes } from './routes/company-expenses'
 import { memberRoutes } from './routes/member'
 import { distributeMonthlyEarnings, cleanupTokenBlacklist } from './cron/earnings'
@@ -365,6 +365,7 @@ app.route('/api/admin/referrals', adminReferralRoutes)
 // Project Finance & Profit Distribution Routes
 app.route('/api/finance', financeRoutes)
 app.route('/api/profit', profitRoutes)
+app.route('/api/profit', userProfitRoutes)  // User-accessible profit routes (my-profits)
 app.route('/api/company-expenses', companyExpenseRoutes)
 
 // Member Registration Routes

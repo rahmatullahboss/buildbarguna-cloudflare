@@ -188,4 +188,197 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
   }, 201)
 })
 
-export { profitRoutes }
+// ──────────────────────────────────────────────────────────────
+// GET /preview/:projectId — Profit distribution preview
+// ──────────────────────────────────────────────────────────────
+profitRoutes.get('/preview/:projectId', async (c) => {
+  const projectId = parseInt(c.req.param('projectId'))
+  if (isNaN(projectId)) return err(c, 'অকার্যকর প্রজেক্ট আইডি')
+
+  const companyPct = parseInt(c.req.query('company_pct') || '30')
+
+  // Get project
+  const project = await c.env.DB.prepare(
+    'SELECT id, title, share_price FROM projects WHERE id = ?'
+  ).bind(projectId).first<{ id: number; title: string; share_price: number }>()
+
+  if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
+
+  // Get financials
+  const financials = await c.env.DB.prepare(
+    `SELECT 
+      COALESCE(SUM(CASE WHEN transaction_type = 'revenue' THEN amount ELSE 0 END), 0) as total_revenue,
+      COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as total_expense
+    FROM project_transactions 
+    WHERE project_id = ?`
+  ).bind(projectId).first<{ total_revenue: number; total_expense: number }>()
+
+  const totalRevenue = financials?.total_revenue ?? 0
+  const directExpense = financials?.total_expense ?? 0
+
+  const companyAllocationResult = await c.env.DB.prepare(
+    `SELECT COALESCE(SUM(amount), 0) as total_allocated FROM expense_allocations WHERE project_id = ?`
+  ).bind(projectId).first<{ total_allocated: number }>()
+
+  const companyExpenseAllocation = companyAllocationResult?.total_allocated ?? 0
+  const totalExpense = directExpense + companyExpenseAllocation
+  const netProfit = totalRevenue - totalExpense
+
+  const distributed = await c.env.DB.prepare(
+    `SELECT COALESCE(SUM(distributable_amount), 0) as total FROM profit_distributions WHERE project_id = ? AND status = 'distributed'`
+  ).bind(projectId).first<{ total: number }>()
+
+  const previouslyDistributed = distributed?.total ?? 0
+  const availableProfit = netProfit - previouslyDistributed
+
+  const companyShareAmount = Math.floor((availableProfit * companyPct) / 100)
+  const investorPool = availableProfit - companyShareAmount
+
+  // Get shareholders
+  const shareholders = await c.env.DB.prepare(
+    `SELECT us.user_id, us.quantity as shares_held, u.name as user_name, u.phone 
+     FROM user_shares us
+     JOIN users u ON u.id = us.user_id
+     WHERE us.project_id = ? AND us.quantity > 0`
+  ).bind(projectId).all<{ user_id: number; shares_held: number; user_name: string; phone: string }>()
+
+  const totalSharesSold = shareholders.results.reduce((sum, sh) => sum + sh.shares_held, 0)
+
+  const shareholderData = shareholders.results.map(sh => {
+    const ownershipPct = totalSharesSold > 0 ? Math.floor((sh.shares_held / totalSharesSold) * 10000) : 0
+    const profitAmount = totalSharesSold > 0 ? Math.floor((investorPool * sh.shares_held) / totalSharesSold) : 0
+    return {
+      user_id: sh.user_id,
+      user_name: sh.user_name,
+      phone: sh.phone,
+      shares_held: sh.shares_held,
+      total_shares: totalSharesSold,
+      ownership_percentage: ownershipPct,
+      profit_amount: profitAmount
+    }
+  })
+
+  return ok(c, {
+    summary: {
+      total_revenue: totalRevenue,
+      direct_expense: directExpense,
+      company_expense_allocation: companyExpenseAllocation,
+      net_profit: netProfit,
+      adjusted_net_profit: netProfit,
+      previously_distributed: previouslyDistributed,
+      available_profit: availableProfit,
+      company_share_pct: companyPct,
+      company_share_amount: companyShareAmount,
+      investor_share_pct: 100 - companyPct,
+      investor_pool: investorPool,
+      total_shareholders: shareholders.results.length,
+      total_shares_sold: totalSharesSold
+    },
+    shareholders: shareholderData,
+    has_available_profit: availableProfit > 0
+  })
+})
+
+// ──────────────────────────────────────────────────────────────
+// GET /history/:projectId — Distribution history for a project
+// ──────────────────────────────────────────────────────────────
+profitRoutes.get('/history/:projectId', async (c) => {
+  const projectId = parseInt(c.req.param('projectId'))
+  if (isNaN(projectId)) return err(c, 'অকার্যকর প্রজেক্ট আইডি')
+
+  const page = parseInt(c.req.query('page') || '1')
+  const limit = Math.min(parseInt(c.req.query('limit') || '20'), 100)
+  const offset = (page - 1) * limit
+
+  const [rows, countRow] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT pd.*, u.name as created_by_name
+       FROM profit_distributions pd
+       LEFT JOIN users u ON u.id = pd.created_by
+       WHERE pd.project_id = ?
+       ORDER BY pd.created_at DESC
+       LIMIT ? OFFSET ?`
+    ).bind(projectId, limit, offset).all(),
+    c.env.DB.prepare(
+      'SELECT COUNT(*) as total FROM profit_distributions WHERE project_id = ?'
+    ).bind(projectId).first<{ total: number }>()
+  ])
+
+  const total = countRow?.total ?? 0
+
+  return ok(c, {
+    items: rows.results,
+    pagination: { page, limit, total, hasMore: page * limit < total }
+  })
+})
+
+// ──────────────────────────────────────────────────────────────
+// GET /distribution/:id — Single distribution details
+// ──────────────────────────────────────────────────────────────
+profitRoutes.get('/distribution/:id', async (c) => {
+  const distId = parseInt(c.req.param('id'))
+  if (isNaN(distId)) return err(c, 'অকার্যকর আইডি')
+
+  const distribution = await c.env.DB.prepare(
+    `SELECT pd.*, p.title as project_title
+     FROM profit_distributions pd
+     JOIN projects p ON p.id = pd.project_id
+     WHERE pd.id = ?`
+  ).bind(distId).first()
+
+  if (!distribution) return err(c, 'ডিস্ট্রিবিউশন পাওয়া যায়নি', 404)
+
+  const shareholders = await c.env.DB.prepare(
+    `SELECT sp.*, u.name as user_name, u.phone
+     FROM shareholder_profits sp
+     JOIN users u ON u.id = sp.user_id
+     WHERE sp.distribution_id = ?
+     ORDER BY sp.profit_amount DESC`
+  ).bind(distId).all()
+
+  return ok(c, {
+    distribution,
+    shareholders: shareholders.results
+  })
+})
+
+// ──────────────────────────────────────────────────────────────
+// GET /my-profits — User's own profit history (non-admin)
+// ──────────────────────────────────────────────────────────────
+
+// Create a separate router for user-accessible profit routes (no admin)
+const userProfitRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
+userProfitRoutes.use('*', authMiddleware)
+
+userProfitRoutes.get('/my-profits', async (c) => {
+  const userId = c.get('userId')
+
+  const [profits, summary] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT sp.*, p.title as project_title, pd.distributed_at
+       FROM shareholder_profits sp
+       JOIN projects p ON p.id = sp.project_id
+       JOIN profit_distributions pd ON pd.id = sp.distribution_id
+       WHERE sp.user_id = ?
+       ORDER BY pd.distributed_at DESC`
+    ).bind(userId).all(),
+    c.env.DB.prepare(
+      `SELECT 
+        COUNT(*) as total_distributions,
+        COALESCE(SUM(profit_amount), 0) as total_profit_earned,
+        COUNT(DISTINCT project_id) as projects_count
+       FROM shareholder_profits WHERE user_id = ?`
+    ).bind(userId).first<{ total_distributions: number; total_profit_earned: number; projects_count: number }>()
+  ])
+
+  return ok(c, {
+    profits: profits.results,
+    summary: {
+      total_distributions: summary?.total_distributions ?? 0,
+      total_profit_earned: summary?.total_profit_earned ?? 0,
+      projects_count: summary?.projects_count ?? 0
+    }
+  })
+})
+
+export { profitRoutes, userProfitRoutes }

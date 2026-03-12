@@ -311,34 +311,33 @@ taskRoutes.post('/:id/complete', async (c) => {
     }
   }
   
-  // Create completion with INSERT OR IGNORE - prevents duplicates at DB level
-  const insertResult = await c.env.DB.prepare(
-    `INSERT OR IGNORE INTO task_completions (user_id, task_id, clicked_at, completed_at, task_date, points_earned, completion_time_seconds, is_flagged, flag_reason, is_one_time)
-     VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)`
-  ).bind(userId, taskId, session.clicked_at, today, task.points, completionTimeSeconds, isSuspiciouslyFast ? 1 : 0, flagReason, task.is_one_time).run()
-  
-  // If no row was inserted, it means already completed
-  if (!insertResult.meta.changes || insertResult.meta.changes === 0) {
-    return err(c, 'টাস্ক ইতিমধ্যে সম্পন্ন হয়েছে', 409)
-  }
-  
-  // Insert point_transaction with INSERT OR IGNORE to prevent race condition duplicates.
-  // Only update user_points if the insert actually succeeded (changes > 0).
-  // No database trigger — points are updated manually here only.
-  const transactionResult = await c.env.DB.prepare(
-    `INSERT OR IGNORE INTO point_transactions (user_id, task_id, points, transaction_type, description, month_year)
-     VALUES (?, ?, ?, 'earned', ?, strftime('%Y-%m', 'now'))`
-  ).bind(userId, taskId, task.points, `Completed: ${task.title}`).run()
-
-  if (transactionResult.meta.changes && transactionResult.meta.changes > 0) {
-    await c.env.DB.prepare(
+  // ATOMIC FIX (C4): All 3 operations in a single batch — prevents partial state
+  // If completion already exists (INSERT OR IGNORE), no rows change, and we detect that.
+  const batchResults = await c.env.DB.batch([
+    // 1. Create completion
+    c.env.DB.prepare(
+      `INSERT OR IGNORE INTO task_completions (user_id, task_id, clicked_at, completed_at, task_date, points_earned, completion_time_seconds, is_flagged, flag_reason, is_one_time)
+       VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)`
+    ).bind(userId, taskId, session.clicked_at, today, task.points, completionTimeSeconds, isSuspiciouslyFast ? 1 : 0, flagReason, task.is_one_time),
+    // 2. Insert point transaction
+    c.env.DB.prepare(
+      `INSERT OR IGNORE INTO point_transactions (user_id, task_id, points, transaction_type, description, month_year)
+       VALUES (?, ?, ?, 'earned', ?, strftime('%Y-%m', 'now'))`
+    ).bind(userId, taskId, task.points, `Completed: ${task.title}`),
+    // 3. Update user point balance
+    c.env.DB.prepare(
       `UPDATE user_points SET
          available_points = available_points + ?,
          lifetime_earned = lifetime_earned + ?,
          monthly_earned = monthly_earned + ?,
          updated_at = datetime('now')
        WHERE user_id = ?`
-    ).bind(task.points, task.points, task.points, userId).run()
+    ).bind(task.points, task.points, task.points, userId)
+  ])
+  
+  // If completion INSERT OR IGNORE produced 0 changes → already completed
+  if (!batchResults[0].meta.changes || batchResults[0].meta.changes === 0) {
+    return err(c, 'টাস্ক ইতিমধ্যে সম্পন্ন হয়েছে', 409)
   }
   
   // Get new total

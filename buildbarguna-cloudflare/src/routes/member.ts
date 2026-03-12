@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { authMiddleware } from '../middleware/auth'
+import { adminMiddleware } from '../middleware/admin'
 import { ok, err } from '../lib/response'
 import { toPaisa } from '../lib/money'
 import { generateMemberCertificate } from '../lib/pdf/generator'
@@ -94,14 +95,7 @@ const registerSchema = z.object({
   payment_note: z.string().optional()
 })
 
-// Admin middleware
-const adminMiddleware = async (c: any, next: any) => {
-  const userRole = c.get('userRole')
-  if (userRole !== 'admin') {
-    return err(c, 'অননুমোদিত', 403)
-  }
-  await next()
-}
+// FIX (C5): Removed weak local adminMiddleware — using imported DB-verified version from middleware/admin.ts
 
 // Helper function to log audit events
 async function logAuditEvent(
@@ -337,9 +331,13 @@ memberRoutes.post('/register',
 memberRoutes.get('/admin/payments', authMiddleware, adminMiddleware, async (c) => {
   const status = c.req.query('status') || 'pending'
   
-  const payments = await c.env.DB.prepare(
-    `SELECT * FROM v_member_payments_${status === 'verified' ? 'verified' : 'pending'}`
-  ).all()
+  // FIX (H4): Avoid string interpolation in SQL — use separate hardcoded queries
+  let payments
+  if (status === 'verified') {
+    payments = await c.env.DB.prepare('SELECT * FROM v_member_payments_verified').all()
+  } else {
+    payments = await c.env.DB.prepare('SELECT * FROM v_member_payments_pending').all()
+  }
   
   return ok(c, payments.results)
 })

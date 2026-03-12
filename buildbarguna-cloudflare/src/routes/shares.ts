@@ -321,11 +321,3 @@ shareRoutes.get('/certificate/:purchase_id/preview', async (c) => {
   }
 })
 
-// Admin middleware for future use
-const adminMiddleware = async (c: any, next: any) => {
-  const userRole = c.get('userRole')
-  if (userRole !== 'admin') {
-    return err(c, 'অননুমোদিত', 403)
-  }
-  await next()
-}

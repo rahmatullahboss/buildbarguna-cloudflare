@@ -322,25 +322,19 @@ authRoutes.post('/reset-password', zValidator('json', resetPasswordSchema), asyn
   // Hash new password
   const passwordHash = await hashPassword(password)
 
-  // Update user password
-  const result = await c.env.DB.prepare(
-    'UPDATE users SET password_hash = ? WHERE id = ?'
-  ).bind(passwordHash, resetToken.user_id).run()
+  // ATOMIC FIX (C3): All 3 operations in a single batch — prevents partial state
+  const batchResults = await c.env.DB.batch([
+    // 1. Update password
+    c.env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(passwordHash, resetToken.user_id),
+    // 2. Mark token as used
+    c.env.DB.prepare('UPDATE password_reset_tokens SET used = 1 WHERE token = ?').bind(token),
+    // 3. Blacklist ALL existing JWTs for this user (force re-login on all devices)
+    c.env.DB.prepare('INSERT OR REPLACE INTO token_blacklist (jti, expires_at) VALUES (?, ?)').bind(`user_${resetToken.user_id}_all_sessions`, now + (7 * 24 * 60 * 60))
+  ])
 
-  if (!result.success) {
+  if (!batchResults[0].success) {
     return err(c, 'পাসওয়ার্ড রিসেট ব্যর্থ হয়েছে', 500)
   }
-
-  // Mark token as used
-  await c.env.DB.prepare(
-    'UPDATE password_reset_tokens SET used = 1 WHERE token = ?'
-  ).bind(token).run()
-
-  // Blacklist ALL existing JWT tokens for this user (force re-login on all devices)
-  // Insert a user-level blacklist entry that auth middleware will check
-  await c.env.DB.prepare(
-    'INSERT OR REPLACE INTO token_blacklist (jti, expires_at) VALUES (?, ?)'
-  ).bind(`user_${resetToken.user_id}_all_sessions`, now + (7 * 24 * 60 * 60)).run()
 
   return ok(c, { message: 'পাসওয়ার্ড সফলভাবে রিসেট হয়েছে' })
 })
@@ -489,14 +483,7 @@ authRoutes.get('/google/callback', async (c) => {
     })
     const expiresAt = Math.floor(Date.now() / 1000) + 300 // 5 minutes
     
-    // Ensure table exists
-    await c.env.DB.prepare(`
-      CREATE TABLE IF NOT EXISTS oauth_states (
-        state TEXT PRIMARY KEY,
-        data TEXT NOT NULL,
-        expires_at INTEGER NOT NULL
-      )
-    `).run()
+    // oauth_states table is created via migrations — no runtime CREATE needed
 
     await c.env.DB.prepare(
       'INSERT OR REPLACE INTO oauth_states (state, data, expires_at) VALUES (?, ?, ?)'
@@ -519,10 +506,18 @@ authRoutes.get('/google/callback', async (c) => {
 authRoutes.get('/session/:sessionId', async (c) => {
   const { sessionId } = c.req.param()
 
-  // CORS headers for cross-origin requests from buildbargunainitiative.org
-  const allowedOrigin = c.req.header('Origin') === 'https://buildbargunainitiative.org' 
-    ? 'https://buildbargunainitiative.org' 
-    : c.req.header('Origin')
+  // CORS FIX (C2): Use proper allowlist — never reflect arbitrary origin
+  const sessionOrigin = c.req.header('Origin')
+  const sessionAllowedOrigins = [
+    'https://buildbargunainitiative.org',
+    'https://buildbarguna-worker.workers.dev',
+    'https://buildbarguna-worker.rahmatullahzisan01.workers.dev',
+    'http://localhost:5173',
+    'http://localhost:8787',
+    'capacitor://localhost',
+    'https://localhost'
+  ]
+  const allowedOrigin = sessionOrigin && sessionAllowedOrigins.includes(sessionOrigin) ? sessionOrigin : null
 
   try {
     const row = await c.env.DB.prepare('SELECT data, expires_at FROM oauth_states WHERE state = ?').bind(`session:${sessionId}`).first<{ data: string, expires_at: number }>()
@@ -580,10 +575,10 @@ authRoutes.post('/complete-profile', authMiddleware, zValidator('json', complete
     referrerUserId = referrer.id
   }
 
-  // Update user profile
+  // Update user profile — FIX (H5): Don't overwrite user's OWN referral_code with referrer's code
   const result = await c.env.DB.prepare(
-    'UPDATE users SET phone = ?, referral_code = COALESCE(?, referral_code), referred_by = COALESCE(?, referred_by), referrer_user_id = COALESCE(?, referrer_user_id) WHERE id = ?'
-  ).bind(phone, referral_code ?? null, referral_code ?? null, referrerUserId, userId).run()
+    'UPDATE users SET phone = ?, referred_by = COALESCE(?, referred_by), referrer_user_id = COALESCE(?, referrer_user_id) WHERE id = ?'
+  ).bind(phone, referral_code ?? null, referrerUserId, userId).run()
 
   if (!result.success) {
     return err(c, 'প্রোফাইল আপডেট ব্যর্থ হয়েছে', 500)
@@ -649,9 +644,8 @@ authRoutes.put('/profile', authMiddleware, zValidator('json', updateProfileSchem
     updates.push('phone = ?')
     values.push(phone)
   }
+  // FIX (C1): Don't overwrite user's own referral_code — only set referred_by + referrer_user_id
   if (referral_code) {
-    updates.push('referral_code = ?')
-    values.push(referral_code)
     updates.push('referred_by = ?')
     values.push(referral_code)
     updates.push('referrer_user_id = ?')

@@ -42,8 +42,9 @@ referralRoutes.get('/check', async (c) => {
     return err(c, 'অনেকবার চেষ্টা করা হয়েছে। ১ মিনিট পরে আবার চেষ্টা করুন।', 429)
   }
 
+  // FIX (M5): Use UPPER() for case-insensitive lookup — matches auth.ts behavior
   const referrer = await c.env.DB.prepare(
-    'SELECT name FROM users WHERE referral_code = ? AND is_active = 1'
+    'SELECT name FROM users WHERE UPPER(referral_code) = UPPER(?) AND is_active = 1'
   ).bind(code).first<{ name: string }>()
 
   if (!referrer) return err(c, 'রেফারেল কোড সঠিক নয়', 404)
