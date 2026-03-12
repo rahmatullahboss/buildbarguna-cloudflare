@@ -1,0 +1,3 @@
+## 2024-03-12 - N+1 Query Optimization in Cloudflare Workers / D1
+**Learning:** Cloudflare D1 (SQLite over HTTP) is extremely sensitive to N+1 query patterns because every query incurs a network round-trip from the Worker to the D1 database instance.
+**Action:** When fetching nested or related data (like a user's portfolio and then 24-months of history for EACH project in the portfolio), DO NOT use `Promise.all` mapping over rows to execute separate `.prepare().all()` queries. Instead, write a single query using SQLite window functions like `ROW_NUMBER() OVER (PARTITION BY ...)` to fetch all required history in one go, limiting per-partition as needed, and group the results in memory using a `Map` or hash table (O(1) lookups).
