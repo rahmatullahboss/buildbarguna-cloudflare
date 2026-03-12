@@ -597,15 +597,15 @@ authRoutes.post('/complete-profile', authMiddleware, zValidator('json', complete
 })
 
 // Update user profile (PUT /api/auth/profile)
+// NOTE: referral_code is NOT allowed here — only during registration/complete-profile
 const updateProfileSchema = z.object({
   name: z.string().min(2, 'নাম কমপক্ষে ২ অক্ষরের হতে হবে').optional(),
-  phone: z.string().regex(/^01[3-9]\d{8}$/, 'সঠিক বাংলাদেশি মোবাইল নম্বর দিন').optional(),
-  referral_code: z.string().optional()
+  phone: z.string().regex(/^01[3-9]\d{8}$/, 'সঠিক বাংলাদেশি মোবাইল নম্বর দিন').optional()
 })
 
 authRoutes.put('/profile', authMiddleware, zValidator('json', updateProfileSchema), async (c) => {
   const userId = c.get('userId')
-  const { name, phone, referral_code } = c.req.valid('json')
+  const { name, phone } = c.req.valid('json')
 
   // Check if phone is already taken (if updating phone)
   if (phone) {
@@ -616,20 +616,6 @@ authRoutes.put('/profile', authMiddleware, zValidator('json', updateProfileSchem
     if (existingPhone) {
       return err(c, 'এই মোবাইল নম্বর ইতিমধ্যে ব্যবহৃত হয়েছে', 409)
     }
-  }
-
-  // Validate referral code if provided
-  let referrerUserId: number | null = null
-  if (referral_code) {
-    const sanitizedReferralCode = referral_code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
-    const referrer = await c.env.DB.prepare(
-      'SELECT id FROM users WHERE UPPER(referral_code) = ? AND is_active = 1 AND id != ?'
-    ).bind(sanitizedReferralCode, userId).first<{ id: number }>()
-
-    if (!referrer) {
-      return err(c, 'রেফারেল কোড সঠিক নয়')
-    }
-    referrerUserId = referrer.id
   }
 
   // Build update query dynamically
@@ -643,13 +629,6 @@ authRoutes.put('/profile', authMiddleware, zValidator('json', updateProfileSchem
   if (phone) {
     updates.push('phone = ?')
     values.push(phone)
-  }
-  // FIX (C1): Don't overwrite user's own referral_code — only set referred_by + referrer_user_id
-  if (referral_code) {
-    updates.push('referred_by = ?')
-    values.push(referral_code)
-    updates.push('referrer_user_id = ?')
-    values.push(referrerUserId!)
   }
 
   if (updates.length === 0) {
