@@ -418,10 +418,7 @@ export default function Withdraw() {
                   : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
               }`}
             >
-              <span className="inline-flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded-full flex items-center justify-center text-white font-black text-xs" style={{background:'#E2136E'}}>b</span>
-                <span className="font-black tracking-tight" style={{color:'#E2136E'}}>Kash</span>
-              </span>
+              <img src="/bkash-logo.svg" alt="bKash" className="h-6 inline-block" />
             </button>
             <button
               type="button"
