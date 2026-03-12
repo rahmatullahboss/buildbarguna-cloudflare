@@ -415,7 +415,7 @@ export default function Withdraw() {
                   : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
               }`}
             >
-              📱 bKash
+              <img src="/bkash-logo.svg" alt="bKash" className="h-5 inline-block" />
             </button>
             <button
               type="button"
@@ -441,7 +441,7 @@ export default function Withdraw() {
                 type="number"
                 step="1"
                 min={balance ? balance.settings.min_paisa / 100 : 100}
-                max={balance ? Math.min(balance.settings.max_paisa, balance.available_paisa) / 100 : undefined}
+                max={balance ? balance.available_paisa / 100 : undefined}
                 placeholder={`সর্বনিম্ন ৳${balance ? balance.settings.min_paisa / 100 : 100}`}
                 value={amountTaka}
                 onChange={e => { setAmountTaka(e.target.value); setErrMsg('') }}

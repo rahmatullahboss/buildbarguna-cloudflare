@@ -110,8 +110,8 @@ withdrawalRoutes.get('/balance', async (c) => {
 withdrawalRoutes.get('/balance/breakdown', async (c) => {
   const userId = c.get('userId')
 
-  // Parallel queries: per-project earnings + referral bonuses
-  const [projectEarnings, referralBonus] = await Promise.all([
+  // Parallel queries: per-project earnings + referral bonuses + explicit balance
+  const [projectEarnings, referralBonus, explicitBalance] = await Promise.all([
     c.env.DB.prepare(
       `SELECT p.title as project_title, p.id as project_id, SUM(e.amount) as total_paisa, COUNT(DISTINCT e.month) as months
        FROM earnings e
@@ -124,11 +124,16 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
     c.env.DB.prepare(
       `SELECT COALESCE(SUM(amount_paisa), 0) as total, COUNT(*) as count
        FROM referral_bonuses WHERE referrer_user_id = ?`
-    ).bind(userId).first<{ total: number; count: number }>()
+    ).bind(userId).first<{ total: number; count: number }>(),
+
+    // Get the actual tracked total from user_balances (if exists)
+    c.env.DB.prepare(
+      `SELECT total_earned_paisa FROM user_balances WHERE user_id = ?`
+    ).bind(userId).first<{ total_earned_paisa: number }>()
   ])
 
   const breakdown: { source: string; label: string; project_title?: string; project_id?: number; amount_paisa: number; detail?: string }[] = []
-  let totalEarned = 0
+  let sumFromSources = 0
 
   // Project-wise earnings
   for (const row of projectEarnings.results) {
@@ -140,7 +145,7 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
       amount_paisa: row.total_paisa,
       detail: `${row.months} মাস`
     })
-    totalEarned += row.total_paisa
+    sumFromSources += row.total_paisa
   }
 
   // Referral bonuses
@@ -152,10 +157,23 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
       amount_paisa: refTotal,
       detail: `${referralBonus?.count ?? 0} জন`
     })
-    totalEarned += refTotal
+    sumFromSources += refTotal
   }
 
-  return ok(c, { total_earned_paisa: totalEarned, breakdown })
+  // Check for discrepancy — admin adjustments tracked in user_balances but not in earnings/referral tables
+  const actualTotal = explicitBalance?.total_earned_paisa ?? sumFromSources
+  const adjustmentAmount = actualTotal - sumFromSources
+
+  if (adjustmentAmount > 0) {
+    breakdown.push({
+      source: 'admin_adjustment',
+      label: 'অ্যাডমিন সমন্বয়/বোনাস',
+      amount_paisa: adjustmentAmount,
+      detail: 'ম্যানুয়াল ব্যালেন্স সমন্বয়'
+    })
+  }
+
+  return ok(c, { total_earned_paisa: actualTotal, breakdown })
 })
 
 // GET /api/withdrawals/history — my withdrawal history, paginated
