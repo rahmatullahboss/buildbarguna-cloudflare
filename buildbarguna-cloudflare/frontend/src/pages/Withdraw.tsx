@@ -418,11 +418,10 @@ export default function Withdraw() {
                   : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
               }`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 32" className="h-5 inline-block">
-                <path d="M15.5 2C8 2 2 8 2 15.5S8 29 15.5 29 29 23 29 15.5 23 2 15.5 2z" fill="#E2136E"/>
-                <path d="M20.8 10.2l-3.2 5.5 3.8 6.3h-3.6l-2.3-4-2.4 4H9.6l3.8-6.3-3.2-5.5h3.5l1.8 3.3 1.9-3.3h3.4z" fill="white"/>
-                <path d="M34.2 9.5h3.3c2.4 0 3.8 1.1 3.8 3.1 0 1.3-.7 2.3-1.8 2.8l2.2 4.1h-2.5l-1.9-3.6h-1.3v3.6h-1.8V9.5zm3.1 4.8c1.2 0 2-.5 2-1.6 0-1-.8-1.5-2-1.5h-1.3v3.1h1.3zM43.5 9.5h1.8v4.3l3.5-4.3h2.2l-3.4 4.1 3.7 5.9h-2.3l-2.7-4.4-1 1.2v3.2h-1.8V9.5zM56.5 9.3h.2l4.2 10.2h-2l-.9-2.3h-3.8l-.9 2.3h-1.9l4.2-10.2h.9zm1 6.3l-1.3-3.5-1.3 3.5h2.6zM62.3 17.3l1.2-1.1c.8.9 1.7 1.4 2.8 1.4 1 0 1.6-.5 1.6-1.2 0-.7-.5-1-1.5-1.4l-1.2-.5c-1.3-.5-2.3-1.3-2.3-2.8 0-1.7 1.4-2.9 3.3-2.9 1.3 0 2.4.5 3.2 1.4l-1.1 1.1c-.7-.6-1.3-1-2.1-1-.9 0-1.4.4-1.4 1.1 0 .7.5 1 1.5 1.4l1.2.5c1.5.6 2.3 1.4 2.3 2.8 0 1.7-1.4 3-3.5 3-1.5 0-2.8-.6-3.8-1.7zM72.3 9.5h1.8v4h4v-4h1.8v10h-1.8v-4.3h-4v4.3h-1.8V9.5z" fill="#E2136E"/>
-              </svg>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-white font-black text-xs" style={{background:'#E2136E'}}>b</span>
+                <span className="font-black tracking-tight" style={{color:'#E2136E'}}>Kash</span>
+              </span>
             </button>
             <button
               type="button"

@@ -1,5 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 32" fill="none">
-  <path d="M15.5 2C8 2 2 8 2 15.5S8 29 15.5 29 29 23 29 15.5 23 2 15.5 2z" fill="#E2136E"/>
-  <path d="M20.8 10.2l-3.2 5.5 3.8 6.3h-3.6l-2.3-4-2.4 4H9.6l3.8-6.3-3.2-5.5h3.5l1.8 3.3 1.9-3.3h3.4z" fill="white"/>
-  <text x="33" y="22" font-family="Arial,sans-serif" font-weight="700" font-size="16" fill="#E2136E">bKash</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 56" role="img" aria-label="bKash">
+  <!-- Circle icon with b -->
+  <circle cx="28" cy="28" r="26" fill="#E2136E"/>
+  <!-- Stylized b letter in white inside circle -->
+  <text x="28" y="37" font-family="Georgia,serif" font-weight="900" font-size="32" fill="white" text-anchor="middle">b</text>
+  <!-- bKash wordmark text -->
+  <text x="100" y="37" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="26" fill="#E2136E" text-anchor="middle" letter-spacing="0">bKash</text>
 </svg>
