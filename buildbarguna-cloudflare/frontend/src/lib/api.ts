@@ -845,18 +845,32 @@ export const companyExpensesApi = {
   }>('/company-expenses/admin/recalculate', { method: 'POST' })
 }
 
+export type CompanyFundTransaction = {
+  id: number
+  project_id: number | null
+  distribution_id: number | null
+  amount_paisa: number
+  transaction_type: 'profit_share' | 'withdrawal' | 'adjustment' | 'expense'
+  description: string
+  reference_type: string | null
+  reference_id: number | null
+  created_by: number
+  created_at: string
+  project_title?: string
+  created_by_name?: string
+}
+
 export const profitApi = {
   // Preview profit distribution
   preview: (projectId: number, companyPct?: number) => {
     const query = companyPct ? `?company_pct=${companyPct}` : ''
     return request<{
+      project: { id: number; title: string }
       summary: {
         total_revenue: number
-        total_expense: number
         direct_expense: number
         company_expense_allocation: number
         net_profit: number
-        adjusted_net_profit: number
         previously_distributed: number
         available_profit: number
         company_share_pct: number
@@ -872,11 +886,10 @@ export const profitApi = {
         phone: string
         shares_held: number
         total_shares: number
-        ownership_percentage: number
+        ownership_pct_bps: number
         profit_amount: number
       }[]
       has_available_profit: boolean
-      message?: string
     }>(`/profit/preview/${projectId}${query}`)
   },
 
@@ -885,12 +898,13 @@ export const profitApi = {
     company_share_percentage?: number
     period_start?: string
     period_end?: string
+    notes?: string
   }) => request<{
     message: string
     distribution_id: number
+    investor_distributed: number
+    company_fund_credited: number
     total_distributed: number
-    shareholders_count: number
-    company_share: number
     failed_count: number
   }>(`/profit/distribute/${projectId}`, { method: 'POST', body: JSON.stringify(body) }),
 
@@ -900,13 +914,26 @@ export const profitApi = {
 
   // Get distribution details
   getDistribution: (id: number) => request<{
-    distribution: ProfitDistribution & { project_title: string }
-    shareholders: ShareholderProfit[]
+    distribution: ProfitDistribution & { project_title: string; created_by_name: string }
+    shareholders: (ShareholderProfit & { user_name: string; phone: string })[]
   }>(`/profit/distribution/${id}`),
+
+  // Company fund: get summary + history
+  companyFund: (page = 1) => request<{
+    summary: { current_balance: number; total_credited: number; total_debited: number }
+    transactions: CompanyFundTransaction[]
+    pagination: { page: number; limit: number; total: number; hasMore: boolean }
+  }>(`/profit/company-fund?page=${page}`),
+
+  // Company fund: admin withdraw
+  withdrawFund: (body: { amount: number; description: string; transaction_type?: 'withdrawal' | 'expense' }) =>
+    request<{ message: string; transaction_id: number; new_balance: number }>(
+      '/profit/company-fund/withdraw', { method: 'POST', body: JSON.stringify(body) }
+    ),
 
   // Get my profits (user's profit history)
   myProfits: () => request<{
-    profits: (ShareholderProfit & { project_title: string; distributed_at: string })[]
+    profits: (ShareholderProfit & { project_title: string; distributed_at: string; distribution_notes: string | null })[]
     summary: {
       total_distributions: number
       total_profit_earned: number

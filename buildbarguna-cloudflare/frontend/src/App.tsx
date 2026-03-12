@@ -46,6 +46,7 @@ const AdminReferrals  = lazy(() => import('./pages/admin/AdminReferrals'))
 const ProjectFinance  = lazy(() => import('./pages/admin/ProjectFinance'))
 const ProfitDistribution = lazy(() => import('./pages/admin/ProfitDistribution'))
 const CompanyExpenses = lazy(() => import('./pages/admin/CompanyExpenses'))
+const CompanyFund     = lazy(() => import('./pages/admin/CompanyFund'))
 const AdminTutorial   = lazy(() => import('./pages/admin/AdminTutorial'))
 const AdminTasks = lazy(() => import('./pages/admin/AdminTasks'))
 
@@ -106,6 +107,7 @@ export default function App() {
         <Route path="/admin/projects/:projectId/finance" element={<AdminRoute><Layout><ProjectFinance /></Layout></AdminRoute>} />
         <Route path="/admin/projects/:projectId/distribute-profit" element={<AdminRoute><Layout><ProfitDistribution /></Layout></AdminRoute>} />
         <Route path="/admin/company-expenses" element={<AdminRoute><Layout><CompanyExpenses /></Layout></AdminRoute>} />
+        <Route path="/admin/company-fund"     element={<AdminRoute><Layout><CompanyFund /></Layout></AdminRoute>} />
         <Route path="/admin/shares"         element={<AdminRoute><Layout><AdminShares /></Layout></AdminRoute>} />
 
         <Route path="/admin/rewards"        element={<AdminRoute><Layout><AdminRewards /></Layout></AdminRoute>} />

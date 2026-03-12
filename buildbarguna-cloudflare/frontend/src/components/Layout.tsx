@@ -42,6 +42,7 @@ const adminNav = [
   { to: '/admin/members', label: 'মেম্বারশিপ', icon: CheckSquare },
   { to: '/admin/referrals', label: 'রেফারেল ব্যবস্থাপনা', icon: Gift },
   { to: '/admin/company-expenses', label: 'কোম্পানি খরচ', icon: Building2 },
+  { to: '/admin/company-fund', label: 'কোম্পানি ফান্ড', icon: Building2 },
   { to: '/admin/tutorial', label: 'টিউটোরিয়াল', icon: BookOpen },
   { to: '/admin/guide', label: 'অ্যাডমিন গাইড', icon: Book },
 ]
