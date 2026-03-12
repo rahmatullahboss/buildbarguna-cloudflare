@@ -418,7 +418,7 @@ export default function Withdraw() {
                   : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
               }`}
             >
-              <img src="/bkash-logo.svg" alt="bKash" className="h-6 inline-block" />
+              <span className="inline-flex items-center gap-1.5"><img src="/bkash-logo.svg" alt="bKash" className="h-5 inline-block" /> bKash</span>
             </button>
             <button
               type="button"
