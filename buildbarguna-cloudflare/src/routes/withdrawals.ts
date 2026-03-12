@@ -178,12 +178,13 @@ withdrawalRoutes.get('/history', async (c) => {
 
 // POST /api/withdrawals/request — submit withdrawal request
 const requestSchema = z.object({
-  amount_paisa: z.number().int().min(100, 'সর্বনিম্ন ৳১.০০ হতে হবে').max(10000000, 'সর্বোচ্চ ৳১০,০০০.০০ পর্যন্ত অনুমোদিত'), // Hard cap at 10,000 BDT for safety
-  bkash_number: z.string().regex(/^01[3-9]\d{8}$/, 'সঠিক bKash নম্বর দিন (01XXXXXXXXX)')
+  amount_paisa: z.number().int().min(100, 'সর্বনিম্ন ৳১.০০ হতে হবে').max(100000000, 'সর্বোচ্চ ৳১,০০,০০০ পর্যন্ত অনুমোদিত'),
+  bkash_number: z.string().regex(/^01[3-9]\d{8}$/, 'সঠিক bKash নম্বর দিন (01XXXXXXXXX)').optional(),
+  withdrawal_method: z.enum(['bkash', 'cash']).default('bkash')
 })
 
 withdrawalRoutes.post('/request', zValidator('json', requestSchema), async (c) => {
-  const { amount_paisa, bkash_number } = c.req.valid('json')
+  const { amount_paisa, bkash_number, withdrawal_method } = c.req.valid('json')
   const userId = c.get('userId')
 
   // Additional validation: Check for suspicious round numbers (potential fraud)
@@ -203,18 +204,18 @@ withdrawalRoutes.post('/request', zValidator('json', requestSchema), async (c) =
   if (amount_paisa < settings.min_paisa) {
     return err(c, `সর্বনিম্ন উত্তোলনের পরিমাণ ৳${settings.min_paisa / 100}`)
   }
-  if (amount_paisa > settings.max_paisa) {
-    return err(c, `সর্বোচ্চ উত্তোলনের পরিমাণ ৳${settings.max_paisa / 100}`)
-  }
+  // max_paisa check removed — users can withdraw full available balance
 
   // Validate available balance (includes pending reservation)
   if (amount_paisa > balance.available_paisa) {
     return err(c, `অপর্যাপ্ত ব্যালেন্স। উপলব্ধ: ৳${(balance.available_paisa / 100).toFixed(2)}`)
   }
 
-  // Validate bKash number format more strictly
-  if (!/^01[3-9]\d{8}$/.test(bkash_number)) {
-    return err(c, 'বৈধ bKash নম্বর দিন (01XXXXXXXXX ফরম্যাটে)')
+  // Validate bKash number for bkash method
+  if (withdrawal_method === 'bkash') {
+    if (!bkash_number || !/^01[3-9]\d{8}$/.test(bkash_number)) {
+      return err(c, 'বৈধ bKash নম্বর দিন (01XXXXXXXXX ফরম্যাটে)')
+    }
   }
 
   // Check if already has a pending withdrawal (partial unique index enforces this in DB,
@@ -247,9 +248,9 @@ withdrawalRoutes.post('/request', zValidator('json', requestSchema), async (c) =
   let result
   try {
     result = await c.env.DB.prepare(
-      `INSERT INTO withdrawals (user_id, amount_paisa, bkash_number)
-       VALUES (?, ?, ?)`
-    ).bind(userId, amount_paisa, bkash_number).run()
+      `INSERT INTO withdrawals (user_id, amount_paisa, bkash_number, withdrawal_method)
+       VALUES (?, ?, ?, ?)`
+    ).bind(userId, amount_paisa, withdrawal_method === 'bkash' ? bkash_number : null, withdrawal_method).run()
   } catch (e: any) {
     // D1 UNIQUE constraint error on idx_one_pending_per_user
     if (e?.message?.includes('UNIQUE') || e?.message?.includes('unique')) {
@@ -412,7 +413,7 @@ adminWithdrawalRoutes.patch('/:id/approve', async (c) => {
 
 // PATCH /api/admin/withdrawals/:id/complete — mark completed + add TxID
 const completeSchema = z.object({
-  bkash_txid: z.string().regex(/^[A-Z0-9]{8,12}$/, 'বৈধ bKash TxID দিন (৮-১২ অক্ষর)')
+  bkash_txid: z.string().min(1, 'TxID বা পদ্ধতি দিন').max(20)
 })
 
 adminWithdrawalRoutes.patch('/:id/complete', zValidator('json', completeSchema), async (c) => {
@@ -426,11 +427,17 @@ adminWithdrawalRoutes.patch('/:id/complete', zValidator('json', completeSchema),
   ).bind(id).first<Withdrawal>()
   if (!withdrawal) return err(c, 'অনুরোধ পাওয়া যায়নি বা অনুমোদিত নয়', 404)
 
-  // Check duplicate TxID
-  const dupTx = await c.env.DB.prepare(
-    'SELECT id FROM withdrawals WHERE bkash_txid = ?'
-  ).bind(bkash_txid).first()
-  if (dupTx) return err(c, 'এই TxID ইতিমধ্যে ব্যবহার করা হয়েছে', 409)
+  // For bKash (non-CASH), validate TxID format and check duplicates
+  const isCash = bkash_txid === 'CASH' || (withdrawal as any).withdrawal_method === 'cash'
+  if (!isCash) {
+    if (!/^[A-Z0-9]{8,12}$/.test(bkash_txid)) {
+      return err(c, 'বৈধ bKash TxID দিন (৮-১২ অক্ষর)')
+    }
+    const dupTx = await c.env.DB.prepare(
+      'SELECT id FROM withdrawals WHERE bkash_txid = ?'
+    ).bind(bkash_txid).first()
+    if (dupTx) return err(c, 'এই TxID ইতিমধ্যে ব্যবহার করা হয়েছে', 409)
+  }
 
   try {
     // Get admin ID from context

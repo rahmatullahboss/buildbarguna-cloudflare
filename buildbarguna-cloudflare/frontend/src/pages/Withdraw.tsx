@@ -234,6 +234,7 @@ export default function Withdraw() {
   const qc = useQueryClient()
   const [amountTaka, setAmountTaka] = useState('')
   const [bkashNumber, setBkashNumber] = useState('')
+  const [withdrawalMethod, setWithdrawalMethod] = useState<'bkash' | 'cash'>('bkash')
   const [msg, setMsg] = useState('')
   const [errMsg, setErrMsg] = useState('')
   const [showConfirm, setShowConfirm] = useState(false)
@@ -259,7 +260,8 @@ export default function Withdraw() {
   const requestMutation = useMutation({
     mutationFn: () => withdrawalsApi.request(
       Math.round(parseFloat(amountTaka) * 100),
-      bkashNumber
+      withdrawalMethod === 'bkash' ? bkashNumber : undefined,
+      withdrawalMethod
     ),
     onSuccess: (res) => {
       if (res.success) {
@@ -286,10 +288,9 @@ export default function Withdraw() {
   const amountPaisa = Math.round((parseFloat(amountTaka) || 0) * 100)
   const isValidAmount = balance
     ? amountPaisa >= balance.settings.min_paisa &&
-      amountPaisa <= balance.settings.max_paisa &&
       amountPaisa <= balance.available_paisa
     : false
-  const isValidPhone = /^01[3-9]\d{8}$/.test(bkashNumber)
+  const isValidPhone = withdrawalMethod === 'cash' || /^01[3-9]\d{8}$/.test(bkashNumber)
   const canSubmit = isValidAmount && isValidPhone && !hasPending
 
   return (
@@ -397,10 +398,38 @@ export default function Withdraw() {
         {balance && (
           <p className="text-xs text-gray-500 mb-4 bg-gray-50 rounded-lg px-3 py-2">
             সর্বনিম্ন {formatTaka(balance.settings.min_paisa)} •
-            সর্বোচ্চ {formatTaka(balance.settings.max_paisa)} •
             প্রতি {balance.settings.cooldown_days} দিনে একবার
           </p>
         )}
+
+        {/* Withdrawal Method Toggle */}
+        <div className="mb-4">
+          <label className="label">উত্তোলন পদ্ধতি</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setWithdrawalMethod('bkash')}
+              className={`py-2.5 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
+                withdrawalMethod === 'bkash'
+                  ? 'bg-pink-50 border-pink-500 text-pink-700 shadow-sm'
+                  : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
+              }`}
+            >
+              📱 bKash
+            </button>
+            <button
+              type="button"
+              onClick={() => setWithdrawalMethod('cash')}
+              className={`py-2.5 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
+                withdrawalMethod === 'cash'
+                  ? 'bg-green-50 border-green-500 text-green-700 shadow-sm'
+                  : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
+              }`}
+            >
+              💵 ক্যাশ
+            </button>
+          </div>
+        </div>
 
         <div className="space-y-4">
           <div>
@@ -423,6 +452,7 @@ export default function Withdraw() {
             )}
           </div>
 
+          {withdrawalMethod === 'bkash' && (
           <div>
             <label className="label">bKash নম্বর</label>
             <input
@@ -434,10 +464,18 @@ export default function Withdraw() {
               pattern="01[3-9][0-9]{8}"
               maxLength={11}
             />
-            {bkashNumber && !isValidPhone && (
+            {bkashNumber && !(/^01[3-9]\d{8}$/.test(bkashNumber)) && (
               <p className="text-xs text-red-500 mt-1">সঠিক bKash নম্বর দিন (01XXXXXXXXX)</p>
             )}
           </div>
+          )}
+
+          {withdrawalMethod === 'cash' && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700 flex items-start gap-2">
+              <Info size={16} className="shrink-0 mt-0.5" />
+              <span>ক্যাশ উত্তোলন অনুমোদনের পরে অফিস থেকে সংগ্রহ করুন। bKash নম্বর প্রয়োজন নেই।</span>
+            </div>
+          )}
 
           {!showConfirm ? (
             <button
@@ -455,8 +493,11 @@ export default function Withdraw() {
                   <p className="font-semibold">নিশ্চিত করুন</p>
                   <p className="text-xs mt-1">
                     <span className="font-bold">{formatTaka(amountPaisa)}</span> টাকা
-                    <span className="font-mono font-bold mx-1">{bkashNumber}</span>
-                    নম্বরে পাঠানোর অনুরোধ করছেন?
+                    {withdrawalMethod === 'bkash' ? (
+                      <><span className="font-mono font-bold mx-1">{bkashNumber}</span> নম্বরে bKash এ পাঠানোর অনুরোধ করছেন?</>
+                    ) : (
+                      <> ক্যাশ হিসেবে উত্তোলনের অনুরোধ করছেন?</>
+                    )}
                   </p>
                 </div>
               </div>

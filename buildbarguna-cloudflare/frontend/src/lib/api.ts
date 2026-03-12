@@ -168,11 +168,11 @@ export const withdrawalsApi = {
   balance: () => request<AvailableBalance>('/withdrawals/balance'),
   incomeBreakdown: () => request<IncomeBreakdown>('/withdrawals/balance/breakdown'),
   history: (page = 1) => request<Paginated<Withdrawal>>(`/withdrawals/history?page=${page}`),
-  request: (amount_paisa: number, bkash_number: string) =>
+  request: (amount_paisa: number, bkash_number?: string, withdrawal_method: 'bkash' | 'cash' = 'bkash') =>
     request<{ message: string; withdrawal_id: number; amount_paisa: number }>(
       '/withdrawals/request', {
         method: 'POST',
-        body: JSON.stringify({ amount_paisa, bkash_number })
+        body: JSON.stringify({ amount_paisa, ...(bkash_number ? { bkash_number } : {}), withdrawal_method })
       }
     )
 }

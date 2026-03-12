@@ -69,10 +69,10 @@ earningRoutes.get('/portfolio', async (c) => {
          COALESCE(SUM(e.amount), 0)  AS total_earned_paisa,
          COUNT(e.id)                 AS months_active,
          (
-           SELECT pr.rate
-           FROM profit_rates pr
-           WHERE pr.project_id = us.project_id
-           ORDER BY pr.month DESC
+           SELECT e2.rate
+           FROM earnings e2
+           WHERE e2.project_id = us.project_id AND e2.user_id = us.user_id
+           ORDER BY e2.month DESC
            LIMIT 1
          ) AS latest_rate_bps
        FROM user_shares us

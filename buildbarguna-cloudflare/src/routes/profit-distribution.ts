@@ -282,7 +282,7 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
       c.env.DB.prepare(
         `INSERT INTO earnings (user_id, project_id, month, shares, rate, amount) 
          VALUES (?, ?, ?, ?, ?, ?) 
-         ON CONFLICT(user_id, project_id, month) DO UPDATE SET amount = amount + excluded.amount`
+         ON CONFLICT(user_id, project_id, month) DO UPDATE SET amount = amount + excluded.amount, rate = excluded.rate, shares = excluded.shares`
       ).bind(sh.user_id, projectId, currentMonth, sh.shares_held, actualRateBps, profitAmount)
     )
 

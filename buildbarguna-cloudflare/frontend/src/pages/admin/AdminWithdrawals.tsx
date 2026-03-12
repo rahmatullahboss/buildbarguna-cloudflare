@@ -20,7 +20,7 @@ function StatusBadge({ status }: { status: WithdrawalStatus }) {
 
 export default function AdminWithdrawals() {
   const qc = useQueryClient()
-  const [statusFilter, setStatusFilter] = useState<string>('pending')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [rejectId, setRejectId] = useState<number | null>(null)
   const [rejectNote, setRejectNote] = useState('')
   const [completeId, setCompleteId] = useState<number | null>(null)
@@ -47,8 +47,8 @@ export default function AdminWithdrawals() {
   })
 
   const completeMutation = useMutation({
-    mutationFn: ({ id, bkash_txid }: { id: number; bkash_txid: string }) =>
-      adminWithdrawalsApi.complete(id, bkash_txid),
+    mutationFn: ({ id, bkash_txid }: { id: number; bkash_txid?: string }) =>
+      adminWithdrawalsApi.complete(id, bkash_txid || 'CASH'),
     onSuccess: (res) => {
       if (res.success) {
         setMsg('✅ উত্তোলন সম্পন্ন হয়েছে')
@@ -199,7 +199,8 @@ export default function AdminWithdrawals() {
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
                     <span>পরিমাণ: <span className="font-bold text-gray-900">{formatTaka(w.amount_paisa)}</span></span>
-                    <span>bKash: <span className="font-mono font-medium text-gray-700">{w.bkash_number}</span></span>
+                    <span>পদ্ধতি: <span className={`font-medium ${(w as any).withdrawal_method === 'cash' ? 'text-green-600' : 'text-pink-600'}`}>{(w as any).withdrawal_method === 'cash' ? '💵 ক্যাশ' : '📱 bKash'}</span></span>
+                    {w.bkash_number && <span>bKash: <span className="font-mono font-medium text-gray-700">{w.bkash_number}</span></span>}
                     <span>তারিখ: {formatDate(w.requested_at)}</span>
                     {w.bkash_txid && <span>TxID: <span className="font-mono text-green-700">{w.bkash_txid}</span></span>}
                   </div>
@@ -229,14 +230,25 @@ export default function AdminWithdrawals() {
                   )}
                   {w.status === 'approved' && (
                     <>
-                      <button
-                        onClick={() => { setMsg(''); setErrMsg(''); setCompleteId(w.id) }}
-                        disabled={completeMutation.isPending || rejectMutation.isPending}
-                        className="flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <DollarSign size={14} />
-                        {completeMutation.isPending ? '...' : 'bKash পাঠান'}
-                      </button>
+                      {(w as any).withdrawal_method === 'cash' ? (
+                        <button
+                          onClick={() => { setMsg(''); setErrMsg(''); completeMutation.mutate({ id: w.id }) }}
+                          disabled={completeMutation.isPending || rejectMutation.isPending}
+                          className="flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <DollarSign size={14} />
+                          {completeMutation.isPending ? '...' : '💵 ক্যাশ প্রদান'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => { setMsg(''); setErrMsg(''); setCompleteId(w.id) }}
+                          disabled={completeMutation.isPending || rejectMutation.isPending}
+                          className="flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <DollarSign size={14} />
+                          {completeMutation.isPending ? '...' : 'bKash পাঠান'}
+                        </button>
+                      )}
                       <button
                         onClick={() => { setMsg(''); setErrMsg(''); setRejectId(w.id) }}
                         disabled={completeMutation.isPending || rejectMutation.isPending}

@@ -120,20 +120,20 @@ export default function EditProfile() {
             <p className="text-xs text-gray-500 mt-1">উদাহরণ: 01712345678</p>
           </div>
 
-          {/* Referral Code (Optional) */}
+          {/* Referral Code (Read-only after signup) */}
           <div>
             <label className="label" htmlFor="referral_code">
-              <Gift size={16} className="inline-block mr-1" /> রেফারেল কোড <span className="text-gray-400 font-normal">(ঐচ্ছিক)</span>
+              <Gift size={16} className="inline-block mr-1" /> রেফারেল কোড <span className="text-gray-400 font-normal">(পরিবর্তনযোগ্য নয়)</span>
             </label>
             <input
               id="referral_code"
-              className="input"
+              className="input bg-gray-100 text-gray-500 cursor-not-allowed"
               type="text"
-              placeholder="রেফারেল কোড দিন (যদি থাকে)"
-              value={form.referral_code}
-              onChange={e => setForm(p => ({ ...p, referral_code: e.target.value.toUpperCase() }))}
+              value={user?.referral_code || '—'}
+              disabled
+              readOnly
             />
-            <p className="text-xs text-gray-500 mt-1">আপনার রেফারেল কোড: <span className="font-mono font-bold text-primary-600">{user?.referral_code}</span></p>
+            <p className="text-xs text-gray-500 mt-1">🔒 সাইনআপের পরে রেফারেল কোড পরিবর্তন করা যায় না</p>
           </div>
 
           <button
