@@ -854,10 +854,29 @@ export type CompanyFundTransaction = {
   description: string
   reference_type: string | null
   reference_id: number | null
+  status: 'pending_approval' | 'approved' | 'rejected' | 'completed'
   created_by: number
   created_at: string
+  approved_by: number | null
+  approved_at: string | null
+  rejection_reason: string | null
   project_title?: string
   created_by_name?: string
+  approved_by_name?: string
+}
+
+export type FinancialAuditLogEntry = {
+  id: number
+  entity_type: string
+  entity_id: number
+  action: string
+  old_values: string | null
+  new_values: string | null
+  amount_paisa: number | null
+  description: string | null
+  actor_id: number
+  created_at: string
+  actor_name?: string
 }
 
 export const profitApi = {
@@ -865,7 +884,7 @@ export const profitApi = {
   preview: (projectId: number, companyPct?: number) => {
     const query = companyPct ? `?company_pct=${companyPct}` : ''
     return request<{
-      project: { id: number; title: string }
+      project: { id: number; title: string; default_company_share_pct: number }
       summary: {
         total_revenue: number
         direct_expense: number
@@ -920,20 +939,43 @@ export const profitApi = {
 
   // Company fund: get summary + history
   companyFund: (page = 1) => request<{
-    summary: { current_balance: number; total_credited: number; total_debited: number }
+    summary: { current_balance: number; total_credited: number; total_debited: number; pending_approvals: number }
     transactions: CompanyFundTransaction[]
     pagination: { page: number; limit: number; total: number; hasMore: boolean }
   }>(`/profit/company-fund?page=${page}`),
 
   // Company fund: admin withdraw
   withdrawFund: (body: { amount: number; description: string; transaction_type?: 'withdrawal' | 'expense' }) =>
-    request<{ message: string; transaction_id: number; new_balance: number }>(
+    request<{ message: string; transaction_id: number; new_balance?: number; status: string }>(
       '/profit/company-fund/withdraw', { method: 'POST', body: JSON.stringify(body) }
     ),
 
+  // Company fund: approve withdrawal (dual-admin)
+  approveWithdrawal: (id: number) =>
+    request<{ message: string; new_balance: number }>(
+      `/profit/company-fund/approve/${id}`, { method: 'POST' }
+    ),
+
+  // Company fund: reject withdrawal
+  rejectWithdrawal: (id: number, reason: string) =>
+    request<{ message: string }>(
+      `/profit/company-fund/reject/${id}`, { method: 'POST', body: JSON.stringify({ reason }) }
+    ),
+
+  // Financial audit log
+  getAuditLog: (page = 1, entityType?: string, action?: string) => {
+    const params = new URLSearchParams({ page: String(page) })
+    if (entityType) params.set('entity_type', entityType)
+    if (action) params.set('action', action)
+    return request<{
+      items: FinancialAuditLogEntry[]
+      pagination: { page: number; limit: number; total: number; hasMore: boolean }
+    }>(`/profit/audit-log?${params}`)
+  },
+
   // Get my profits (user's profit history)
   myProfits: () => request<{
-    profits: (ShareholderProfit & { project_title: string; distributed_at: string; distribution_notes: string | null })[]
+    profits: (ShareholderProfit & { project_title: string; distributed_at: string; distribution_notes: string | null; period_start: string | null; period_end: string | null })[]
     summary: {
       total_distributions: number
       total_profit_earned: number

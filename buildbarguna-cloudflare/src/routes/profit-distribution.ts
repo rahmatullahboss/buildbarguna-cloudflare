@@ -1,8 +1,9 @@
 // ──────────────────────────────────────────────────────────────
-// PROFIT DISTRIBUTION — Actual P&L-based System (System A)
+// PROFIT DISTRIBUTION — P&L-based System with Full Audit Trail
 // ──────────────────────────────────────────────────────────────
-// v2: Added company_fund_transactions, fixed re-distribution bug,
-//     added period selection and notes support.
+// v3: Added financial audit log, period-required validation,
+//     overlapping period detection, dual-admin withdrawal approval,
+//     per-project default company %, improved error recovery.
 
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
@@ -15,6 +16,38 @@ import type { Bindings, Variables } from '../types'
 const profitRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 profitRoutes.use('*', authMiddleware)
 profitRoutes.use('*', adminMiddleware)
+
+// ──────────────────────────────────────────────────────────────
+// Helper: write to financial_audit_log
+// ──────────────────────────────────────────────────────────────
+function auditLog(
+  db: D1Database,
+  params: {
+    entity_type: string
+    entity_id: number
+    action: string
+    old_values?: Record<string, unknown> | null
+    new_values?: Record<string, unknown> | null
+    amount_paisa?: number
+    description: string
+    actor_id: number
+  }
+): D1PreparedStatement {
+  return db.prepare(
+    `INSERT INTO financial_audit_log 
+     (entity_type, entity_id, action, old_values, new_values, amount_paisa, description, actor_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    params.entity_type,
+    params.entity_id,
+    params.action,
+    params.old_values ? JSON.stringify(params.old_values) : null,
+    params.new_values ? JSON.stringify(params.new_values) : null,
+    params.amount_paisa ?? null,
+    params.description,
+    params.actor_id
+  )
+}
 
 // ──────────────────────────────────────────────────────────────
 // Helper: get financial snapshot for a project
@@ -32,7 +65,7 @@ async function getProjectFinancials(db: D1Database, projectId: number) {
       `SELECT COALESCE(SUM(amount), 0) as total FROM expense_allocations WHERE project_id = ?`
     ).bind(projectId).first<{ total: number }>(),
 
-    // FIX: Use total_distributed_amount (includes company share) — prevents re-distribution bug
+    // Use total_distributed_amount (includes company share) — prevents re-distribution bug
     db.prepare(
       `SELECT COALESCE(SUM(total_distributed_amount), 0) as total 
        FROM profit_distributions WHERE project_id = ? AND status = 'distributed'`
@@ -68,14 +101,16 @@ profitRoutes.get('/preview/:projectId', async (c) => {
   const companyPct = parseInt(c.req.query('company_pct') || '30')
 
   const project = await c.env.DB.prepare(
-    'SELECT id, title, share_price FROM projects WHERE id = ?'
-  ).bind(projectId).first<{ id: number; title: string; share_price: number }>()
+    'SELECT id, title, share_price, default_company_share_pct FROM projects WHERE id = ?'
+  ).bind(projectId).first<{ id: number; title: string; share_price: number; default_company_share_pct: number }>()
 
   if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
 
   const fin = await getProjectFinancials(c.env.DB, projectId)
 
-  const companyShareAmount = Math.floor((fin.availableProfit * companyPct) / 100)
+  // Use query param if provided, otherwise use project's default
+  const effectivePct = c.req.query('company_pct') ? companyPct : Math.floor(project.default_company_share_pct / 100)
+  const companyShareAmount = Math.floor((fin.availableProfit * effectivePct) / 100)
   const investorPool = fin.availableProfit - companyShareAmount
 
   const shareholders = await c.env.DB.prepare(
@@ -102,7 +137,11 @@ profitRoutes.get('/preview/:projectId', async (c) => {
   })
 
   return ok(c, {
-    project: { id: project.id, title: project.title },
+    project: {
+      id: project.id,
+      title: project.title,
+      default_company_share_pct: project.default_company_share_pct  // basis points
+    },
     summary: {
       total_revenue: fin.totalRevenue,
       direct_expense: fin.directExpense,
@@ -110,9 +149,9 @@ profitRoutes.get('/preview/:projectId', async (c) => {
       net_profit: fin.netProfit,
       previously_distributed: fin.previouslyDistributed,
       available_profit: fin.availableProfit,
-      company_share_pct: companyPct,
+      company_share_pct: effectivePct,
       company_share_amount: companyShareAmount,
-      investor_share_pct: 100 - companyPct,
+      investor_share_pct: 100 - effectivePct,
       investor_pool: investorPool,
       total_shareholders: shareholders.results.length,
       total_shares_sold: totalSharesSold
@@ -127,8 +166,8 @@ profitRoutes.get('/preview/:projectId', async (c) => {
 // ──────────────────────────────────────────────────────────────
 const distributeSchema = z.object({
   company_share_percentage: z.number().int().min(0).max(100).default(30),
-  period_start: z.string().optional(),
-  period_end: z.string().optional(),
+  period_start: z.string().min(1, 'পিরিয়ড শুরুর তারিখ দিন'),
+  period_end: z.string().min(1, 'পিরিয়ড শেষের তারিখ দিন'),
   notes: z.string().optional()
 })
 
@@ -145,15 +184,27 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
 
   if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
 
-  // Duplicate period guard
-  const periodStart = data.period_start ?? null
-  const periodEnd = data.period_end ?? null
-  if (periodStart && periodEnd) {
-    const existing = await c.env.DB.prepare(
-      `SELECT id FROM profit_distributions 
-       WHERE project_id = ? AND period_start = ? AND period_end = ? AND status = 'distributed'`
-    ).bind(projectId, periodStart, periodEnd).first<{ id: number }>()
-    if (existing) return err(c, 'এই সময়ের জন্য ইতিমধ্যে প্রফিট ডিস্ট্রিবিউট করা হয়েছে', 409)
+  // Validate period_end >= period_start
+  if (data.period_end < data.period_start) {
+    return err(c, 'পিরিয়ড শেষের তারিখ, শুরুর তারিখের আগে হতে পারে না', 400)
+  }
+
+  // Duplicate period guard (app-level + DB unique index backup)
+  const existing = await c.env.DB.prepare(
+    `SELECT id FROM profit_distributions 
+     WHERE project_id = ? AND period_start = ? AND period_end = ? AND status = 'distributed'`
+  ).bind(projectId, data.period_start, data.period_end).first<{ id: number }>()
+  if (existing) return err(c, 'এই সময়ের জন্য ইতিমধ্যে প্রফিট ডিস্ট্রিবিউট করা হয়েছে', 409)
+
+  // Overlapping period detection
+  const overlap = await c.env.DB.prepare(
+    `SELECT id, period_start, period_end FROM profit_distributions 
+     WHERE project_id = ? AND status = 'distributed'
+     AND period_start IS NOT NULL AND period_end IS NOT NULL
+     AND period_start <= ? AND period_end >= ?`
+  ).bind(projectId, data.period_end, data.period_start).first<{ id: number; period_start: string; period_end: string }>()
+  if (overlap) {
+    return err(c, `এই পিরিয়ড পূর্ববর্তী ডিস্ট্রিবিউশন #${overlap.id} (${overlap.period_start} → ${overlap.period_end}) এর সাথে ওভারল্যাপ করছে`, 409)
   }
 
   const fin = await getProjectFinancials(c.env.DB, projectId)
@@ -182,12 +233,12 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
   ).bind(
     projectId,
     fin.totalRevenue, fin.totalExpense, fin.netProfit,
-    investorPool,                              // distributable_amount = investor pool
-    companyShareAmount,                        // NEW: company's amount (stored explicitly)
-    fin.availableProfit,                       // NEW: total_distributed_amount = full amount removed
-    data.company_share_percentage * 100,       // basis points
+    investorPool,
+    companyShareAmount,
+    fin.availableProfit,
+    data.company_share_percentage * 100,
     (100 - data.company_share_percentage) * 100,
-    periodStart, periodEnd,
+    data.period_start, data.period_end,
     data.notes ?? null,
     shareholders.results.length,
     userId
@@ -213,7 +264,6 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
 
     let profitAmount: number
     if (i === shareholders.results.length - 1) {
-      // Last shareholder absorbs rounding remainder (prevents silent money loss)
       profitAmount = investorPool - distributedTotal
     } else {
       profitAmount = Math.floor((investorPool * sh.shares_held) / totalSharesSold)
@@ -265,13 +315,24 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
   }
 
   if (failedCount >= shareholders.results.length) {
-    await c.env.DB.prepare(
-      `UPDATE profit_distributions SET status = 'cancelled' WHERE id = ?`
-    ).bind(distributionId).run()
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        `UPDATE profit_distributions SET status = 'cancelled' WHERE id = ?`
+      ).bind(distributionId),
+      auditLog(c.env.DB, {
+        entity_type: 'profit_distribution',
+        entity_id: distributionId as number,
+        action: 'cancel',
+        new_values: { reason: 'all_batches_failed', failed_count: failedCount },
+        amount_paisa: fin.availableProfit,
+        description: `ডিস্ট্রিবিউশন #${distributionId} ব্যর্থ — সব শেয়ারহোল্ডারে পেমেন্ট ব্যর্থ`,
+        actor_id: userId
+      })
+    ])
     return err(c, 'প্রফিট ডিস্ট্রিবিউশন ব্যর্থ — কোনো শেয়ারহোল্ডারকে পেমেন্ট করা যায়নি', 500)
   }
 
-  // 5. Mark distributed + record company fund transaction (both in a batch for atomicity)
+  // 5. Mark distributed + record company fund + audit log (atomic batch)
   await c.env.DB.batch([
     c.env.DB.prepare(
       `UPDATE profit_distributions 
@@ -279,11 +340,11 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
        WHERE id = ?`
     ).bind(distributionId),
 
-    // NEW: Record company's share in company_fund_transactions
+    // Company fund credit (auto-completed, not requiring approval)
     c.env.DB.prepare(
       `INSERT INTO company_fund_transactions 
-       (project_id, distribution_id, amount_paisa, transaction_type, description, reference_type, reference_id, created_by)
-       VALUES (?, ?, ?, 'profit_share', ?, 'profit_distribution', ?, ?)`
+       (project_id, distribution_id, amount_paisa, transaction_type, description, reference_type, reference_id, status, created_by)
+       VALUES (?, ?, ?, 'profit_share', ?, 'profit_distribution', ?, 'completed', ?)`
     ).bind(
       projectId,
       distributionId,
@@ -291,7 +352,38 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
       `"${project.title}" প্রজেক্ট থেকে কোম্পানির প্রফিট শেয়ার (${data.company_share_percentage}%)`,
       distributionId,
       userId
-    )
+    ),
+
+    // Financial audit log — distribution executed
+    auditLog(c.env.DB, {
+      entity_type: 'profit_distribution',
+      entity_id: distributionId as number,
+      action: 'distribute',
+      new_values: {
+        project_id: projectId,
+        investor_pool: investorPool,
+        company_share: companyShareAmount,
+        total_distributed: fin.availableProfit,
+        shareholders_count: shareholders.results.length - failedCount,
+        failed_count: failedCount,
+        period: `${data.period_start} → ${data.period_end}`,
+        company_pct: data.company_share_percentage
+      },
+      amount_paisa: fin.availableProfit,
+      description: `"${project.title}" — ৳${(fin.availableProfit / 100).toFixed(0)} বিতরণ (${shareholders.results.length - failedCount} জন)`,
+      actor_id: userId
+    }),
+
+    // Audit log — company fund credit
+    auditLog(c.env.DB, {
+      entity_type: 'company_fund',
+      entity_id: distributionId as number,
+      action: 'credit',
+      new_values: { project_id: projectId, amount: companyShareAmount, pct: data.company_share_percentage },
+      amount_paisa: companyShareAmount,
+      description: `কোম্পানি ফান্ডে ৳${(companyShareAmount / 100).toFixed(0)} জমা`,
+      actor_id: userId
+    })
   ])
 
   return ok(c, {
@@ -371,34 +463,40 @@ profitRoutes.get('/company-fund', async (c) => {
   const limit = Math.min(parseInt(c.req.query('limit') || '20'), 100)
   const offset = (page - 1) * limit
 
-  const [summary, transactions, countRow] = await Promise.all([
+  const [summary, transactions, countRow, pendingCount] = await Promise.all([
     c.env.DB.prepare(
       `SELECT
-        COALESCE(SUM(CASE WHEN amount_paisa > 0 THEN amount_paisa ELSE 0 END), 0) as total_credited,
-        COALESCE(SUM(CASE WHEN amount_paisa < 0 THEN ABS(amount_paisa) ELSE 0 END), 0) as total_debited,
-        COALESCE(SUM(amount_paisa), 0) as current_balance
+        COALESCE(SUM(CASE WHEN amount_paisa > 0 AND status IN ('completed', 'approved') THEN amount_paisa ELSE 0 END), 0) as total_credited,
+        COALESCE(SUM(CASE WHEN amount_paisa < 0 AND status IN ('completed', 'approved') THEN ABS(amount_paisa) ELSE 0 END), 0) as total_debited,
+        COALESCE(SUM(CASE WHEN status IN ('completed', 'approved') THEN amount_paisa ELSE 0 END), 0) as current_balance
        FROM company_fund_transactions`
     ).first<{ total_credited: number; total_debited: number; current_balance: number }>(),
 
     c.env.DB.prepare(
-      `SELECT cft.*, p.title as project_title, u.name as created_by_name
+      `SELECT cft.*, p.title as project_title, u.name as created_by_name, u2.name as approved_by_name
        FROM company_fund_transactions cft
        LEFT JOIN projects p ON p.id = cft.project_id
        LEFT JOIN users u ON u.id = cft.created_by
+       LEFT JOIN users u2 ON u2.id = cft.approved_by
        ORDER BY cft.created_at DESC
        LIMIT ? OFFSET ?`
     ).bind(limit, offset).all(),
 
     c.env.DB.prepare(
       'SELECT COUNT(*) as total FROM company_fund_transactions'
-    ).first<{ total: number }>()
+    ).first<{ total: number }>(),
+
+    c.env.DB.prepare(
+      `SELECT COUNT(*) as count FROM company_fund_transactions WHERE status = 'pending_approval'`
+    ).first<{ count: number }>()
   ])
 
   return ok(c, {
     summary: {
       current_balance: summary?.current_balance ?? 0,
       total_credited: summary?.total_credited ?? 0,
-      total_debited: summary?.total_debited ?? 0
+      total_debited: summary?.total_debited ?? 0,
+      pending_approvals: pendingCount?.count ?? 0
     },
     transactions: transactions.results,
     pagination: {
@@ -410,7 +508,7 @@ profitRoutes.get('/company-fund', async (c) => {
 })
 
 // ──────────────────────────────────────────────────────────────
-// POST /company-fund/withdraw — Admin withdraws from company fund
+// POST /company-fund/withdraw — Admin requests withdrawal (pending approval)
 // ──────────────────────────────────────────────────────────────
 const withdrawFundSchema = z.object({
   amount: z.number().int().positive(),
@@ -422,9 +520,10 @@ profitRoutes.post('/company-fund/withdraw', zValidator('json', withdrawFundSchem
   const userId = c.get('userId')
   const data = c.req.valid('json')
 
-  // Check available balance
+  // Check available balance (only completed/approved transactions count)
   const summary = await c.env.DB.prepare(
-    `SELECT COALESCE(SUM(amount_paisa), 0) as current_balance FROM company_fund_transactions`
+    `SELECT COALESCE(SUM(CASE WHEN status IN ('completed', 'approved') THEN amount_paisa ELSE 0 END), 0) as current_balance
+     FROM company_fund_transactions`
   ).first<{ current_balance: number }>()
 
   const balance = summary?.current_balance ?? 0
@@ -432,23 +531,199 @@ profitRoutes.post('/company-fund/withdraw', zValidator('json', withdrawFundSchem
     return err(c, `অপর্যাপ্ত ফান্ড। বর্তমান ব্যালেন্স: ৳${(balance / 100).toFixed(2)}`, 400)
   }
 
+  // Check if there are other admins in the system for dual-approval
+  const adminCount = await c.env.DB.prepare(
+    `SELECT COUNT(*) as count FROM users WHERE role = 'admin' AND id != ?`
+  ).bind(userId).first<{ count: number }>()
+
+  const needsApproval = (adminCount?.count ?? 0) > 0
+
   const result = await c.env.DB.prepare(
     `INSERT INTO company_fund_transactions 
-     (amount_paisa, transaction_type, description, reference_type, created_by)
-     VALUES (?, ?, ?, 'manual', ?)`
+     (amount_paisa, transaction_type, description, reference_type, status, created_by)
+     VALUES (?, ?, ?, 'manual', ?, ?)`
   ).bind(
-    -data.amount,  // negative = debit
+    -data.amount,
     data.transaction_type,
     data.description,
+    needsApproval ? 'pending_approval' : 'completed',  // single-admin override
     userId
   ).run()
 
   if (!result.success) return err(c, 'ট্রানজেকশন সংরক্ষণ ব্যর্থ', 500)
 
+  const txnId = result.meta.last_row_id
+
+  // Audit log
+  await auditLog(c.env.DB, {
+    entity_type: 'company_fund',
+    entity_id: txnId as number,
+    action: needsApproval ? 'create' : 'withdraw',
+    new_values: { amount: data.amount, type: data.transaction_type, description: data.description, needs_approval: needsApproval },
+    amount_paisa: data.amount,
+    description: needsApproval
+      ? `উত্তোলন অনুরোধ: ৳${(data.amount / 100).toFixed(0)} — অনুমোদনের অপেক্ষায়`
+      : `একক-এডমিন উত্তোলন: ৳${(data.amount / 100).toFixed(0)}`,
+    actor_id: userId
+  }).run()
+
+  if (needsApproval) {
+    return ok(c, {
+      message: 'উত্তোলন অনুরোধ তৈরি হয়েছে — অন্য একজন এডমিনের অনুমোদন প্রয়োজন',
+      transaction_id: txnId,
+      status: 'pending_approval'
+    }, 201)
+  }
+
   return ok(c, {
     message: 'কোম্পানি ফান্ড থেকে সফলভাবে সরানো হয়েছে',
-    transaction_id: result.meta.last_row_id,
-    new_balance: balance - data.amount
+    transaction_id: txnId,
+    new_balance: balance - data.amount,
+    status: 'completed'
+  })
+})
+
+// ──────────────────────────────────────────────────────────────
+// POST /company-fund/approve/:id — Second admin approves withdrawal
+// ──────────────────────────────────────────────────────────────
+profitRoutes.post('/company-fund/approve/:id', async (c) => {
+  const txnId = parseInt(c.req.param('id'))
+  if (isNaN(txnId)) return err(c, 'অকার্যকর আইডি')
+
+  const approverId = c.get('userId')
+
+  const txn = await c.env.DB.prepare(
+    `SELECT * FROM company_fund_transactions WHERE id = ? AND status = 'pending_approval'`
+  ).bind(txnId).first<{ id: number; amount_paisa: number; created_by: number; description: string }>()
+
+  if (!txn) return err(c, 'এই ট্রানজেকশন পাওয়া যায়নি বা ইতিমধ্যে প্রক্রিয়া হয়ে গেছে', 404)
+
+  // Guard: requesting admin ≠ approving admin
+  if (txn.created_by === approverId) {
+    return err(c, 'নিজের অনুরোধ নিজে অনুমোদন করা যাবে না', 403)
+  }
+
+  // Check balance again before approving
+  const summary = await c.env.DB.prepare(
+    `SELECT COALESCE(SUM(CASE WHEN status IN ('completed', 'approved') THEN amount_paisa ELSE 0 END), 0) as current_balance
+     FROM company_fund_transactions`
+  ).first<{ current_balance: number }>()
+
+  const balance = summary?.current_balance ?? 0
+  const withdrawAmount = Math.abs(txn.amount_paisa)
+  if (withdrawAmount > balance) {
+    return err(c, `অপর্যাপ্ত ফান্ড। বর্তমান ব্যালেন্স: ৳${(balance / 100).toFixed(2)}`, 400)
+  }
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `UPDATE company_fund_transactions 
+       SET status = 'approved', approved_by = ?, approved_at = datetime('now')
+       WHERE id = ?`
+    ).bind(approverId, txnId),
+
+    auditLog(c.env.DB, {
+      entity_type: 'company_fund',
+      entity_id: txnId,
+      action: 'approve',
+      old_values: { status: 'pending_approval' },
+      new_values: { status: 'approved', approved_by: approverId },
+      amount_paisa: withdrawAmount,
+      description: `উত্তোলন অনুমোদিত: ৳${(withdrawAmount / 100).toFixed(0)}`,
+      actor_id: approverId
+    })
+  ])
+
+  return ok(c, {
+    message: 'উত্তোলন অনুমোদিত হয়েছে',
+    new_balance: balance - withdrawAmount
+  })
+})
+
+// ──────────────────────────────────────────────────────────────
+// POST /company-fund/reject/:id — Second admin rejects withdrawal
+// ──────────────────────────────────────────────────────────────
+const rejectSchema = z.object({
+  reason: z.string().min(1, 'বাতিলের কারণ লিখুন')
+})
+
+profitRoutes.post('/company-fund/reject/:id', zValidator('json', rejectSchema), async (c) => {
+  const txnId = parseInt(c.req.param('id'))
+  if (isNaN(txnId)) return err(c, 'অকার্যকর আইডি')
+
+  const rejecterId = c.get('userId')
+  const { reason } = c.req.valid('json')
+
+  const txn = await c.env.DB.prepare(
+    `SELECT * FROM company_fund_transactions WHERE id = ? AND status = 'pending_approval'`
+  ).bind(txnId).first<{ id: number; created_by: number; amount_paisa: number }>()
+
+  if (!txn) return err(c, 'এই ট্রানজেকশন পাওয়া যায়নি বা ইতিমধ্যে প্রক্রিয়া হয়ে গেছে', 404)
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `UPDATE company_fund_transactions 
+       SET status = 'rejected', approved_by = ?, approved_at = datetime('now'), rejection_reason = ?
+       WHERE id = ?`
+    ).bind(rejecterId, reason, txnId),
+
+    auditLog(c.env.DB, {
+      entity_type: 'company_fund',
+      entity_id: txnId,
+      action: 'reject',
+      old_values: { status: 'pending_approval' },
+      new_values: { status: 'rejected', rejected_by: rejecterId, reason },
+      amount_paisa: Math.abs(txn.amount_paisa),
+      description: `উত্তোলন বাতিল: ${reason}`,
+      actor_id: rejecterId
+    })
+  ])
+
+  return ok(c, { message: 'উত্তোলন অনুরোধ বাতিল করা হয়েছে' })
+})
+
+// ──────────────────────────────────────────────────────────────
+// GET /audit-log — Financial audit log (admin only)
+// ──────────────────────────────────────────────────────────────
+profitRoutes.get('/audit-log', async (c) => {
+  const page = parseInt(c.req.query('page') || '1')
+  const limit = Math.min(parseInt(c.req.query('limit') || '30'), 100)
+  const offset = (page - 1) * limit
+  const entityType = c.req.query('entity_type') || null
+  const action = c.req.query('action') || null
+
+  let query = `SELECT fal.*, u.name as actor_name
+     FROM financial_audit_log fal
+     LEFT JOIN users u ON u.id = fal.actor_id
+     WHERE 1=1`
+  let countQuery = `SELECT COUNT(*) as total FROM financial_audit_log WHERE 1=1`
+  const params: (string | number)[] = []
+  const countParams: (string | number)[] = []
+
+  if (entityType) {
+    query += ` AND fal.entity_type = ?`
+    countQuery += ` AND entity_type = ?`
+    params.push(entityType)
+    countParams.push(entityType)
+  }
+  if (action) {
+    query += ` AND fal.action = ?`
+    countQuery += ` AND action = ?`
+    params.push(action)
+    countParams.push(action)
+  }
+
+  query += ` ORDER BY fal.created_at DESC LIMIT ? OFFSET ?`
+  params.push(limit, offset)
+
+  const [rows, countRow] = await Promise.all([
+    c.env.DB.prepare(query).bind(...params).all(),
+    c.env.DB.prepare(countQuery).bind(...countParams).first<{ total: number }>()
+  ])
+
+  return ok(c, {
+    items: rows.results,
+    pagination: { page, limit, total: countRow?.total ?? 0, hasMore: page * limit < (countRow?.total ?? 0) }
   })
 })
 
@@ -463,7 +738,8 @@ userProfitRoutes.get('/my-profits', async (c) => {
 
   const [profits, summary] = await Promise.all([
     c.env.DB.prepare(
-      `SELECT sp.*, p.title as project_title, pd.distributed_at, pd.notes as distribution_notes
+      `SELECT sp.*, p.title as project_title, pd.distributed_at, pd.notes as distribution_notes,
+              pd.period_start, pd.period_end
        FROM shareholder_profits sp
        JOIN projects p ON p.id = sp.project_id
        JOIN profit_distributions pd ON pd.id = sp.distribution_id

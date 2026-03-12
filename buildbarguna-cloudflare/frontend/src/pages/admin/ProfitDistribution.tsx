@@ -70,6 +70,13 @@ export default function ProfitDistribution() {
   const history = historyData?.success ? (historyData.data as any).items : []
   const detail = detailData?.success ? detailData.data : null
 
+  // Set initial company % from project default
+  const projectDefaultPct = preview?.project?.default_company_share_pct
+    ? Math.floor(preview.project.default_company_share_pct / 100)
+    : null
+
+  const periodsValid = periodStart.length > 0 && periodEnd.length > 0 && periodEnd >= periodStart
+
   if (isLoading) {
     return (
       <div className="p-4 space-y-4">
@@ -177,13 +184,13 @@ export default function ProfitDistribution() {
             <div className="grid grid-cols-2 gap-3 mb-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1">
-                  <Calendar size={12} /> পিরিয়ড শুরু (ঐচ্ছিক)
+                  <Calendar size={12} /> পিরিয়ড শুরু <span className="text-red-500">*</span>
                 </label>
                 <input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)} className="input w-full text-sm" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1">
-                  <Calendar size={12} /> পিরিয়ড শেষ (ঐচ্ছিক)
+                  <Calendar size={12} /> পিরিয়ড শেষ <span className="text-red-500">*</span>
                 </label>
                 <input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} className="input w-full text-sm" />
               </div>
@@ -273,7 +280,7 @@ export default function ProfitDistribution() {
               {!showConfirm ? (
                 <button
                   onClick={() => setShowConfirm(true)}
-                  disabled={!preview.has_available_profit || preview.summary.total_shareholders === 0}
+                  disabled={!preview.has_available_profit || preview.summary.total_shareholders === 0 || !periodsValid}
                   className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-lg hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <Send size={20} /> সব শেয়ারহোল্ডারকে প্রফিট পাঠান

@@ -3,7 +3,7 @@ import { authApi, clearToken } from '../lib/api'
 import { getUser, isAdmin } from '../lib/auth'
 import {
   Home, Briefcase, PieChart, TrendingUp,
-  LogOut, Settings, Menu, X, ChevronRight, BarChart2, ArrowDownCircle, Gift, Building2, BookOpen, FileText, CheckSquare, ListTodo, User, Book
+  LogOut, Settings, Menu, X, ChevronRight, BarChart2, ArrowDownCircle, Gift, Building2, BookOpen, FileText, CheckSquare, ListTodo, User, Book, Shield
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -27,6 +27,7 @@ const memberNav = [
   { to: '/withdraw', label: 'উত্তোলন', icon: ArrowDownCircle },
   { to: '/referrals', label: 'রেফারেল', icon: Gift },
   { to: '/profile/edit', label: 'প্রোফাইল এডিট', icon: User },
+  { to: '/my/profits', label: 'আমার প্রফিট', icon: TrendingUp },
   { to: '/guide', label: 'ব্যবহারকারী গাইড', icon: Book },
 ]
 
@@ -43,6 +44,7 @@ const adminNav = [
   { to: '/admin/referrals', label: 'রেফারেল ব্যবস্থাপনা', icon: Gift },
   { to: '/admin/company-expenses', label: 'কোম্পানি খরচ', icon: Building2 },
   { to: '/admin/company-fund', label: 'কোম্পানি ফান্ড', icon: Building2 },
+  { to: '/admin/audit-log', label: 'অডিট লগ', icon: Shield },
   { to: '/admin/tutorial', label: 'টিউটোরিয়াল', icon: BookOpen },
   { to: '/admin/guide', label: 'অ্যাডমিন গাইড', icon: Book },
 ]

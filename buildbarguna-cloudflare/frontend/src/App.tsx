@@ -47,8 +47,10 @@ const ProjectFinance  = lazy(() => import('./pages/admin/ProjectFinance'))
 const ProfitDistribution = lazy(() => import('./pages/admin/ProfitDistribution'))
 const CompanyExpenses = lazy(() => import('./pages/admin/CompanyExpenses'))
 const CompanyFund     = lazy(() => import('./pages/admin/CompanyFund'))
+const AuditLog        = lazy(() => import('./pages/admin/AuditLog'))
 const AdminTutorial   = lazy(() => import('./pages/admin/AdminTutorial'))
 const AdminTasks = lazy(() => import('./pages/admin/AdminTasks'))
+const MyProfits       = lazy(() => import('./pages/MyProfits'))
 
 // Guide pages
 const UserGuide = lazy(() => import('./pages/UserGuide'))
@@ -99,6 +101,7 @@ export default function App() {
         <Route path="/member-registration" element={<ProtectedRoute><MemberRegistration /></ProtectedRoute>} />
         <Route path="/membership" element={<ProtectedRoute><Layout><Membership /></Layout></ProtectedRoute>} />
         <Route path="/guide" element={<ProtectedRoute><Layout><UserGuide /></Layout></ProtectedRoute>} />
+        <Route path="/my/profits" element={<ProtectedRoute><Layout><MyProfits /></Layout></ProtectedRoute>} />
 
         {/* Admin routes */}
         <Route path="/admin"                element={<AdminRoute><Layout><AdminDashboard /></Layout></AdminRoute>} />
@@ -108,6 +111,7 @@ export default function App() {
         <Route path="/admin/projects/:projectId/distribute-profit" element={<AdminRoute><Layout><ProfitDistribution /></Layout></AdminRoute>} />
         <Route path="/admin/company-expenses" element={<AdminRoute><Layout><CompanyExpenses /></Layout></AdminRoute>} />
         <Route path="/admin/company-fund"     element={<AdminRoute><Layout><CompanyFund /></Layout></AdminRoute>} />
+        <Route path="/admin/audit-log"        element={<AdminRoute><Layout><AuditLog /></Layout></AdminRoute>} />
         <Route path="/admin/shares"         element={<AdminRoute><Layout><AdminShares /></Layout></AdminRoute>} />
 
         <Route path="/admin/rewards"        element={<AdminRoute><Layout><AdminRewards /></Layout></AdminRoute>} />
