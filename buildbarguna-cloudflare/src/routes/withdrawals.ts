@@ -110,8 +110,8 @@ withdrawalRoutes.get('/balance', async (c) => {
 withdrawalRoutes.get('/balance/breakdown', async (c) => {
   const userId = c.get('userId')
 
-  // Parallel queries: per-project earnings + referral bonuses + explicit balance
-  const [projectEarnings, referralBonus, explicitBalance] = await Promise.all([
+  // Parallel queries: per-project earnings + referral bonuses + legacy audit log entries + explicit balance
+  const [projectEarnings, referralBonus, legacyEntries, explicitBalance] = await Promise.all([
     c.env.DB.prepare(
       `SELECT p.title as project_title, p.id as project_id, SUM(e.amount) as total_paisa, COUNT(DISTINCT e.month) as months
        FROM earnings e
@@ -126,6 +126,14 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
        FROM referral_bonuses WHERE referrer_user_id = ?`
     ).bind(userId).first<{ total: number; count: number }>(),
 
+    // Legacy earnings from balance_audit_log (old monthly_earnings + capital_refund etc.)
+    c.env.DB.prepare(
+      `SELECT reference_type, COALESCE(SUM(amount_paisa), 0) as total, COUNT(*) as cnt
+       FROM balance_audit_log
+       WHERE user_id = ? AND change_type = 'earn'
+       GROUP BY reference_type`
+    ).bind(userId).all<{ reference_type: string; total: number; cnt: number }>(),
+
     // Get the actual tracked total from user_balances (if exists)
     c.env.DB.prepare(
       `SELECT total_earned_paisa FROM user_balances WHERE user_id = ?`
@@ -135,7 +143,7 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
   const breakdown: { source: string; label: string; project_title?: string; project_id?: number; amount_paisa: number; detail?: string }[] = []
   let sumFromSources = 0
 
-  // Project-wise earnings
+  // Project-wise earnings (from new earnings table)
   for (const row of projectEarnings.results) {
     breakdown.push({
       source: 'project_earnings',
@@ -146,6 +154,29 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
       detail: `${row.months} মাস`
     })
     sumFromSources += row.total_paisa
+  }
+
+  // Legacy monthly earnings from old system (balance_audit_log)
+  const legacyLabels: Record<string, string> = {
+    monthly_earnings: 'পূর্বের মাসিক মুনাফা',
+    capital_refund: 'মূলধন ফেরত',
+    referral_bonus: '', // handled separately
+    profit_distribution: '' // already in earnings table
+  }
+
+  for (const entry of legacyEntries.results) {
+    // Skip types already accounted for
+    if (entry.reference_type === 'profit_distribution' || entry.reference_type === 'referral_bonus') continue
+    if (entry.total <= 0) continue
+    
+    breakdown.push({
+      source: entry.reference_type,
+      label: legacyLabels[entry.reference_type] || 'অন্যান্য আয়',
+      amount_paisa: entry.total,
+      detail: entry.reference_type === 'monthly_earnings' ? `${entry.cnt} বার` :
+              entry.reference_type === 'capital_refund' ? 'মূলধন ফেরত' : `${entry.cnt} টি`
+    })
+    sumFromSources += entry.total
   }
 
   // Referral bonuses
@@ -160,16 +191,16 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
     sumFromSources += refTotal
   }
 
-  // Check for discrepancy — admin adjustments tracked in user_balances but not in earnings/referral tables
+  // Final discrepancy check — if user_balances still doesn't match, show as misc
   const actualTotal = explicitBalance?.total_earned_paisa ?? sumFromSources
-  const adjustmentAmount = actualTotal - sumFromSources
+  const miscAmount = actualTotal - sumFromSources
 
-  if (adjustmentAmount > 0) {
+  if (miscAmount > 0) {
     breakdown.push({
-      source: 'admin_adjustment',
-      label: 'অ্যাডমিন সমন্বয়/বোনাস',
-      amount_paisa: adjustmentAmount,
-      detail: 'ম্যানুয়াল ব্যালেন্স সমন্বয়'
+      source: 'other',
+      label: 'অন্যান্য',
+      amount_paisa: miscAmount,
+      detail: 'সিস্টেম সমন্বয়'
     })
   }
 

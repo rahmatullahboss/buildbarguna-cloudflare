@@ -150,7 +150,7 @@ export type AvailableBalance = {
 }
 
 export type IncomeBreakdownItem = {
-  source: 'project_earnings' | 'referral_bonus'
+  source: string
   label: string
   project_title?: string
   project_id?: number

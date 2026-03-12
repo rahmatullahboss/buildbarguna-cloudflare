@@ -341,6 +341,9 @@ export default function Withdraw() {
                 ? Math.max(3, (item.amount_paisa / breakdownTotal) * 100)
                 : 0
               const isRef = item.source === 'referral_bonus'
+              const isProject = item.source === 'project_earnings'
+              const icon = isProject ? '📊' : isRef ? '🎁' : item.source === 'monthly_earnings' ? '📈' : item.source === 'capital_refund' ? '🏦' : '💰'
+              const displayLabel = isProject ? item.project_title : item.label
               const pctText = breakdownTotal > 0
                 ? `${((item.amount_paisa / breakdownTotal) * 100).toFixed(1)}%`
                 : '0%'
@@ -353,7 +356,7 @@ export default function Withdraw() {
                       <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${colors[i % colors.length]}`} />
                       <div className="min-w-0">
                         <span className="text-sm font-medium text-gray-800 truncate block">
-                          {isRef ? '🎁 রেফারেল বোনাস' : `📊 ${item.project_title}`}
+                          {icon} {displayLabel}
                         </span>
                         {item.detail && (
                           <span className="text-[10px] text-gray-400">{item.detail}</span>
