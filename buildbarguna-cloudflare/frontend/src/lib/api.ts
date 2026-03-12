@@ -149,9 +149,24 @@ export type AvailableBalance = {
   settings: WithdrawalSettings
 }
 
+export type IncomeBreakdownItem = {
+  source: 'project_earnings' | 'referral_bonus'
+  label: string
+  project_title?: string
+  project_id?: number
+  amount_paisa: number
+  detail?: string
+}
+
+export type IncomeBreakdown = {
+  total_earned_paisa: number
+  breakdown: IncomeBreakdownItem[]
+}
+
 // Withdrawal API
 export const withdrawalsApi = {
   balance: () => request<AvailableBalance>('/withdrawals/balance'),
+  incomeBreakdown: () => request<IncomeBreakdown>('/withdrawals/balance/breakdown'),
   history: (page = 1) => request<Paginated<Withdrawal>>(`/withdrawals/history?page=${page}`),
   request: (amount_paisa: number, bkash_number: string) =>
     request<{ message: string; withdrawal_id: number; amount_paisa: number }>(

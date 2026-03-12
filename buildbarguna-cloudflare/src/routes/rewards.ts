@@ -117,20 +117,24 @@ rewardsRoutes.post('/:id/redeem', async (c) => {
   try {
     // Step 1: Reserve reward (atomic update with quantity check)
     if (rewardQuantity !== null) {
+      // M2 FIX: Only increment redeemed_count, NOT decrement quantity
+      // `quantity` is the originally stocked amount, `redeemed_count` tracks redemptions
       const reserveResult = await c.env.DB.prepare(
         `UPDATE rewards
-         SET quantity = quantity - 1, redeemed_count = redeemed_count + 1
+         SET redeemed_count = redeemed_count + 1
          WHERE id = ? AND is_active = 1 AND (quantity - redeemed_count) > 0`
       ).bind(rewardId).run()
 
       if (!reserveResult.meta.changes || reserveResult.meta.changes === 0) {
-        // Rollback: restore points
+        // M3 FIX: Symmetric rollback — restore ALL counters, not just available_points
         await c.env.DB.prepare(
           `UPDATE user_points SET
              available_points = available_points + ?,
+             lifetime_redeemed = lifetime_redeemed - ?,
+             monthly_redeemed = monthly_redeemed - ?,
              updated_at = datetime('now')
            WHERE user_id = ?`
-        ).bind(pointsRequired, userId).run()
+        ).bind(pointsRequired, pointsRequired, pointsRequired, userId).run()
         return err(c, 'রিওয়ার্ডটি ইতিমধ্যে শেষ হয়ে গেছে', 400)
       }
     } else {
@@ -185,13 +189,15 @@ rewardsRoutes.post('/:id/redeem', async (c) => {
   } catch (error) {
     console.error('Reward redemption error:', error)
 
-    // Rollback: restore points
+    // M3 FIX: Symmetric rollback — restore ALL counters, not just available_points
     await c.env.DB.prepare(
       `UPDATE user_points SET
          available_points = available_points + ?,
+         lifetime_redeemed = lifetime_redeemed - ?,
+         monthly_redeemed = monthly_redeemed - ?,
          updated_at = datetime('now')
        WHERE user_id = ?`
-    ).bind(pointsRequired, userId).run()
+    ).bind(pointsRequired, pointsRequired, pointsRequired, userId).run()
 
     return err(c, 'রিওয়ার্ড রিডিম করতে সমস্যা হচ্ছে', 500)
   }

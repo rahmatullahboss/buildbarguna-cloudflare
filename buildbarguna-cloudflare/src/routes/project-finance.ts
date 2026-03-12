@@ -11,6 +11,12 @@ export const financeRoutes = new Hono<{ Bindings: Bindings; Variables: Variables
 // All finance routes require auth
 financeRoutes.use('*', authMiddleware)
 
+// Write operations (POST/PUT/DELETE) require admin — members can only view
+financeRoutes.use('/transactions', adminMiddleware)
+financeRoutes.use('/transactions/*', adminMiddleware)
+financeRoutes.use('/categories', adminMiddleware)
+financeRoutes.use('/categories/*', adminMiddleware)
+
 // ──────────────────────────────────────────────────────────────
 // SCHEMAS
 // ──────────────────────────────────────────────────────────────
@@ -95,7 +101,7 @@ financeRoutes.get('/transactions/:projectId', async (c) => {
     SELECT t.*, u.name as created_by_name 
     FROM project_transactions t
     LEFT JOIN users u ON t.created_by = u.id
-    WHERE t.project_id = ?
+    WHERE t.project_id = ? AND t.deleted_at IS NULL
   `
   const params: (string | number)[] = [projectId]
 
@@ -159,20 +165,27 @@ financeRoutes.put('/transactions/:id', zValidator('json', updateTransactionSchem
 })
 
 // ──────────────────────────────────────────────────────────────
-// 4. DELETE TRANSACTION
+// 4. SOFT-DELETE TRANSACTION (H2 FIX: preserve audit trail)
 // ──────────────────────────────────────────────────────────────
 
 financeRoutes.delete('/transactions/:id', async (c) => {
   const id = parseInt(c.req.param('id'))
   if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
 
+  const adminId = c.get('userId')
+
+  // Soft-delete: set deleted_at timestamp instead of removing the row
   const result = await c.env.DB.prepare(
-    'DELETE FROM project_transactions WHERE id = ?'
-  ).bind(id).run()
+    `UPDATE project_transactions SET 
+       deleted_at = datetime('now'),
+       updated_at = datetime('now'),
+       notes = COALESCE(notes, '') || ' [Deleted by admin ' || ? || ' at ' || datetime('now') || ']'
+     WHERE id = ? AND deleted_at IS NULL`
+  ).bind(adminId, id).run()
 
   if (result.meta.changes === 0) return err(c, 'ট্রানজেকশন পাওয়া যায়নি', 404)
 
-  return ok(c, { message: 'ডিলিট সফল' })
+  return ok(c, { message: 'ডিলিট সফল (soft delete — audit trail preserved)' })
 })
 
 // ──────────────────────────────────────────────────────────────
@@ -209,7 +222,7 @@ financeRoutes.get('/summary/:projectId', async (c) => {
       COUNT(CASE WHEN transaction_type = 'revenue' THEN 1 END) as revenue_count,
       COUNT(CASE WHEN transaction_type = 'expense' THEN 1 END) as expense_count
     FROM project_transactions 
-    WHERE project_id = ?`
+    WHERE project_id = ? AND deleted_at IS NULL`
   ).bind(projectId).first<{
     total_revenue: number
     total_expense: number

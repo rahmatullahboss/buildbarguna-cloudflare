@@ -106,6 +106,58 @@ withdrawalRoutes.get('/balance', async (c) => {
   return ok(c, { ...balance, settings })
 })
 
+// GET /api/withdrawals/balance/breakdown — category-wise income breakdown
+withdrawalRoutes.get('/balance/breakdown', async (c) => {
+  const userId = c.get('userId')
+
+  // Parallel queries: per-project earnings + referral bonuses
+  const [projectEarnings, referralBonus] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT p.title as project_title, p.id as project_id, SUM(e.amount) as total_paisa, COUNT(DISTINCT e.month) as months
+       FROM earnings e
+       JOIN projects p ON p.id = e.project_id
+       WHERE e.user_id = ?
+       GROUP BY e.project_id
+       ORDER BY total_paisa DESC`
+    ).bind(userId).all<{ project_title: string; project_id: number; total_paisa: number; months: number }>(),
+
+    c.env.DB.prepare(
+      `SELECT COALESCE(SUM(amount_paisa), 0) as total, COUNT(*) as count
+       FROM referral_bonuses WHERE referrer_user_id = ?`
+    ).bind(userId).first<{ total: number; count: number }>()
+  ])
+
+  const breakdown: { source: string; label: string; project_title?: string; project_id?: number; amount_paisa: number; detail?: string }[] = []
+  let totalEarned = 0
+
+  // Project-wise earnings
+  for (const row of projectEarnings.results) {
+    breakdown.push({
+      source: 'project_earnings',
+      label: 'প্রজেক্ট মুনাফা',
+      project_title: row.project_title,
+      project_id: row.project_id,
+      amount_paisa: row.total_paisa,
+      detail: `${row.months} মাস`
+    })
+    totalEarned += row.total_paisa
+  }
+
+  // Referral bonuses
+  const refTotal = referralBonus?.total ?? 0
+  if (refTotal > 0) {
+    breakdown.push({
+      source: 'referral_bonus',
+      label: 'রেফারেল বোনাস',
+      amount_paisa: refTotal,
+      detail: `${referralBonus?.count ?? 0} জন`
+    })
+    totalEarned += refTotal
+  }
+
+  return ok(c, { total_earned_paisa: totalEarned, breakdown })
+})
+
 // GET /api/withdrawals/history — my withdrawal history, paginated
 withdrawalRoutes.get('/history', async (c) => {
   const { page, limit, offset } = getPagination(c.req.query())
@@ -179,9 +231,10 @@ withdrawalRoutes.post('/request', zValidator('json', requestSchema), async (c) =
   cooldownDate.setDate(cooldownDate.getDate() - settings.cooldown_days)
   const cooldownStr = cooldownDate.toISOString().slice(0, 10)
 
+  // H6 FIX: Only 'completed' withdrawals should trigger cooldown — rejected should NOT penalize user
   const recentCompleted = await c.env.DB.prepare(
     `SELECT id FROM withdrawals
-     WHERE user_id = ? AND status IN ('completed', 'rejected')
+     WHERE user_id = ? AND status = 'completed'
      AND requested_at >= ?
      ORDER BY requested_at DESC LIMIT 1`
   ).bind(userId, cooldownStr).first()
@@ -310,29 +363,36 @@ adminWithdrawalRoutes.patch('/:id/approve', async (c) => {
       return err(c, 'Insufficient explicit balance - approval not possible', 409)
     }
 
-    // Step 3: Update withdrawal status to approved
-    const updateResult = await c.env.DB.prepare(
-      `UPDATE withdrawals SET status = 'approved', approved_by = ?, approved_at = datetime('now')
-       WHERE id = ? AND status = 'pending'`
-    ).bind(adminId, id).run()
+    // Steps 3-5: ATOMIC BATCH — all-or-nothing to prevent partial failure
+    // If status update succeeds but balance doesn't update, we get inconsistent state
+    const batchStatements = [
+      // Step 3: Update withdrawal status to approved
+      c.env.DB.prepare(
+        `UPDATE withdrawals SET status = 'approved', approved_by = ?, approved_at = datetime('now')
+         WHERE id = ? AND status = 'pending'`
+      ).bind(adminId, id),
 
-    if (!updateResult.meta.changes) {
+      // Step 4: Deduct money from user's balance - add to reserved
+      c.env.DB.prepare(
+        `UPDATE user_balances SET 
+           reserved_paisa = reserved_paisa + ?,
+           updated_at = datetime('now')
+         WHERE user_id = ?`
+      ).bind(withdrawal.amount_paisa, withdrawal.user_id),
+
+      // Step 5: Create audit log for the deduction
+      c.env.DB.prepare(
+        `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
+         VALUES (?, ?, 'withdraw_reserve', 'withdrawal', ?, ?, 'Withdrawal approved - amount reserved')`
+      ).bind(withdrawal.user_id, -withdrawal.amount_paisa, id, adminId)
+    ]
+
+    const batchResults = await c.env.DB.batch(batchStatements)
+    
+    // Check if the withdrawal status update actually changed a row (another admin may have approved first)
+    if (!batchResults[0].meta.changes) {
       return err(c, 'Request already processed', 409)
     }
-
-    // Step 4: Deduct money from user's balance - add to reserved
-    await c.env.DB.prepare(
-      `UPDATE user_balances SET 
-         reserved_paisa = reserved_paisa + ?,
-         updated_at = datetime('now')
-       WHERE user_id = ?`
-    ).bind(withdrawal.amount_paisa, withdrawal.user_id).run()
-
-    // Step 5: Create audit log for the deduction
-    await c.env.DB.prepare(
-      `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
-       VALUES (?, ?, 'withdraw_reserve', 'withdrawal', ?, ?, 'Withdrawal approved - amount reserved')`
-    ).bind(withdrawal.user_id, -withdrawal.amount_paisa, id, adminId).run()
 
     return ok(c, {
       message: 'Withdrawal request approved. Money deducted from balance.',
@@ -372,43 +432,47 @@ adminWithdrawalRoutes.patch('/:id/complete', zValidator('json', completeSchema),
   ).bind(bkash_txid).first()
   if (dupTx) return err(c, 'এই TxID ইতিমধ্যে ব্যবহার করা হয়েছে', 409)
 
-  // Get admin ID from context
-  const adminId = c.get('userId')
-
   try {
-    // Step 1: Update withdrawal status to completed
-    const result = await c.env.DB.prepare(
-      `UPDATE withdrawals
-       SET status = 'completed', bkash_txid = ?, completed_at = datetime('now')
-       WHERE id = ? AND status = 'approved'`
-    ).bind(bkash_txid, id).run()
+    // Get admin ID from context
+    const adminId = c.get('userId')
 
-    if (!result.meta.changes) return err(c, 'অনুরোধ ইতিমধ্যে প্রক্রিয়া করা হয়েছে', 409)
-
-    // Step 2: Move money from reserved to withdrawn in user_balances
+    // Check user_balances has sufficient reserved amount
     const balanceRecord = await c.env.DB.prepare(
-      `SELECT * FROM user_balances WHERE user_id = ?`
-    ).bind(withdrawal.user_id).first<UserBalance>()
+      `SELECT reserved_paisa FROM user_balances WHERE user_id = ?`
+    ).bind(withdrawal.user_id).first<{ reserved_paisa: number }>()
 
-    if (balanceRecord && balanceRecord.reserved_paisa >= withdrawal.amount_paisa) {
-      // Move from reserved to withdrawn
-      await c.env.DB.prepare(
+    if (!balanceRecord || balanceRecord.reserved_paisa < withdrawal.amount_paisa) {
+      console.warn(`[withdrawal-complete] Warning: reserved amount mismatch for user ${withdrawal.user_id}`)
+    }
+
+    // ATOMIC BATCH: All-or-nothing — prevents money stuck in "reserved" on partial failure
+    const batchStatements = [
+      // Step 1: Update withdrawal status to completed
+      c.env.DB.prepare(
+        `UPDATE withdrawals
+         SET status = 'completed', bkash_txid = ?, completed_at = datetime('now')
+         WHERE id = ? AND status = 'approved'`
+      ).bind(bkash_txid, id),
+
+      // Step 2: Move money from reserved to withdrawn
+      c.env.DB.prepare(
         `UPDATE user_balances SET 
-           reserved_paisa = reserved_paisa - ?,
+           reserved_paisa = MAX(0, reserved_paisa - ?),
            total_withdrawn_paisa = total_withdrawn_paisa + ?,
            updated_at = datetime('now')
          WHERE user_id = ?`
-      ).bind(withdrawal.amount_paisa, withdrawal.amount_paisa, withdrawal.user_id).run()
+      ).bind(withdrawal.amount_paisa, withdrawal.amount_paisa, withdrawal.user_id),
 
-      // Create audit log
-      await c.env.DB.prepare(
+      // Step 3: Audit log
+      c.env.DB.prepare(
         `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
          VALUES (?, ?, 'withdraw_complete', 'withdrawal', ?, ?, ?)`
-      ).bind(withdrawal.user_id, -withdrawal.amount_paisa, id, adminId, `Withdrawal completed - money transferred to bKash. TxID: ${bkash_txid}`).run()
-    } else if (balanceRecord) {
-      // Log warning but don't fail - balance might be tracked differently
-      console.warn(`[withdrawal-complete] Warning: reserved amount mismatch for user ${withdrawal.user_id}`)
-    }
+      ).bind(withdrawal.user_id, -withdrawal.amount_paisa, id, adminId, `Withdrawal completed - TxID: ${bkash_txid}`)
+    ]
+
+    const batchResults = await c.env.DB.batch(batchStatements)
+
+    if (!batchResults[0].meta.changes) return err(c, 'অনুরোধ ইতিমধ্যে প্রক্রিয়া করা হয়েছে', 409)
 
     return ok(c, { message: `bKash TxID ${bkash_txid} দিয়ে উত্তোলন সম্পন্ন হয়েছে।` })
   } catch (error: any) {

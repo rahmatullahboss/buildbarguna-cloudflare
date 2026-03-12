@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { withdrawalsApi } from '../lib/api'
 import { formatTaka, formatDate } from '../lib/auth'
-import type { Withdrawal, WithdrawalStatus } from '../lib/api'
+import type { Withdrawal, WithdrawalStatus, IncomeBreakdownItem } from '../lib/api'
 import {
   Clock, CheckCircle, XCircle, AlertTriangle,
-  ArrowDownCircle, ChevronDown, ChevronUp, Info, Send, CircleDot
+  ArrowDownCircle, ChevronDown, ChevronUp, Info, Send, CircleDot, Layers
 } from 'lucide-react'
 import Disclaimer from '../components/Disclaimer'
 
@@ -244,6 +244,12 @@ export default function Withdraw() {
     staleTime: 15_000   // Refresh every 15s so cards update promptly after admin action
   })
 
+  const { data: breakdownData } = useQuery({
+    queryKey: ['income-breakdown'],
+    queryFn: () => withdrawalsApi.incomeBreakdown(),
+    staleTime: 60_000
+  })
+
   const { data: historyData, isLoading: historyLoading } = useQuery({
     queryKey: ['withdrawal-history'],
     queryFn: () => withdrawalsApi.history(),
@@ -272,6 +278,8 @@ export default function Withdraw() {
   })
 
   const balance = balanceData?.success ? balanceData.data : null
+  const breakdown = breakdownData?.success ? breakdownData.data.breakdown : []
+  const breakdownTotal = breakdownData?.success ? breakdownData.data.total_earned_paisa : 0
   const history = historyData?.success ? historyData.data.items : []
   const hasPending = history.some(w => w.status === 'pending')
 
@@ -315,6 +323,61 @@ export default function Withdraw() {
         <div className="card animate-pulse h-36" />
       ) : balance && (
         <BalancePipelineCard balance={balance as any} />
+      )}
+
+      {/* Income Breakdown Card */}
+      {breakdown.length > 0 && (
+        <div className="card">
+          <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <Layers size={18} className="text-indigo-500" /> আয়ের উৎস (খাত অনুযায়ী)
+          </h2>
+          <div className="space-y-2.5">
+            {breakdown.map((item: IncomeBreakdownItem, i: number) => {
+              const colors = ['bg-green-500','bg-blue-500','bg-amber-500','bg-rose-500','bg-cyan-500','bg-violet-500']
+              const textColors = ['text-green-700','text-blue-700','text-amber-700','text-rose-700','text-cyan-700','text-violet-700']
+              const bgColors = ['bg-green-50','bg-blue-50','bg-amber-50','bg-rose-50','bg-cyan-50','bg-violet-50']
+              const widthPct = breakdownTotal > 0
+                ? Math.max(3, (item.amount_paisa / breakdownTotal) * 100)
+                : 0
+              const isRef = item.source === 'referral_bonus'
+              const pctText = breakdownTotal > 0
+                ? `${((item.amount_paisa / breakdownTotal) * 100).toFixed(1)}%`
+                : '0%'
+
+              return (
+                <div key={`${item.source}-${item.project_id ?? 'ref'}-${i}`}
+                  className={`rounded-xl p-3 ${bgColors[i % bgColors.length]} border border-gray-100`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${colors[i % colors.length]}`} />
+                      <div className="min-w-0">
+                        <span className="text-sm font-medium text-gray-800 truncate block">
+                          {isRef ? '🎁 রেফারেল বোনাস' : `📊 ${item.project_title}`}
+                        </span>
+                        {item.detail && (
+                          <span className="text-[10px] text-gray-400">{item.detail}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 ml-3">
+                      <p className={`text-sm font-bold ${textColors[i % textColors.length]}`}>
+                        {formatTaka(item.amount_paisa)}
+                      </p>
+                      <p className="text-[10px] text-gray-400">{pctText}</p>
+                    </div>
+                  </div>
+                  <div className="h-2 bg-white/80 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${colors[i % colors.length]} transition-all duration-500`}
+                      style={{ width: `${widthPct}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-xs text-gray-400 mt-3 text-center">
+            মোট আয়: <span className="font-semibold text-gray-600">{formatTaka(breakdownTotal)}</span>
+          </p>
+        </div>
       )}
 
       {/* Pending warning */}

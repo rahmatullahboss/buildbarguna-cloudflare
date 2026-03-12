@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { authApi, earningsApi, sharesApi, withdrawalsApi, referralsApi, memberApi } from '../lib/api'
 import { formatTaka, getUser } from '../lib/auth'
-import { TrendingUp, PieChart, Briefcase, Copy, BarChart2, ArrowRight, ArrowDownCircle, Gift, Users, FileText, Download, CheckCircle, ListTodo } from 'lucide-react'
+import { TrendingUp, PieChart, Briefcase, Copy, BarChart2, ArrowRight, ArrowDownCircle, Gift, Users, FileText, Download, CheckCircle, ListTodo, Layers } from 'lucide-react'
 import { useState } from 'react'
 import Onboarding, { useOnboarding } from '../components/Onboarding'
 import { useCertificateDownload } from '../hooks/useCertificateDownload'
@@ -21,6 +21,7 @@ export default function Dashboard() {
   const { data: referralStats } = useQuery({ queryKey: ['referral-stats'], queryFn: () => referralsApi.stats(), staleTime: 60_000 })
   const { data: memberStatus } = useQuery({ queryKey: ['member-status'], queryFn: () => memberApi.status(), staleTime: 60_000 })
   const { data: shareRequests } = useQuery({ queryKey: ['share-requests-dashboard'], queryFn: () => sharesApi.requests(1), staleTime: 60_000 })
+  const { data: incomeBreakdown } = useQuery({ queryKey: ['income-breakdown'], queryFn: () => withdrawalsApi.incomeBreakdown(), staleTime: 60_000 })
 
   const balance = me?.success ? me.data.balance_paisa : 0
   const thisMonth = summary?.success ? summary.data.this_month_paisa : 0
@@ -248,6 +249,50 @@ export default function Dashboard() {
             )}
             {wbal.pending_paisa > 0 && <> • অপেক্ষমাণ: {formatTaka(wbal.pending_paisa)}</>}
           </p>
+
+          {/* Income Breakdown — category-wise detail */}
+          {incomeBreakdown?.success && incomeBreakdown.data.breakdown.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-purple-100">
+              <h3 className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1.5">
+                <Layers size={12} /> আয়ের বিবরণ (খাত অনুযায়ী)
+              </h3>
+              <div className="space-y-2">
+                {incomeBreakdown.data.breakdown.map((item, i) => {
+                  const colors = ['bg-green-500','bg-blue-500','bg-amber-500','bg-rose-500','bg-cyan-500','bg-violet-500']
+                  const textColors = ['text-green-700','text-blue-700','text-amber-700','text-rose-700','text-cyan-700','text-violet-700']
+                  const bgColors = ['bg-green-50','bg-blue-50','bg-amber-50','bg-rose-50','bg-cyan-50','bg-violet-50']
+                  const widthPct = incomeBreakdown.data.total_earned_paisa > 0
+                    ? Math.max(3, (item.amount_paisa / incomeBreakdown.data.total_earned_paisa) * 100)
+                    : 0
+                  const isRef = item.source === 'referral_bonus'
+
+                  return (
+                    <div key={`${item.source}-${item.project_id ?? 'ref'}-${i}`}
+                      className={`rounded-xl p-2.5 ${bgColors[i % bgColors.length]} border border-gray-100`}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${colors[i % colors.length]}`} />
+                          <span className="text-xs font-medium text-gray-700 truncate">
+                            {isRef ? '🎁 রেফারেল বোনাস' : `📊 ${item.project_title}`}
+                          </span>
+                          {item.detail && (
+                            <span className="text-[10px] text-gray-400 shrink-0">({item.detail})</span>
+                          )}
+                        </div>
+                        <span className={`text-sm font-bold shrink-0 ml-2 ${textColors[i % textColors.length]}`}>
+                          {formatTaka(item.amount_paisa)}
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-white/80 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${colors[i % colors.length]} transition-all`}
+                          style={{ width: `${widthPct}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

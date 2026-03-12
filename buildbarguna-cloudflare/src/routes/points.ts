@@ -349,15 +349,14 @@ pointsRoutes.post('/withdraw', zValidator('json', withdrawSchema), async (c) => 
   // Calculate taka (10 points = 1 taka)
   const amount_taka = Math.floor(amount_points / POINTS_SYSTEM.POINTS_TO_TAKA_DIVISOR)
 
-  // CRITICAL FIX: Deduct points immediately to prevent double-spending
-  // This locks the points so they can't be used for rewards while withdrawal is pending
+  // H5 FIX: Use dedicated counter for points withdrawn vs redeemed for rewards
+  // `lifetime_redeemed` tracks reward redemptions; withdrawals are a different operation
   const deductResult = await c.env.DB.prepare(
     `UPDATE user_points SET
        available_points = available_points - ?,
-       lifetime_redeemed = lifetime_redeemed + ?,
        updated_at = datetime('now')
      WHERE user_id = ? AND available_points >= ?`
-  ).bind(amount_points, amount_points, userId, amount_points).run()
+  ).bind(amount_points, userId, amount_points).run()
 
   if (!deductResult.meta.changes || deductResult.meta.changes === 0) {
     return err(c, 'পর্যাপ্ত পয়েন্ট নেই। অনুগ্রহ করে আবার চেষ্টা করুন।', 400)

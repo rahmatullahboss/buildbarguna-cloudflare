@@ -258,8 +258,9 @@ adminRoutes.patch('/shares/:id/approve', async (c) => {
   //   c) Only approve if shares were actually added
   // This minimises the inconsistency window vs the old approach which approved first.
 
-  const addSharesResult = await c.env.DB.prepare(
-    // Conditional INSERT: only executes if remaining capacity >= requested quantity
+  // C5 FIX: Use D1 batch to atomically add shares + approve purchase
+  // The old sequential approach had a race window between share add and status update
+  const addSharesStmt = c.env.DB.prepare(
     `INSERT INTO user_shares (user_id, project_id, quantity)
      SELECT ?, ?, ?
      WHERE (
@@ -272,22 +273,22 @@ adminRoutes.patch('/shares/:id/approve', async (c) => {
   ).bind(
     purchase.user_id, purchase.project_id, purchase.quantity,
     purchase.project_id, purchase.quantity
-  ).run()
+  )
 
-  // If 0 rows changed → not enough shares available — reject safely
-  if (addSharesResult.meta.changes === 0) {
+  const approveStmt = c.env.DB.prepare(
+    `UPDATE share_purchases SET status = 'approved', updated_at = datetime('now')
+     WHERE id = ? AND status = 'pending'`
+  ).bind(id)
+
+  const [addResult, approveResult] = await c.env.DB.batch([addSharesStmt, approveStmt])
+
+  // If share add failed (capacity), reject safely
+  if (addResult.meta.changes === 0) {
     return err(c, 'পর্যাপ্ত শেয়ার নেই, অনুমোদন করা সম্ভব হয়নি', 409)
   }
 
-  // Step 2: Now approve the purchase — shares already added successfully
-  const approveResult = await c.env.DB.prepare(
-    `UPDATE share_purchases SET status = 'approved', updated_at = datetime('now')
-     WHERE id = ? AND status = 'pending'`
-  ).bind(id).run()
-
-  // Edge case: another request approved this between our fetch and now
+  // If purchase was already approved by another admin (race), rollback shares
   if (approveResult.meta.changes === 0) {
-    // Shares were added but purchase is already approved — undo the duplicate share add
     await c.env.DB.prepare(
       `UPDATE user_shares SET quantity = quantity - ?
        WHERE user_id = ? AND project_id = ? AND quantity >= ?`
