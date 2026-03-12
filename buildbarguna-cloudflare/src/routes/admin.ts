@@ -4,8 +4,6 @@ import { z } from 'zod'
 import { authMiddleware } from '../middleware/auth'
 import { adminMiddleware } from '../middleware/admin'
 import { ok, err, getPagination, paginate } from '../lib/response'
-import { toBps } from '../lib/money'
-import { distributeMonthlyEarnings } from '../cron/earnings'
 import { checkRateLimit } from '../lib/rate-limiter'
 import type { Bindings, Variables, Project } from '../types'
 
@@ -371,42 +369,10 @@ adminRoutes.patch('/shares/:id/reject', zValidator('json', z.object({ admin_note
   return ok(c, { message: 'শেয়ার অনুরোধ বাতিল করা হয়েছে' })
 })
 
-// ─── PROFIT RATES ─────────────────────────────────────────────────────────────
+// NOTE: Profit rates and manual distribute-earnings routes removed.
+// Profit distribution is now done exclusively via the P&L-based system
+// in profit-distribution.ts (ProjectFinance → ProfitDistribution flow).
 
-const profitRateSchema = z.object({
-  project_id: z.number().int().positive(),
-  month: z.string().regex(/^\d{4}-\d{2}$/, 'YYYY-MM ফরম্যাটে দিন'),
-  rate_percent: z.number().positive().max(100)
-})
-
-adminRoutes.get('/profit-rates', async (c) => {
-  const rows = await c.env.DB.prepare(
-    `SELECT pr.*, p.title FROM profit_rates pr
-     JOIN projects p ON p.id = pr.project_id
-     ORDER BY pr.month DESC`
-  ).all()
-  return ok(c, rows.results)
-})
-
-adminRoutes.post('/profit-rates', zValidator('json', profitRateSchema), async (c) => {
-  const { project_id, month, rate_percent } = c.req.valid('json')
-  const rateBps = toBps(rate_percent)
-
-  await c.env.DB.prepare(
-    `INSERT INTO profit_rates (project_id, month, rate) VALUES (?, ?, ?)
-     ON CONFLICT(project_id, month) DO UPDATE SET rate = excluded.rate`
-  ).bind(project_id, month, rateBps).run()
-
-  return ok(c, { message: `${month} মাসের মুনাফার হার ${rate_percent}% সেট করা হয়েছে` })
-})
-
-// ─── DISTRIBUTE EARNINGS (Manual Trigger) ────────────────────────────────────
-
-adminRoutes.post('/distribute-earnings', zValidator('json', z.object({ month: z.string().regex(/^\d{4}-\d{2}$/) })), async (c) => {
-  const { month } = c.req.valid('json')
-  await distributeMonthlyEarnings(c.env, month)
-  return ok(c, { message: `${month} মাসের মুনাফা বিতরণ সম্পন্ন হয়েছে` })
-})
 
 // ─── DAILY TASKS ──────────────────────────────────────────────────────────────
 

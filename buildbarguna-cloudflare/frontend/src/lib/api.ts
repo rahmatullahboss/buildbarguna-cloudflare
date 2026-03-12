@@ -402,11 +402,8 @@ export const adminApi = {
   rejectShare: (id: number, note?: string) =>
     request(`/admin/shares/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ admin_note: note }) }),
 
-  profitRates: () => request<ProfitRate[]>('/admin/profit-rates'),
-  setProfitRate: (body: { project_id: number; month: string; rate_percent: number }) =>
-    request('/admin/profit-rates', { method: 'POST', body: JSON.stringify(body) }),
-  distributeEarnings: (month: string) =>
-    request('/admin/distribute-earnings', { method: 'POST', body: JSON.stringify({ month }) }),
+
+
 
   r2Url: () => request<{ url: string }>('/admin/r2-url'),
 

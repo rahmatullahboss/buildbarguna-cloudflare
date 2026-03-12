@@ -21,7 +21,7 @@ import { financeRoutes } from './routes/project-finance'
 import { profitRoutes, userProfitRoutes } from './routes/profit-distribution'
 import { companyExpenseRoutes } from './routes/company-expenses'
 import { memberRoutes } from './routes/member'
-import { distributeMonthlyEarnings, cleanupTokenBlacklist } from './cron/earnings'
+import { cleanupTokenBlacklist } from './cron/earnings'
 import { scheduled } from './scheduled'
 import { RateLimiter } from './durable-objects/rate-limiter'
 import type { Bindings, Variables } from './types'
@@ -404,43 +404,20 @@ export default {
     console.log(`[cron] Starting scheduled job at ${new Date().toISOString()}`)
     const startTime = Date.now()
 
-    // Run earnings distribution + token blacklist cleanup with error handling
+    // Run token blacklist cleanup
     ctx.waitUntil((async () => {
       try {
-        const results = await Promise.allSettled([
-          (async () => {
-            console.log('[cron] Starting earnings distribution...')
-            await distributeMonthlyEarnings(env)
-            console.log('[cron] Earnings distribution completed')
-          })(),
-          (async () => {
-            console.log('[cron] Starting token blacklist cleanup...')
-            await cleanupTokenBlacklist(env)
-            console.log('[cron] Token blacklist cleanup completed')
-          })()
-        ])
-
+        console.log('[cron] Starting token blacklist cleanup...')
+        await cleanupTokenBlacklist(env)
         const duration = Date.now() - startTime
-
-        results.forEach((result, i) => {
-          if (result.status === 'rejected') {
-            console.error(`[cron] Task ${i} failed after ${duration}ms:`, result.reason)
-          }
-        })
-
-        const allSucceeded = results.every(r => r.status === 'fulfilled')
-        console.log(`[cron] ${allSucceeded ? 'All tasks completed' : 'Some tasks failed'} in ${duration}ms`)
+        console.log(`[cron] Token blacklist cleanup completed in ${duration}ms`)
 
         // Store cron execution status for monitoring
         await env.SESSIONS.put('last_cron_execution', JSON.stringify({
           timestamp: new Date().toISOString(),
           duration_ms: duration,
-          success: allSucceeded,
-          tasks: results.map((r, i) => ({
-            task: i === 0 ? 'earnings_distribution' : 'token_blacklist_cleanup',
-            status: r.status,
-            error: r.status === 'rejected' ? String(r.reason) : null
-          }))
+          success: true,
+          tasks: [{ task: 'token_blacklist_cleanup', status: 'fulfilled', error: null }]
         }), { expirationTtl: 86400 }) // Keep for 24 hours for monitoring
 
       } catch (error) {

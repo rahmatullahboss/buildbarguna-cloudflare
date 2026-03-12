@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { profitApi, type ProfitDistribution } from '../../lib/api'
 import { formatTaka, formatDate } from '../../lib/auth'
-import { ArrowLeft, Send, Users, DollarSign, CheckCircle, AlertTriangle, History, Wallet } from 'lucide-react'
+import { ArrowLeft, Send, Users, DollarSign, CheckCircle, AlertTriangle, History, Eye, Calendar, TrendingUp, TrendingDown, Building2, Wallet } from 'lucide-react'
 
 export default function ProfitDistribution() {
   const { projectId } = useParams()
@@ -15,6 +15,7 @@ export default function ProfitDistribution() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [msg, setMsg] = useState('')
   const [errMsg, setErrMsg] = useState('')
+  const [selectedDistId, setSelectedDistId] = useState<number | null>(null)
 
   // Fetch preview
   const { data: previewData, isLoading: previewLoading, refetch } = useQuery({
@@ -28,6 +29,13 @@ export default function ProfitDistribution() {
     queryKey: ['profit-history', id],
     queryFn: () => profitApi.getHistory(id),
     enabled: !!id
+  })
+
+  // Fetch selected distribution detail
+  const { data: detailData } = useQuery({
+    queryKey: ['profit-detail', selectedDistId],
+    queryFn: () => profitApi.getDistribution(selectedDistId!),
+    enabled: !!selectedDistId
   })
 
   // Distribute mutation
@@ -51,6 +59,7 @@ export default function ProfitDistribution() {
 
   const preview = previewData?.success ? previewData.data : null
   const history = historyData?.success ? (historyData.data as any).items : []
+  const detail = detailData?.success ? detailData.data : null
 
   if (previewLoading) {
     return (
@@ -95,23 +104,57 @@ export default function ProfitDistribution() {
 
       {preview && (
         <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="bg-green-50 border border-green-100 rounded-2xl p-4 text-center">
-              <p className="text-green-600 text-xs font-medium">মোট আয়</p>
-              <p className="text-lg font-bold text-green-700 mt-1">{formatTaka(preview.summary.total_revenue)}</p>
-            </div>
-            <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-center">
-              <p className="text-red-600 text-xs font-medium">মোট খরচ</p>
-              <p className="text-lg font-bold text-red-700 mt-1">{formatTaka(preview.summary.total_expense)}</p>
-            </div>
-            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-center">
-              <p className="text-blue-600 text-xs font-medium">নেট লাভ</p>
-              <p className="text-lg font-bold text-blue-700 mt-1">{formatTaka(preview.summary.net_profit)}</p>
-            </div>
-            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
-              <p className="text-amber-600 text-xs font-medium">বিতরণযোগ্য</p>
-              <p className="text-lg font-bold text-amber-700 mt-1">{formatTaka(preview.summary.available_profit)}</p>
+          {/* Financial Summary — Enhanced */}
+          <div className="card">
+            <h2 className="font-bold text-lg mb-3 flex items-center gap-2">
+              <DollarSign size={20} className="text-blue-600" />
+              আর্থিক সারসংক্ষেপ
+            </h2>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="bg-green-50 border border-green-100 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp size={14} className="text-green-500" />
+                  <p className="text-green-600 text-xs font-medium">মোট আয়</p>
+                </div>
+                <p className="text-lg font-bold text-green-700">{formatTaka(preview.summary.total_revenue)}</p>
+              </div>
+              <div className="bg-red-50 border border-red-100 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingDown size={14} className="text-red-500" />
+                  <p className="text-red-600 text-xs font-medium">প্রত্যক্ষ খরচ</p>
+                </div>
+                <p className="text-lg font-bold text-red-700">{formatTaka(preview.summary.direct_expense)}</p>
+              </div>
+              <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Building2 size={14} className="text-orange-500" />
+                  <p className="text-orange-600 text-xs font-medium">কোম্পানি খরচ বরাদ্দ</p>
+                </div>
+                <p className="text-lg font-bold text-orange-700">{formatTaka(preview.summary.company_expense_allocation)}</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <DollarSign size={14} className="text-blue-500" />
+                  <p className="text-blue-600 text-xs font-medium">নেট লাভ</p>
+                </div>
+                <p className={`text-lg font-bold ${preview.summary.net_profit >= 0 ? 'text-blue-700' : 'text-red-700'}`}>{formatTaka(preview.summary.net_profit)}</p>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <History size={14} className="text-gray-500" />
+                  <p className="text-gray-600 text-xs font-medium">পূর্বে বিতরিত</p>
+                </div>
+                <p className="text-lg font-bold text-gray-700">{formatTaka(preview.summary.previously_distributed)}</p>
+              </div>
+              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Wallet size={14} className="text-amber-500" />
+                  <p className="text-amber-600 text-xs font-medium">বিতরণযোগ্য</p>
+                </div>
+                <p className={`text-lg font-bold ${preview.summary.available_profit > 0 ? 'text-amber-700' : 'text-red-700'}`}>
+                  {formatTaka(preview.summary.available_profit)}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -205,7 +248,7 @@ export default function ProfitDistribution() {
                             {sh.shares_held} টি
                           </span>
                         </td>
-                        <td className="py-3 text-center font-medium">{sh.ownership_percentage.toFixed(2)}%</td>
+                        <td className="py-3 text-center font-medium">{(sh.ownership_percentage / 100).toFixed(2)}%</td>
                         <td className="py-3 text-right font-bold text-green-600">{formatTaka(sh.profit_amount)}</td>
                       </tr>
                     ))}
@@ -275,24 +318,94 @@ export default function ProfitDistribution() {
           </h2>
           <div className="space-y-2">
             {history.map((dist: ProfitDistribution) => (
-              <div key={dist.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+              <div
+                key={dist.id}
+                className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition cursor-pointer"
+                onClick={() => setSelectedDistId(selectedDistId === dist.id ? null : dist.id)}
+              >
                 <div>
-                  <p className="font-semibold">Distribution #{dist.id}</p>
+                  <p className="font-semibold flex items-center gap-2">
+                    Distribution #{dist.id}
+                    {selectedDistId === dist.id && <Eye size={14} className="text-primary-500" />}
+                  </p>
                   <p className="text-xs text-gray-500">
                     {dist.distributed_at ? formatDate(dist.distributed_at) : '-'} • 
                     {dist.shareholders_count || 0} জন শেয়ারহোল্ডার
+                    {(dist as any).company_share_percentage != null && (
+                      <> • কোম্পানি {((dist as any).company_share_percentage / 100).toFixed(0)}%</>
+                    )}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-green-600">{formatTaka(dist.distributable_amount)}</p>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    dist.status === 'distributed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                    dist.status === 'distributed' ? 'bg-green-100 text-green-700' : 
+                    dist.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                    'bg-gray-100 text-gray-700'
                   }`}>
-                    {dist.status}
+                    {dist.status === 'distributed' ? '✅ বিতরিত' : dist.status === 'cancelled' ? '❌ বাতিল' : dist.status}
                   </span>
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Distribution Detail Popup */}
+      {selectedDistId && detail && (
+        <div className="card border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-lg flex items-center gap-2">
+              <Eye size={20} className="text-blue-600" />
+              ডিস্ট্রিবিউশন #{selectedDistId} বিস্তারিত
+            </h2>
+            <button onClick={() => setSelectedDistId(null)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+          </div>
+          
+          {/* Distribution summary */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+            <div className="bg-white rounded-lg p-2 text-center">
+              <p className="text-xs text-gray-500">মোট আয়</p>
+              <p className="font-bold text-sm text-green-600">{formatTaka((detail.distribution as any).total_revenue)}</p>
+            </div>
+            <div className="bg-white rounded-lg p-2 text-center">
+              <p className="text-xs text-gray-500">মোট খরচ</p>
+              <p className="font-bold text-sm text-red-600">{formatTaka((detail.distribution as any).total_expense)}</p>
+            </div>
+            <div className="bg-white rounded-lg p-2 text-center">
+              <p className="text-xs text-gray-500">নেট লাভ</p>
+              <p className="font-bold text-sm text-blue-600">{formatTaka((detail.distribution as any).net_profit)}</p>
+            </div>
+            <div className="bg-white rounded-lg p-2 text-center">
+              <p className="text-xs text-gray-500">বিতরিত</p>
+              <p className="font-bold text-sm text-amber-600">{formatTaka((detail.distribution as any).distributable_amount)}</p>
+            </div>
+          </div>
+
+          {/* Shareholders who received */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-gray-500">
+                  <th className="pb-2 font-medium">নাম</th>
+                  <th className="pb-2 font-medium text-center">শেয়ার</th>
+                  <th className="pb-2 font-medium text-right">প্রাপ্ত প্রফিট</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {(detail.shareholders || []).map((sh: any) => (
+                  <tr key={sh.user_id} className="hover:bg-white/50">
+                    <td className="py-2">
+                      <p className="font-medium">{sh.user_name}</p>
+                      <p className="text-xs text-gray-400">{sh.phone}</p>
+                    </td>
+                    <td className="py-2 text-center text-xs">{sh.shares_held} টি</td>
+                    <td className="py-2 text-right font-bold text-green-600">{formatTaka(sh.profit_amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

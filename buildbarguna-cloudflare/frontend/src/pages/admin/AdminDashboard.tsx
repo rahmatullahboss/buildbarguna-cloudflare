@@ -74,12 +74,12 @@ export default function AdminDashboard() {
             </div>
           </Link>
         )}
-        <Link to="/admin/earnings" className="card border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 hover:shadow-lg transition-all hover:-translate-y-0.5 group">
+        <Link to="/admin/projects" className="card border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 hover:shadow-lg transition-all hover:-translate-y-0.5 group">
           <div className="flex items-center gap-3">
             <div className="bg-green-100 group-hover:bg-green-200 p-3 rounded-2xl transition-colors">💰</div>
             <div>
-              <p className="font-bold text-green-800">মুনাফা বিতরণ করুন</p>
-              <p className="text-sm text-green-600 mt-0.5">মাসিক মুনাফা সেট ও বিতরণ →</p>
+              <p className="font-bold text-green-800">প্রফিট ডিস্ট্রিবিউশন</p>
+              <p className="text-sm text-green-600 mt-0.5">প্রজেক্ট → ফাইনান্স → প্রফিট পাঠান →</p>
             </div>
           </div>
         </Link>
