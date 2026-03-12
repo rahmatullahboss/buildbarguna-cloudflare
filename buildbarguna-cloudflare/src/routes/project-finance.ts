@@ -351,6 +351,13 @@ const ALLOWED_CATEGORY_FIELDS = ['name', 'type', 'is_active'] as const
 financeRoutes.post('/categories', zValidator('json', categorySchema), async (c) => {
   const data = c.req.valid('json')
 
+  // Check for existing category with same name+type
+  const existing = await c.env.DB.prepare(
+    'SELECT id FROM transaction_categories WHERE name = ? AND type = ?'
+  ).bind(data.name, data.type).first<{ id: number }>()
+
+  if (existing) return err(c, 'এই নামে ক্যাটাগরি আগে থেকেই আছে', 409)
+
   const result = await c.env.DB.prepare(
     `INSERT INTO transaction_categories (name, type, is_active) VALUES (?, ?, ?)`
   ).bind(data.name, data.type, data.is_active ?? 1).run()

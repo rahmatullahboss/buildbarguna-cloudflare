@@ -308,6 +308,10 @@ CREATE TABLE IF NOT EXISTS transaction_categories (
     is_active   INTEGER NOT NULL DEFAULT 1
 );
 
+-- Prevent duplicate categories with same name+type
+CREATE UNIQUE INDEX IF NOT EXISTS idx_transaction_categories_name_type 
+ON transaction_categories(name, type);
+
 -- ৩. প্রফিট ডিস্ট্রিবিউশন ব্যাচ
 CREATE TABLE IF NOT EXISTS profit_distributions (
     id                       INTEGER PRIMARY KEY AUTOINCREMENT,
