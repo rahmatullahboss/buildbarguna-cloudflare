@@ -98,24 +98,35 @@ earningRoutes.get('/portfolio', async (c) => {
 
   const rows = projectRows.results
 
-  // 2. Fetch monthly history for each project in parallel
-  const monthlyHistories = await Promise.all(
-    rows.map(row =>
-      c.env.DB.prepare(
-        `SELECT e.month, e.rate AS rate_bps, e.amount AS earned_paisa
-         FROM earnings e
-         WHERE e.user_id = ? AND e.project_id = ?
-         ORDER BY e.month DESC
-         LIMIT 24`
-      ).bind(userId, row.project_id).all<{ month: string; rate_bps: number; earned_paisa: number }>()
-    )
-  )
+  // 2. Fetch monthly history for all projects in a single query (Bolt: Performance Optimization)
+  //    Replacing N+1 individual queries with a single query using SQLite window functions
+  //    to reduce database round-trips and I/O latency.
+  const allHistories = await c.env.DB.prepare(
+    `SELECT project_id, month, rate_bps, earned_paisa
+     FROM (
+       SELECT project_id, month, rate as rate_bps, amount as earned_paisa,
+              ROW_NUMBER() OVER (PARTITION BY project_id ORDER BY month DESC) as rn
+       FROM earnings
+       WHERE user_id = ?
+     )
+     WHERE rn <= 24
+     ORDER BY project_id, month DESC`
+  ).bind(userId).all<{ project_id: number; month: string; rate_bps: number; earned_paisa: number }>()
+
+  // Group histories by project_id in memory
+  const historyByProject = new Map<number, { month: string; rate_bps: number; earned_paisa: number }[]>()
+  for (const h of allHistories.results) {
+    if (!historyByProject.has(h.project_id)) {
+      historyByProject.set(h.project_id, [])
+    }
+    historyByProject.get(h.project_id)!.push(h)
+  }
 
   // 3. Compute portfolio-level totals
   let totalInvestedPaisa = 0
   let totalEarnedPaisa = 0
 
-  const projectItems: ProjectPortfolioItem[] = rows.map((row, i) => {
+  const projectItems: ProjectPortfolioItem[] = rows.map((row) => {
     const investmentValue = calcInvestmentValue(row.shares_owned, row.share_price)
     const latestRateBps = row.latest_rate_bps ?? 0
     const expectedThisMonth = calcEarningBySharePrice(row.shares_owned, row.share_price, latestRateBps)
@@ -123,7 +134,8 @@ earningRoutes.get('/portfolio', async (c) => {
     totalInvestedPaisa += investmentValue
     totalEarnedPaisa += row.total_earned_paisa
 
-    const history: ProjectMonthlyEarning[] = monthlyHistories[i].results.map(h => ({
+    const rawHistory = historyByProject.get(row.project_id) || []
+    const history: ProjectMonthlyEarning[] = rawHistory.map(h => ({
       month: h.month,
       rate_bps: h.rate_bps,
       rate_percent: toPercent(h.rate_bps),
