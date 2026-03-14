@@ -1,0 +1,3 @@
+## 2026-03-14 - Interactive Dropzone Accessibility
+**Learning:** Custom div-based file upload dropzones often lack native keyboard accessibility. While `onClick` handles pointer events, keyboard users cannot activate the file input unless `role="button"`, `tabIndex`, and `onKeyDown` (listening for Enter/Space) are explicitly added to the div.
+**Action:** Always verify that custom interactive elements (`div` or `span` acting as buttons) have full keyboard support and visible focus rings (`focus-visible:ring-2`) to ensure a comparable experience to native `<button>` or `<input type="file">` elements.
