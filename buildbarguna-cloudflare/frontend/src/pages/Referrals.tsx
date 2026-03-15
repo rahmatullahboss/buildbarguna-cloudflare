@@ -157,7 +157,7 @@ export default function Referrals() {
             <span className="text-2xl font-mono font-bold text-primary-700 tracking-widest flex-1">
               {stats?.referral_code ?? '—'}
             </span>
-            <button onClick={copyCode} className="flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm py-2 px-3 rounded-xl transition-colors">
+            <button onClick={copyCode} aria-label="রেফারেল কোড কপি করুন" className="flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm py-2 px-3 rounded-xl transition-colors">
               <Copy size={14} />
               {copied ? '✓ কপি!' : 'কপি করুন'}
             </button>
@@ -178,7 +178,7 @@ export default function Referrals() {
               <span>📱</span> WhatsApp
             </a>
             {/* Copy link */}
-            <button onClick={copyLink} className="flex items-center gap-1.5 btn-secondary text-sm py-2 px-4">
+            <button onClick={copyLink} aria-label="রেফারেল লিঙ্ক কপি করুন" className="flex items-center gap-1.5 btn-secondary text-sm py-2 px-4">
               <Copy size={14} />
               {linkCopied ? '✓ লিংক কপি!' : 'লিংক কপি'}
             </button>
