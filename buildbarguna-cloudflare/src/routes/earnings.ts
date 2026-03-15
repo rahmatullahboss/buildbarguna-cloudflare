@@ -27,15 +27,18 @@ earningRoutes.use('*', authMiddleware)
 earningRoutes.get('/summary', async (c) => {
   const userId = c.get('userId')
 
-  const [totalRow, thisMonthRow] = await Promise.all([
+  const [totalRowBatch, thisMonthRowBatch] = await c.env.DB.batch<{ total: number }>([
     c.env.DB.prepare(
       'SELECT COALESCE(SUM(amount), 0) as total FROM earnings WHERE user_id = ?'
-    ).bind(userId).first<{ total: number }>(),
+    ).bind(userId),
     c.env.DB.prepare(
       `SELECT COALESCE(SUM(amount), 0) as total FROM earnings
        WHERE user_id = ? AND month = strftime('%Y-%m', 'now')`
-    ).bind(userId).first<{ total: number }>()
+    ).bind(userId)
   ])
+
+  const totalRow = totalRowBatch?.results?.[0]
+  const thisMonthRow = thisMonthRowBatch?.results?.[0]
 
   return ok(c, {
     total_paisa: totalRow?.total ?? 0,
@@ -58,7 +61,7 @@ earningRoutes.get('/portfolio', async (c) => {
 
   // 1. Fetch all projects user has shares in, with aggregated earnings
   //    Single query using JOIN + GROUP BY — no N+1
-  const [projectRows, thisMonthRow, lastMonthRow] = await Promise.all([
+  const [projectRowsBatch, thisMonthRowBatch, lastMonthRowBatch] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT
          us.project_id,
@@ -81,35 +84,40 @@ earningRoutes.get('/portfolio', async (c) => {
        WHERE us.user_id = ?
        GROUP BY us.project_id, p.title, p.status, p.share_price, us.quantity
        ORDER BY us.project_id`
-    ).bind(userId).all<PortfolioProjectRow>(),
+    ).bind(userId),
 
     // This month earnings total
     c.env.DB.prepare(
       `SELECT COALESCE(SUM(amount), 0) as total
        FROM earnings WHERE user_id = ? AND month = ?`
-    ).bind(userId, currentMonth).first<{ total: number }>(),
+    ).bind(userId, currentMonth),
 
     // Last month earnings total
     c.env.DB.prepare(
       `SELECT COALESCE(SUM(amount), 0) as total
        FROM earnings WHERE user_id = ? AND month = ?`
-    ).bind(userId, lastMonth).first<{ total: number }>(),
+    ).bind(userId, lastMonth),
   ])
 
-  const rows = projectRows.results
+  const rows = projectRowsBatch.results as PortfolioProjectRow[]
+  const thisMonthRow = thisMonthRowBatch.results?.[0] as { total: number } | undefined
+  const lastMonthRow = lastMonthRowBatch.results?.[0] as { total: number } | undefined
 
-  // 2. Fetch monthly history for each project in parallel
-  const monthlyHistories = await Promise.all(
-    rows.map(row =>
-      c.env.DB.prepare(
-        `SELECT e.month, e.rate AS rate_bps, e.amount AS earned_paisa
-         FROM earnings e
-         WHERE e.user_id = ? AND e.project_id = ?
-         ORDER BY e.month DESC
-         LIMIT 24`
-      ).bind(userId, row.project_id).all<{ month: string; rate_bps: number; earned_paisa: number }>()
+  // 2. Fetch monthly history for each project in a single batch
+  let monthlyHistories: any[] = []
+  if (rows.length > 0) {
+    monthlyHistories = await c.env.DB.batch<{ month: string; rate_bps: number; earned_paisa: number }>(
+      rows.map(row =>
+        c.env.DB.prepare(
+          `SELECT e.month, e.rate AS rate_bps, e.amount AS earned_paisa
+           FROM earnings e
+           WHERE e.user_id = ? AND e.project_id = ?
+           ORDER BY e.month DESC
+           LIMIT 24`
+        ).bind(userId, row.project_id)
+      )
     )
-  )
+  }
 
   // 3. Compute portfolio-level totals
   let totalInvestedPaisa = 0
@@ -186,7 +194,7 @@ earningRoutes.get('/', async (c) => {
   const { page, limit, offset } = getPagination(c.req.query())
   const userId = c.get('userId')
 
-  const [rows, countRow] = await Promise.all([
+  const [rowsBatch, countRowBatch] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT e.*, p.title as project_title
        FROM earnings e
@@ -194,11 +202,14 @@ earningRoutes.get('/', async (c) => {
        WHERE e.user_id = ?
        ORDER BY e.month DESC, e.created_at DESC
        LIMIT ? OFFSET ?`
-    ).bind(userId, limit, offset).all(),
+    ).bind(userId, limit, offset),
     c.env.DB.prepare(
       'SELECT COUNT(*) as total FROM earnings WHERE user_id = ?'
-    ).bind(userId).first<{ total: number }>()
+    ).bind(userId)
   ])
+
+  const rows = rowsBatch
+  const countRow = countRowBatch.results?.[0] as { total: number } | undefined
 
   return ok(c, paginate(rows.results, countRow?.total ?? 0, page, limit))
 })
