@@ -36,6 +36,7 @@ export function GuideContent({ title, sections, isUserGuide }: GuideContentProps
             {/* Mobile menu button */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
+              aria-label={showMobileMenu ? "সূচিপত্র বন্ধ করুন" : "সূচিপত্র খুলুন"}
               className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
             >
               <Book className="w-5 h-5 text-gray-600" />
