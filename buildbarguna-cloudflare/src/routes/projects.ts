@@ -9,7 +9,9 @@ export const projectRoutes = new Hono<{ Bindings: Bindings; Variables: Variables
 projectRoutes.get('/', async (c) => {
   const { page, limit, offset } = getPagination(c.req.query())
 
-  const [rows, countRow] = await Promise.all([
+  // ⚡ Bolt: Consolidated parallel queries using db.batch() instead of Promise.all()
+  // Reduces multiple D1 HTTP round-trips into a single request, improving I/O latency.
+  const [rowsData, countData] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT p.*,
         COALESCE(SUM(us.quantity), 0) as sold_shares
@@ -19,13 +21,16 @@ projectRoutes.get('/', async (c) => {
        GROUP BY p.id
        ORDER BY p.created_at DESC
        LIMIT ? OFFSET ?`
-    ).bind(limit, offset).all<Project & { sold_shares: number }>(),
+    ).bind(limit, offset),
     c.env.DB.prepare(
       `SELECT COUNT(*) as total FROM projects WHERE status = 'active'`
-    ).first<{ total: number }>()
+    )
   ])
 
-  return ok(c, paginate(rows.results, countRow?.total ?? 0, page, limit))
+  const rows = (rowsData?.results || []) as Array<Project & { sold_shares: number }>
+  const total = (countData?.results?.[0] as { total: number })?.total ?? 0
+
+  return ok(c, paginate(rows, total, page, limit))
 })
 
 // GET /api/projects/:id — public
@@ -33,18 +38,22 @@ projectRoutes.get('/:id', async (c) => {
   const id = parseInt(c.req.param('id'))
   if (isNaN(id)) return err(c, 'অকার্যকর প্রজেক্ট আইডি')
 
-  const [project, soldRow] = await Promise.all([
-    c.env.DB.prepare('SELECT * FROM projects WHERE id = ?').bind(id).first<Project>(),
+  // ⚡ Bolt: Optimized query dispatching with db.batch() to avoid HTTP overhead
+  const [projectData, soldData] = await c.env.DB.batch([
+    c.env.DB.prepare('SELECT * FROM projects WHERE id = ?').bind(id),
     c.env.DB.prepare(
       'SELECT COALESCE(SUM(quantity), 0) as sold FROM user_shares WHERE project_id = ?'
-    ).bind(id).first<{ sold: number }>()
+    ).bind(id)
   ])
+
+  const project = projectData?.results?.[0] as Project | undefined
+  const sold = (soldData?.results?.[0] as { sold: number })?.sold ?? 0
 
   if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
 
   return ok(c, {
     ...project,
-    sold_shares: soldRow?.sold ?? 0,
-    available_shares: project.total_shares - (soldRow?.sold ?? 0)
+    sold_shares: sold,
+    available_shares: project.total_shares - sold
   })
 })
