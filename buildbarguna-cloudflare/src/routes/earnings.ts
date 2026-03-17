@@ -27,19 +27,17 @@ earningRoutes.use('*', authMiddleware)
 earningRoutes.get('/summary', async (c) => {
   const userId = c.get('userId')
 
-  const [totalRow, thisMonthRow] = await Promise.all([
-    c.env.DB.prepare(
-      'SELECT COALESCE(SUM(amount), 0) as total FROM earnings WHERE user_id = ?'
-    ).bind(userId).first<{ total: number }>(),
-    c.env.DB.prepare(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM earnings
-       WHERE user_id = ? AND month = strftime('%Y-%m', 'now')`
-    ).bind(userId).first<{ total: number }>()
-  ])
+  // ⚡ Bolt: Consolidated multiple aggregations into a single query to reduce D1 round-trips
+  const row = await c.env.DB.prepare(
+    `SELECT
+       COALESCE(SUM(amount), 0) as total,
+       COALESCE(SUM(CASE WHEN month = strftime('%Y-%m', 'now') THEN amount ELSE 0 END), 0) as this_month
+     FROM earnings WHERE user_id = ?`
+  ).bind(userId).first<{ total: number; this_month: number }>()
 
   return ok(c, {
-    total_paisa: totalRow?.total ?? 0,
-    this_month_paisa: thisMonthRow?.total ?? 0
+    total_paisa: row?.total ?? 0,
+    this_month_paisa: row?.this_month ?? 0
   })
 })
 
@@ -57,8 +55,8 @@ earningRoutes.get('/portfolio', async (c) => {
   })()
 
   // 1. Fetch all projects user has shares in, with aggregated earnings
-  //    Single query using JOIN + GROUP BY — no N+1
-  const [projectRows, thisMonthRow, lastMonthRow] = await Promise.all([
+  //    ⚡ Bolt: Using db.batch() instead of Promise.all to reduce HTTP network overhead in D1
+  const [projectRows, thisMonthRow, lastMonthRow] = await c.env.DB.batch<{ total: number } | PortfolioProjectRow>([
     c.env.DB.prepare(
       `SELECT
          us.project_id,
@@ -81,35 +79,38 @@ earningRoutes.get('/portfolio', async (c) => {
        WHERE us.user_id = ?
        GROUP BY us.project_id, p.title, p.status, p.share_price, us.quantity
        ORDER BY us.project_id`
-    ).bind(userId).all<PortfolioProjectRow>(),
+    ).bind(userId),
 
     // This month earnings total
     c.env.DB.prepare(
       `SELECT COALESCE(SUM(amount), 0) as total
        FROM earnings WHERE user_id = ? AND month = ?`
-    ).bind(userId, currentMonth).first<{ total: number }>(),
+    ).bind(userId, currentMonth),
 
     // Last month earnings total
     c.env.DB.prepare(
       `SELECT COALESCE(SUM(amount), 0) as total
        FROM earnings WHERE user_id = ? AND month = ?`
-    ).bind(userId, lastMonth).first<{ total: number }>(),
+    ).bind(userId, lastMonth),
   ])
 
-  const rows = projectRows.results
+  const rows = projectRows.results as PortfolioProjectRow[]
 
   // 2. Fetch monthly history for each project in parallel
-  const monthlyHistories = await Promise.all(
-    rows.map(row =>
-      c.env.DB.prepare(
-        `SELECT e.month, e.rate AS rate_bps, e.amount AS earned_paisa
-         FROM earnings e
-         WHERE e.user_id = ? AND e.project_id = ?
-         ORDER BY e.month DESC
-         LIMIT 24`
-      ).bind(userId, row.project_id).all<{ month: string; rate_bps: number; earned_paisa: number }>()
-    )
-  )
+  // ⚡ Bolt: Use db.batch() to send all history queries in a single network request
+  const monthlyHistories = rows.length > 0
+    ? await c.env.DB.batch<{ month: string; rate_bps: number; earned_paisa: number }>(
+        rows.map(row =>
+          c.env.DB.prepare(
+            `SELECT e.month, e.rate AS rate_bps, e.amount AS earned_paisa
+             FROM earnings e
+             WHERE e.user_id = ? AND e.project_id = ?
+             ORDER BY e.month DESC
+             LIMIT 24`
+          ).bind(userId, row.project_id)
+        )
+      )
+    : []
 
   // 3. Compute portfolio-level totals
   let totalInvestedPaisa = 0
@@ -168,8 +169,8 @@ earningRoutes.get('/portfolio', async (c) => {
   const summary: PortfolioSummary = {
     total_invested_paisa: totalInvestedPaisa,
     total_earned_paisa: totalEarnedPaisa,
-    this_month_earned_paisa: thisMonthRow?.total ?? 0,
-    last_month_earned_paisa: lastMonthRow?.total ?? 0,
+    this_month_earned_paisa: (thisMonthRow.results?.[0] as { total: number })?.total ?? 0,
+    last_month_earned_paisa: (lastMonthRow.results?.[0] as { total: number })?.total ?? 0,
     expected_this_month_paisa: expectedThisMonthTotal,
     roi_percent: overallROI,
     annualized_roi_percent: calcAnnualizedROI(overallROI, totalMonthsActive),
@@ -186,7 +187,8 @@ earningRoutes.get('/', async (c) => {
   const { page, limit, offset } = getPagination(c.req.query())
   const userId = c.get('userId')
 
-  const [rows, countRow] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to reduce HTTP network overhead in D1
+  const [rows, countRow] = await c.env.DB.batch<any>([
     c.env.DB.prepare(
       `SELECT e.*, p.title as project_title
        FROM earnings e
@@ -194,11 +196,12 @@ earningRoutes.get('/', async (c) => {
        WHERE e.user_id = ?
        ORDER BY e.month DESC, e.created_at DESC
        LIMIT ? OFFSET ?`
-    ).bind(userId, limit, offset).all(),
+    ).bind(userId, limit, offset),
     c.env.DB.prepare(
       'SELECT COUNT(*) as total FROM earnings WHERE user_id = ?'
-    ).bind(userId).first<{ total: number }>()
+    ).bind(userId)
   ])
 
-  return ok(c, paginate(rows.results, countRow?.total ?? 0, page, limit))
+  const total = (countRow.results?.[0] as { total: number })?.total ?? 0
+  return ok(c, paginate(rows.results, total, page, limit))
 })
