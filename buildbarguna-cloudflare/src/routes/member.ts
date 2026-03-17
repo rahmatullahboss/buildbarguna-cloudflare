@@ -213,37 +213,33 @@ memberRoutes.get('/my-registration', authMiddleware, async (c) => {
   })
 })
 
-// Helper: Generate unique form number with retry logic
-async function generateFormNumber(db: any, maxRetries = 5): Promise<string> {
+// Helper: Generate unique form number using row count for guaranteed sequence
+async function generateFormNumber(db: any): Promise<string> {
   const year = new Date().getFullYear()
-  
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    // Get current max sequence for the year
-    const result = await db.prepare(
-      `SELECT MAX(CAST(SUBSTR(form_number, 9, 4) AS INTEGER)) as max_seq 
-       FROM member_registrations 
-       WHERE form_number LIKE ?`
-    ).bind(`BBI-${year}-%`).first() as { max_seq: number | null } | null
-    
-    const nextSeq = ((result?.max_seq || 0) + 1) + attempt
-    const formNumber = `BBI-${year}-${nextSeq.toString().padStart(4, '0')}`
-    
-    // Check if this form number exists (avoid race condition)
-    const existing = await db.prepare(
+
+  // Count total registrations to determine next sequence number
+  // Use COUNT(*) + 1 as the next seq — simple and collision-safe for low-volume inserts
+  const result = await db.prepare(
+    `SELECT COUNT(*) as total FROM member_registrations`
+  ).first() as { total: number } | null
+
+  const nextSeq = (result?.total ?? 0) + 1
+
+  // Pad to 4 digits minimum, expand if needed (e.g. 10000 → 5 digits)
+  const formNumber = `BBI-${year}-${nextSeq.toString().padStart(4, '0')}`
+
+  // Safety check: if somehow this form number already exists (edge case),
+  // keep incrementing until we find a free slot
+  let candidate = formNumber
+  let seq = nextSeq
+  while (true) {
+    const exists = await db.prepare(
       'SELECT 1 FROM member_registrations WHERE form_number = ?'
-    ).bind(formNumber).first()
-    
-    if (!existing) {
-      return formNumber
-    }
-    
-    // If exists, try next sequence
-    continue
+    ).bind(candidate).first()
+    if (!exists) return candidate
+    seq++
+    candidate = `BBI-${year}-${seq.toString().padStart(4, '0')}`
   }
-  
-  // Fallback: use timestamp-based unique suffix
-  const timestamp = Date.now().toString(36).slice(-4).toUpperCase()
-  return `BBI-${year}-${timestamp}`
 }
 
 // POST /api/member/register - Submit registration with payment
