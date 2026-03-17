@@ -527,11 +527,11 @@ export default function Membership() {
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <a 
-            href="mailto:bbi.official2025@gmail.com" 
+            href="mailto:contact@buildbargunainitiative.org" 
             className="inline-flex items-center gap-2 text-sm text-primary-600 hover:underline"
           >
             <Mail size={14} />
-            bbi.official2025@gmail.com
+            contact@buildbargunainitiative.org
           </a>
           <span className="text-gray-400">|</span>
           <span className="text-sm text-gray-600">মোবাইল: 01635222142</span>

@@ -298,7 +298,7 @@ function generateMemberCertificateHTML(reg: MemberRegistration, logoUrl?: string
       ${logoUrl ? `<img class="logo" src="${logoUrl}" alt="BBI Logo">` : ''}
       <div class="org-name">Build Barguna Initiative (BBI)</div>
       <div class="tagline">Barguna Sadar, Barguna, Bangladesh</div>
-      <div class="contact">Email: bbi.official2025@gmail.com | Mobile: 01971951960</div>
+      <div class="contact">Email: contact@buildbargunainitiative.org | Mobile: 01971951960</div>
     </div>
     
     <div class="title">

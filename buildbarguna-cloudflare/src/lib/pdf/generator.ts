@@ -254,7 +254,7 @@ export async function generateMemberCertificate(
   y += taglineSize + 3
 
   // Contact info
-  const contact = 'Email: bbi.official2025@gmail.com | Mobile: 01971951960'
+  const contact = 'Email: contact@buildbargunainitiative.org | Mobile: 01971951960'
   const contactSize = 9
   const contactW = helvetica.widthOfTextAtSize(contact, contactSize)
   page.drawText(contact, {
