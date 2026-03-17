@@ -36,6 +36,7 @@ export function GuideContent({ title, sections, isUserGuide }: GuideContentProps
             {/* Mobile menu button */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
+              aria-label="গাইড মেনু"
               className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
             >
               <Book className="w-5 h-5 text-gray-600" />
@@ -95,7 +96,7 @@ export function GuideContent({ title, sections, isUserGuide }: GuideContentProps
               <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b flex items-center justify-between">
                   <h2 className="font-semibold text-gray-900">সূচিপত্র</h2>
-                  <button onClick={() => setShowMobileMenu(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <button onClick={() => setShowMobileMenu(false)} aria-label="মেনু বন্ধ করুন" className="p-2 hover:bg-gray-100 rounded-lg">
                     <X className="w-5 h-5" />
                   </button>
                 </div>

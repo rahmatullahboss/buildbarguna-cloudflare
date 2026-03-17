@@ -102,6 +102,7 @@ export default function ImageUpload({ value, onChange, label = 'ছবি আপ
               <button
                 type="button"
                 onClick={e => { e.stopPropagation(); handleClear() }}
+                aria-label="ছবি মুছুন"
                 className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-lg transition-colors"
               >
                 <X size={16} />
