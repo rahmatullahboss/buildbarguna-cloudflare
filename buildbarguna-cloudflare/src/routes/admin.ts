@@ -10,6 +10,8 @@ import type { Bindings, Variables, Project } from '../types'
 export const adminRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
 // XSS Prevention: Escape HTML special characters
+// NOTE: Do NOT escape forward slashes — this is a JSON API, not HTML output.
+// React already escapes output in JSX, so we only guard against stored XSS.
 function sanitizeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
@@ -17,7 +19,6 @@ function sanitizeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#x27;')
-    .replace(/\//g, '&#x2F;')
 }
 
 // Apply sanitization to string fields in an object
@@ -155,7 +156,7 @@ adminRoutes.put('/projects/:id', zValidator('json', projectSchema.partial()), as
   let body = c.req.valid('json')
 
   // Sanitize string fields to prevent XSS
-  body = sanitizeObject(body, ['title', 'description', 'image_url', 'location', 'category'])
+  body = sanitizeObject(body, ['title', 'description', 'location', 'category'])
 
   // Whitelist allowed fields — never interpolate arbitrary keys into SQL
   const ALLOWED_FIELDS = [
@@ -632,7 +633,7 @@ adminRoutes.put('/rewards/:id', zValidator('json', rewardSchema.partial()), asyn
   let body = c.req.valid('json')
   
   // Sanitize string fields to prevent XSS
-  body = sanitizeObject(body, ['name', 'description', 'image_url'])
+  body = sanitizeObject(body, ['name', 'description'])
 
   // SECURITY FIX: Whitelist allowed fields — never interpolate arbitrary keys into SQL
   const ALLOWED_FIELDS = ['name', 'description', 'points_required', 'quantity', 'image_url'] as const
