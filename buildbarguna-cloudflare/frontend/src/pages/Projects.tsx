@@ -57,13 +57,21 @@ export default function Projects() {
             <div key={p.id} className="card hover:shadow-lg transition-all hover:-translate-y-0.5 flex flex-col overflow-hidden p-0 slide-up" style={{animationDelay: `${idx * 0.08}s`}}>
               {/* Project image or gradient banner */}
               {p.image_url ? (
-                <img src={p.image_url} alt={p.title} className="w-full h-44 object-cover" />
-              ) : (
-                <div className="w-full h-36 bg-gradient-to-br from-primary-600 to-teal-500 flex items-center justify-center relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-                  <img src="/bbi logo.jpg" alt="BBI Logo" className="w-16 h-16 object-contain" />
-                </div>
-              )}
+                <img
+                  src={p.image_url}
+                  alt={p.title}
+                  className="w-full h-44 object-cover"
+                  onError={(e) => {
+                    const target = e.currentTarget
+                    target.style.display = 'none'
+                    target.parentElement?.querySelector('.img-fallback')?.classList.remove('hidden')
+                  }}
+                />
+              ) : null}
+              <div className={`w-full h-36 bg-gradient-to-br from-primary-600 to-teal-500 flex items-center justify-center relative overflow-hidden img-fallback ${p.image_url ? 'hidden' : ''}`}>
+                <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                <img src="/bbi logo.jpg" alt="BBI Logo" className="w-16 h-16 object-contain" />
+              </div>
 
               <div className="p-4 flex flex-col flex-1">
                 {/* Title + status badges */}
