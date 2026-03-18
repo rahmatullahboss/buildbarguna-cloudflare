@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { projectsApi, sharesApi } from '../lib/api'
+import { projectsApi, sharesApi, type ProjectUpdate } from '../lib/api'
 import { formatTaka } from '../lib/auth'
 import Disclaimer from '../components/Disclaimer'
-import { HelpCircle, X, AlertTriangle, CheckSquare, Plus, Minus, Wallet, Phone, CheckCircle, ArrowRight, FileText, PartyPopper } from 'lucide-react'
+import { HelpCircle, X, AlertTriangle, CheckSquare, Plus, Minus, Wallet, Phone, CheckCircle, ArrowRight, FileText, PartyPopper, MapPin, Calendar, Clock, Newspaper } from 'lucide-react'
 
 type PaymentMethod = 'bkash' | 'manual'
 
@@ -49,6 +49,13 @@ export default function ProjectDetail() {
     queryKey: ['project', id],
     queryFn: () => projectsApi.get(Number(id))
   })
+
+  const { data: updatesData } = useQuery({
+    queryKey: ['project-updates', id],
+    queryFn: () => projectsApi.getUpdates(Number(id)),
+    enabled: !!id
+  })
+  const updates: ProjectUpdate[] = updatesData?.success ? (updatesData.data as ProjectUpdate[]) : []
 
   const buyMutation = useMutation({
     mutationFn: async () => {
@@ -124,12 +131,56 @@ export default function ProjectDetail() {
         )}
 
         <div className="p-5">
+          {/* Completed status banner */}
+          {p.status === 'completed' && (
+            <div className="mb-4 bg-teal-50 border border-teal-200 rounded-2xl p-3.5 flex items-center gap-3">
+              <CheckCircle size={22} className="text-teal-600 shrink-0" />
+              <div>
+                <p className="font-semibold text-teal-800">প্রজেক্ট সম্পন্ন হয়েছে</p>
+                {p.completed_at && (
+                  <p className="text-xs text-teal-600 mt-0.5 flex items-center gap-1">
+                    <Clock size={11} /> {new Date(p.completed_at).toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-start justify-between gap-2 mb-2">
             <h1 className="text-2xl font-bold text-gray-900">{p.title}</h1>
-            <span className={`text-xs px-2.5 py-1 rounded-full font-semibold shrink-0 ${p.available_shares === 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
-              {p.available_shares === 0 ? 'শেষ' : '● সক্রিয়'}
-            </span>
+            {p.status !== 'completed' && (
+              <span className={`text-xs px-2.5 py-1 rounded-full font-semibold shrink-0 ${p.available_shares === 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                {p.available_shares === 0 ? 'শেষ' : '● সক্রিয়'}
+              </span>
+            )}
           </div>
+
+          {/* Category & location tags */}
+          {(p.category || p.location) && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {p.category && (
+                <span className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2.5 py-1 rounded-full font-medium">{p.category}</span>
+              )}
+              {p.location && (
+                <span className="text-xs text-gray-500 flex items-center gap-1">
+                  <MapPin size={11} /> {p.location}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Dates */}
+          {(p.start_date || p.expected_end_date) && (
+            <div className="flex flex-wrap gap-4 mb-3 text-xs text-gray-400">
+              {p.start_date && (
+                <span className="flex items-center gap-1"><Calendar size={11} /> শুরু: {p.start_date}</span>
+              )}
+              {p.expected_end_date && (
+                <span className="flex items-center gap-1"><Calendar size={11} /> শেষ: {p.expected_end_date}</span>
+              )}
+            </div>
+          )}
+
           {p.description && <p className="text-gray-500 mb-5 text-sm leading-relaxed">{p.description}</p>}
 
           {/* Stats grid */}
@@ -152,8 +203,8 @@ export default function ProjectDetail() {
             </div>
           </div>
 
-          {/* Progress bar */}
-          <div className="mb-1">
+          {/* Share sales progress bar */}
+          <div className="mb-4">
             <div className="flex justify-between text-xs text-gray-400 mb-1.5">
               <span>বিক্রিত শেয়ার</span>
               <span className="font-semibold">{soldPct}%</span>
@@ -163,10 +214,36 @@ export default function ProjectDetail() {
                 style={{ width: `${soldPct}%` }} />
             </div>
           </div>
+
+          {/* Project progress bar (if set) */}
+          {(p.progress_pct ?? 0) > 0 && (
+            <div className="mb-1">
+              <div className="flex justify-between text-xs text-gray-400 mb-1.5">
+                <span>প্রজেক্ট অগ্রগতি</span>
+                <span className="font-semibold">{p.progress_pct}%</span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full transition-all ${p.status === 'completed' ? 'bg-teal-500' : 'bg-emerald-500'}`}
+                  style={{ width: `${p.progress_pct}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Buy form */}
-        {p.available_shares > 0 ? (
+        {p.status === 'completed' ? (
+          <div className="border-t border-teal-100 p-5">
+            <div className="flex items-center gap-3 bg-teal-50 rounded-2xl p-4">
+              <CheckCircle size={28} className="text-teal-500 shrink-0" />
+              <div>
+                <p className="font-bold text-teal-800">এই প্রজেক্ট সম্পন্ন হয়েছে</p>
+                <p className="text-teal-600 text-sm mt-0.5">আর শেয়ার কেনার সুযোগ নেই। বিনিয়োগকারীদের মুনাফা বিতরণ করা হয়েছে।</p>
+              </div>
+            </div>
+          </div>
+        ) : p.available_shares > 0 ? (
           <div className="border-t border-gray-100 p-5">
             <h2 className="font-bold text-lg mb-4 flex items-center gap-2">🛒 শেয়ার কিনুন</h2>
 
@@ -480,6 +557,31 @@ export default function ProjectDetail() {
           </div>
         )}
       </div>
+
+      {/* Project Updates / News Feed */}
+      {updates.length > 0 && (
+        <div className="card">
+          <h2 className="font-bold text-base flex items-center gap-2 mb-4">
+            <Newspaper size={18} className="text-primary-600" />
+            প্রজেক্ট আপডেট
+          </h2>
+          <div className="space-y-3">
+            {updates.map((u: ProjectUpdate) => (
+              <div key={u.id} className="border border-gray-100 rounded-2xl p-3.5">
+                {u.image_url && (
+                  <img src={u.image_url} alt={u.title} className="w-full h-36 object-cover rounded-xl mb-3" />
+                )}
+                <p className="font-semibold text-gray-900 text-sm">{u.title}</p>
+                {u.content && <p className="text-gray-500 text-xs mt-1 leading-relaxed">{u.content}</p>}
+                <p className="text-gray-300 text-xs mt-2 flex items-center gap-1">
+                  <Clock size={10} />
+                  {u.author_name} &bull; {new Date(u.created_at).toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Success Screen */}
       {purchaseSuccess && (
