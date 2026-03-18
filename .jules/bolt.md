@@ -1,0 +1,3 @@
+## 2026-03-18 - Refactoring Cloudflare D1 parallel queries
+**Learning:** Cloudflare D1 incurs HTTP network overhead per query. Executing `Promise.all` with multiple queries (such as an N-query fan-out to fetch N monthly earning histories for a user's portfolio) results in O(N) separate HTTP requests, causing significant latency.
+**Action:** Replace `Promise.all` read queries with `c.env.DB.batch()` for parallel statements to convert O(N) HTTP roundtrips into a single O(1) HTTP roundtrip. Note: `db.batch()` does not support `.first()` or `.all()` chaining, and will return a `D1Result[]`. Check for empty arrays before calling `db.batch()` to prevent `D1_BATCH_MUTATION_ERROR`.
