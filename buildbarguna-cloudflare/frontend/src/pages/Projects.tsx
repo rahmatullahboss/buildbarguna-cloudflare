@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { projectsApi, type ProjectItem } from '../lib/api'
 import { formatTaka } from '../lib/auth'
-import { Briefcase, TrendingUp, Users, ArrowRight } from 'lucide-react'
+import { Briefcase, TrendingUp, Users, ArrowRight, MapPin, CheckCircle } from 'lucide-react'
 import Disclaimer from '../components/Disclaimer'
 
 export default function Projects() {
@@ -28,7 +28,7 @@ export default function Projects() {
       <div className="bg-gradient-to-r from-primary-700 to-teal-600 rounded-3xl p-5 text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
         <div className="relative z-10">
-          <h1 className="text-2xl font-bold"><img src="/bbi logo.jpg" alt="BBI Logo" className="inline h-6 w-6 mr-2 object-contain" />লাইভ প্রজেক্টসমূহ</h1>
+          <h1 className="text-2xl font-bold"><img src="/bbi logo.jpg" alt="BBI Logo" className="inline h-6 w-6 mr-2 object-contain" />প্রজেক্টসমূহ</h1>
           <p className="text-primary-100 text-sm mt-1">শেয়ার কিনে বিনিয়োগ শুরু করুন</p>
         </div>
       </div>
@@ -51,6 +51,8 @@ export default function Projects() {
           const soldPct = Math.round((p.sold_shares / p.total_shares) * 100)
           const available = p.total_shares - p.sold_shares
           const isSoldOut = available === 0
+          const isCompleted = p.status === 'completed'
+
           return (
             <div key={p.id} className="card hover:shadow-lg transition-all hover:-translate-y-0.5 flex flex-col overflow-hidden p-0 slide-up" style={{animationDelay: `${idx * 0.08}s`}}>
               {/* Project image or gradient banner */}
@@ -64,13 +66,29 @@ export default function Projects() {
               )}
 
               <div className="p-4 flex flex-col flex-1">
-                {/* Title + status */}
-                <div className="flex items-start justify-between gap-2 mb-2">
+                {/* Title + status badges */}
+                <div className="flex items-start justify-between gap-2 mb-1">
                   <h3 className="font-bold text-gray-900 text-base leading-tight">{p.title}</h3>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold shrink-0 ${isSoldOut ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                    {isSoldOut ? 'শেষ' : '● সক্রিয়'}
-                  </span>
+                  {isCompleted ? (
+                    <span className="badge-completed shrink-0"><CheckCircle size={10} /> সম্পন্ন</span>
+                  ) : (
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold shrink-0 ${isSoldOut ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                      {isSoldOut ? 'শেষ' : '● সক্রিয়'}
+                    </span>
+                  )}
                 </div>
+
+                {/* Category & Location tags */}
+                {(p.category || p.location) && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {p.category && (
+                      <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100">{p.category}</span>
+                    )}
+                    {p.location && (
+                      <span className="text-xs text-gray-400 flex items-center gap-0.5"><MapPin size={9} />{p.location}</span>
+                    )}
+                  </div>
+                )}
 
                 {p.description && <p className="text-gray-500 text-xs mb-3 line-clamp-2">{p.description}</p>}
 
@@ -81,26 +99,44 @@ export default function Projects() {
                     <p className="font-bold text-primary-700 text-sm">{formatTaka(p.share_price)}</p>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-2.5 text-center">
-                    <p className="text-xs text-gray-400 mb-0.5">বাকি শেয়ার</p>
-                    <p className={`font-bold text-sm ${isSoldOut ? 'text-red-600' : 'text-emerald-600'}`}>
-                      {available}/{p.total_shares}
+                    <p className="text-xs text-gray-400 mb-0.5">{isCompleted ? 'মোট শেয়ার' : 'বাকি শেয়ার'}</p>
+                    <p className={`font-bold text-sm ${isSoldOut ? 'text-red-600' : isCompleted ? 'text-teal-600' : 'text-emerald-600'}`}>
+                      {isCompleted ? p.total_shares : `${available}/${p.total_shares}`}
                     </p>
                   </div>
                 </div>
 
-                {/* Progress bar */}
-                <div className="mb-3">
-                  <div className="flex justify-between text-xs text-gray-400 mb-1">
-                    <span className="flex items-center gap-1"><Users size={10} /> {p.sold_shares} বিক্রিত</span>
-                    <span>{soldPct}%</span>
+                {/* Share sales progress bar (only for active projects) */}
+                {!isCompleted && (
+                  <div className="mb-3">
+                    <div className="flex justify-between text-xs text-gray-400 mb-1">
+                      <span className="flex items-center gap-1"><Users size={10} /> {p.sold_shares} বিক্রিত</span>
+                      <span>{soldPct}%</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all ${soldPct > 80 ? 'bg-red-400' : 'bg-primary-500'}`}
+                        style={{ width: `${soldPct}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full transition-all ${soldPct > 80 ? 'bg-red-400' : 'bg-primary-500'}`}
-                      style={{ width: `${soldPct}%` }}
-                    />
+                )}
+
+                {/* Project progress bar */}
+                {(p.progress_pct ?? 0) > 0 && (
+                  <div className="mb-3">
+                    <div className="flex justify-between text-xs text-gray-400 mb-1">
+                      <span>প্রজেক্ট অগ্রগতি</span>
+                      <span>{p.progress_pct}%</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-1.5">
+                      <div
+                        className={`h-1.5 rounded-full transition-all ${isCompleted ? 'bg-teal-500' : 'bg-emerald-500'}`}
+                        style={{ width: `${p.progress_pct}%` }}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="flex items-center justify-between text-xs text-gray-400 mb-4">
                   <span className="flex items-center gap-1"><TrendingUp size={10} className="text-primary-500" /> মোট মূলধন</span>
@@ -110,11 +146,17 @@ export default function Projects() {
                 <Link
                   to={`/projects/${p.id}`}
                   className={`flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all mt-auto
-                    ${isSoldOut
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-primary-600 hover:bg-primary-700 text-white shadow-sm hover:shadow-md'}`}
+                    ${isCompleted
+                      ? 'bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100'
+                      : isSoldOut
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-primary-600 hover:bg-primary-700 text-white shadow-sm hover:shadow-md'}`}
                 >
-                  {isSoldOut ? 'শেয়ার শেষ' : (<>শেয়ার কিনুন <ArrowRight size={14} /></>)}
+                  {isCompleted
+                    ? (<>বিস্তারিত দেখুন <ArrowRight size={14} /></>)
+                    : isSoldOut ? 'শেয়ার শেষ'
+                    : (<>শেয়ার কিনুন <ArrowRight size={14} /></>)
+                  }
                 </Link>
               </div>
             </div>

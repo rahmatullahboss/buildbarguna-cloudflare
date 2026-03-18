@@ -97,7 +97,9 @@ export const authApi = {
 // Projects
 export const projectsApi = {
   list: (page = 1, limit = 20) => request<Paginated<ProjectItem>>(`/projects?page=${page}&limit=${limit}`),
-  get: (id: number) => request<ProjectDetail>(`/projects/${id}`)
+  get: (id: number) => request<ProjectDetail>(`/projects/${id}`),
+  getUpdates: (id: number) => request<ProjectUpdate[]>(`/project-data/${id}/updates`),
+  getGallery: (id: number) => request<GalleryImage[]>(`/project-data/${id}/gallery`)
 }
 
 // Shares
@@ -393,8 +395,24 @@ export const adminApi = {
     request('/admin/projects', { method: 'POST', body: JSON.stringify(body) }),
   updateProject: (id: number, body: Partial<CreateProjectBody>) =>
     request(`/admin/projects/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteProject: (id: number) =>
+    request(`/admin/projects/${id}`, { method: 'DELETE' }),
   setProjectStatus: (id: number, status: string) =>
     request(`/admin/projects/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  // Project updates
+  getProjectUpdates: (projectId: number) => request<ProjectUpdate[]>(`/project-data/admin/${projectId}`),
+  createProjectUpdate: (projectId: number, body: { title: string; content?: string; image_url?: string }) =>
+    request(`/project-data/admin/${projectId}`, { method: 'POST', body: JSON.stringify(body) }),
+  editProjectUpdate: (id: number, body: { title?: string; content?: string; image_url?: string }) =>
+    request(`/project-data/admin/entry/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteProjectUpdate: (id: number) =>
+    request(`/project-data/admin/entry/${id}`, { method: 'DELETE' }),
+  // Project gallery
+  getGallery: (projectId: number) => request<GalleryImage[]>(`/project-data/admin/gallery/${projectId}`),
+  addGalleryImage: (projectId: number, body: { image_url: string; caption?: string; sort_order?: number }) =>
+    request(`/project-data/admin/gallery/${projectId}`, { method: 'POST', body: JSON.stringify(body) }),
+  deleteGalleryImage: (id: number) =>
+    request(`/project-data/admin/gallery/entry/${id}`, { method: 'DELETE' }),
 
   pendingShares: (page = 1, status = 'pending') =>
     request<Paginated<AdminShareRequest>>(`/admin/shares/pending?page=${page}&status=${status}`),
@@ -431,8 +449,18 @@ export const adminApi = {
 
 // Types
 export type UserProfile = { id: number; name: string; phone: string | null; email: string | null; role: 'member' | 'admin'; referral_code: string }
-export type ProjectItem = { id: number; title: string; description: string; image_url: string; total_capital: number; total_shares: number; share_price: number; sold_shares: number; status: string; created_at: string }
+export type ProjectItem = {
+  id: number; title: string; description: string; image_url: string | null
+  total_capital: number; total_shares: number; share_price: number; sold_shares: number
+  status: 'draft' | 'active' | 'closed' | 'completed'; created_at: string
+  // Optional enhanced fields (added in migration 032)
+  location?: string | null; category?: string | null
+  start_date?: string | null; expected_end_date?: string | null
+  progress_pct?: number; completed_at?: string | null; updated_at?: string | null
+}
 export type ProjectDetail = ProjectItem & { available_shares: number }
+export type ProjectUpdate = { id: number; project_id?: number; title: string; content: string | null; image_url: string | null; author_name: string; created_at: string; updated_at?: string }
+export type GalleryImage = { id: number; image_url: string; caption: string | null; sort_order: number; created_at?: string }
 export type MyShare = { user_id: number; project_id: number; quantity: number; title: string; share_price: number; status: string }
 export type ShareRequest = { id: number; project_id: number; project_title: string; quantity: number; total_amount: number; bkash_txid: string | null; payment_method: 'bkash' | 'manual'; status: string; admin_note: string | null; created_at: string }
 export type EarningItem = { id: number; project_id: number; project_title: string; month: string; shares: number; rate: number; amount: number; created_at: string }
@@ -556,7 +584,12 @@ export type AdminUserDetail = AdminUser & { shares: MyShare[]; total_earnings_pa
 export type AdminProject = ProjectItem & { sold_shares: number }
 export type AdminShareRequest = ShareRequest & { user_name: string; user_phone: string }
 export type ProfitRate = { id: number; project_id: number; month: string; rate: number; title: string }
-export type CreateProjectBody = { title: string; description?: string; image_url?: string; total_capital: number; total_shares: number; share_price: number; status?: string }
+export type CreateProjectBody = {
+  title: string; description?: string; image_url?: string
+  total_capital: number; total_shares: number; share_price: number; status?: string
+  // Optional enhanced fields
+  location?: string; category?: string; start_date?: string; expected_end_date?: string; progress_pct?: number
+}
 export type Paginated<T> = { items: T[]; total: number; page: number; limit: number; hasMore: boolean }
 
 // Portfolio types

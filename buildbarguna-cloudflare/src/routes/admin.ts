@@ -98,11 +98,17 @@ adminRoutes.patch('/users/:id/toggle', async (c) => {
 const projectSchema = z.object({
   title: z.string().min(2),
   description: z.string().optional(),
-  image_url: z.string().url().optional(),
+  image_url: z.string().url().optional().or(z.literal('')),
   total_capital: z.number().int().positive(),   // paisa
   total_shares: z.number().int().positive(),
   share_price: z.number().int().positive(),      // paisa
-  status: z.enum(['draft', 'active', 'closed']).optional()
+  status: z.enum(['draft', 'active', 'closed', 'completed']).optional(),
+  // Optional enhanced fields
+  location: z.string().max(200).optional(),
+  category: z.string().max(100).optional(),
+  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'তারিখ YYYY-MM-DD ফরম্যাটে দিন').optional(),
+  expected_end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'তারিখ YYYY-MM-DD ফরম্যাটে দিন').optional(),
+  progress_pct: z.number().int().min(0).max(100).optional(),
 })
 
 adminRoutes.get('/projects', async (c) => {
@@ -120,13 +126,23 @@ adminRoutes.get('/projects', async (c) => {
 
 adminRoutes.post('/projects', zValidator('json', projectSchema), async (c) => {
   const body = c.req.valid('json')
+  const sanitizedBody = sanitizeObject(body as Record<string, unknown>, ['title', 'description', 'location', 'category']) as typeof body
   const result = await c.env.DB.prepare(
-    `INSERT INTO projects (title, description, image_url, total_capital, total_shares, share_price, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO projects (title, description, image_url, total_capital, total_shares, share_price, status, location, category, start_date, expected_end_date, progress_pct)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
-    body.title, body.description ?? null, body.image_url ?? null,
-    body.total_capital, body.total_shares, body.share_price,
-    body.status ?? 'draft'
+    sanitizedBody.title,
+    sanitizedBody.description ?? null,
+    sanitizedBody.image_url ?? null,
+    sanitizedBody.total_capital,
+    sanitizedBody.total_shares,
+    sanitizedBody.share_price,
+    sanitizedBody.status ?? 'draft',
+    sanitizedBody.location ?? null,
+    sanitizedBody.category ?? null,
+    sanitizedBody.start_date ?? null,
+    sanitizedBody.expected_end_date ?? null,
+    sanitizedBody.progress_pct ?? 0
   ).run()
 
   if (!result.success) return err(c, 'প্রজেক্ট তৈরি ব্যর্থ হয়েছে', 500)
@@ -139,10 +155,13 @@ adminRoutes.put('/projects/:id', zValidator('json', projectSchema.partial()), as
   let body = c.req.valid('json')
 
   // Sanitize string fields to prevent XSS
-  body = sanitizeObject(body, ['title', 'description', 'image_url'])
+  body = sanitizeObject(body, ['title', 'description', 'image_url', 'location', 'category'])
 
   // Whitelist allowed fields — never interpolate arbitrary keys into SQL
-  const ALLOWED_FIELDS = ['title', 'description', 'image_url', 'total_capital', 'total_shares', 'share_price', 'status'] as const
+  const ALLOWED_FIELDS = [
+    'title', 'description', 'image_url', 'total_capital', 'total_shares', 'share_price',
+    'status', 'location', 'category', 'start_date', 'expected_end_date', 'progress_pct'
+  ] as const
   const fields = (Object.keys(body) as string[])
     .filter((k): k is typeof ALLOWED_FIELDS[number] => ALLOWED_FIELDS.includes(k as any) && body[k as keyof typeof body] !== undefined)
   if (fields.length === 0) return err(c, 'কোনো পরিবর্তন নেই')
@@ -150,19 +169,58 @@ adminRoutes.put('/projects/:id', zValidator('json', projectSchema.partial()), as
   const setClauses = fields.map(k => `${k} = ?`).join(', ')
   const values = fields.map(k => body[k as keyof typeof body])
 
-  await c.env.DB.prepare(`UPDATE projects SET ${setClauses} WHERE id = ?`)
+  await c.env.DB.prepare(`UPDATE projects SET ${setClauses}, updated_at = datetime('now') WHERE id = ?`)
     .bind(...values, id).run()
 
   return ok(c, { message: 'প্রজেক্ট আপডেট হয়েছে' })
 })
 
-adminRoutes.patch('/projects/:id/status', zValidator('json', z.object({ status: z.enum(['draft', 'active', 'closed']) })), async (c) => {
+adminRoutes.delete('/projects/:id', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+
+  // Safety guard: block delete if project has any approved shares
+  const [sharesCheck, txCheck] = await Promise.all([
+    c.env.DB.prepare(
+      'SELECT COUNT(*) as cnt FROM user_shares WHERE project_id = ? AND quantity > 0'
+    ).bind(id).first<{ cnt: number }>(),
+    c.env.DB.prepare(
+      'SELECT COUNT(*) as cnt FROM project_transactions WHERE project_id = ?'
+    ).bind(id).first<{ cnt: number }>()
+  ])
+
+  if ((sharesCheck?.cnt ?? 0) > 0) {
+    return err(c, 'এই প্রজেক্টে শেয়ার আছে তাই মুছতে পারবেন না। প্রজেক্ট বন্ধ করুন।', 409)
+  }
+  if ((txCheck?.cnt ?? 0) > 0) {
+    return err(c, 'এই প্রজেক্টে আর্থিক লেনদেন আছে তাই মুছতে পারবেন না।', 409)
+  }
+
+  // Safe to delete (cascade will remove project_updates & project_gallery)
+  const result = await c.env.DB.prepare('DELETE FROM projects WHERE id = ?').bind(id).run()
+  if (!result.meta.changes) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
+  return ok(c, { message: 'প্রজেক্ট মুছে ফেলা হয়েছে' })
+})
+
+adminRoutes.patch('/projects/:id/status', zValidator('json', z.object({ status: z.enum(['draft', 'active', 'closed', 'completed']) })), async (c) => {
   const id = parseInt(c.req.param('id'))
   if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
   const { status } = c.req.valid('json')
 
   const project = await c.env.DB.prepare('SELECT status, share_price FROM projects WHERE id = ?').bind(id).first<{ status: string, share_price: number }>()
   if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
+
+  // F3: Enforce valid status transitions
+  const validTransitions: Record<string, string[]> = {
+    draft:     ['active'],
+    active:    ['closed', 'completed'],
+    closed:    ['active'],
+    completed: []  // terminal — cannot be changed once completed
+  }
+  const allowed = validTransitions[project.status] ?? []
+  if (!allowed.includes(status)) {
+    return err(c, `'${project.status}' থেকে '${status}'-এ পরিবর্তন করা সম্ভব নয়`, 409)
+  }
 
   if (project.status !== 'closed' && status === 'closed') {
     // Project is being closed. Refund capital to all shareholders.
@@ -212,7 +270,14 @@ adminRoutes.patch('/projects/:id/status', zValidator('json', z.object({ status: 
     }
   }
 
-  await c.env.DB.prepare('UPDATE projects SET status = ? WHERE id = ?').bind(status, id).run()
+  // For 'completed', record completion timestamp
+  if (status === 'completed') {
+    await c.env.DB.prepare(
+      `UPDATE projects SET status = ?, completed_at = datetime('now'), progress_pct = 100, updated_at = datetime('now') WHERE id = ?`
+    ).bind(status, id).run()
+  } else {
+    await c.env.DB.prepare(`UPDATE projects SET status = ?, updated_at = datetime('now') WHERE id = ?`).bind(status, id).run()
+  }
   return ok(c, { message: 'প্রজেক্ট স্ট্যাটাস আপডেট হয়েছে' })
 })
 

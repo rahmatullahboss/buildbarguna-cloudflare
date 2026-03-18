@@ -21,6 +21,7 @@ import { financeRoutes } from './routes/project-finance'
 import { profitRoutes, userProfitRoutes } from './routes/profit-distribution'
 import { companyExpenseRoutes } from './routes/company-expenses'
 import { memberRoutes } from './routes/member'
+import { projectUpdatesRoutes } from './routes/project-updates'
 import { cleanupTokenBlacklist } from './cron/earnings'
 import { scheduled } from './scheduled'
 import { RateLimiter } from './durable-objects/rate-limiter'
@@ -358,6 +359,7 @@ app.route('/api/tasks', taskRoutes)
 app.route('/api/points', pointsRoutes)
 app.route('/api/notifications', notificationsRoutes)
 app.route('/api/admin', adminRoutes)
+app.route('/api/project-data', projectUpdatesRoutes)  // project updates & gallery (separate from /api/projects to avoid route conflict)
 app.route('/api/upload', uploadRoutes)
 app.route('/api/referrals', referralRoutes)
 app.route('/api/admin/referrals', adminReferralRoutes)
