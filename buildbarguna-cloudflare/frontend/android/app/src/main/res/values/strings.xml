@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">বিল্ড বরগুনা</string>
-    <string name="title_activity_main">বিল্ড বরগুনা</string>
+    <string name="app_name">BBI</string>
+    <string name="title_activity_main">BBI</string>
     <string name="package_name">com.buildbarguna.app</string>
     <string name="custom_url_scheme">com.buildbarguna.app</string>
 </resources>

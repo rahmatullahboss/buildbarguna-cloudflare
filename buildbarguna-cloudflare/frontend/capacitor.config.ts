@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
   appId: 'com.buildbarguna.app',
-  appName: 'বিল্ড বরগুনা',
+  appName: 'BBI',
   webDir: 'dist-app',
   server: {
     // androidScheme: 'https' ensures cookies and APIs work correctly
