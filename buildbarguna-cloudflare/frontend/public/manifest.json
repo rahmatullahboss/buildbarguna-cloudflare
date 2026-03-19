@@ -1,7 +1,7 @@
 {
-  "name": "বিল্ড বরগুনা",
-  "short_name": "বিল্ড বরগুনা",
-  "description": "বিল্ড বরগুনা গ্রুপ ইনভেস্টমেন্ট প্ল্যাটফর্ম",
+  "name": "BBI",
+  "short_name": "BBI",
+  "description": "BBI — Build Barguna Initiative গ্রুপ ইনভেস্টমেন্ট প্ল্যাটফর্ম",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#15803d",
