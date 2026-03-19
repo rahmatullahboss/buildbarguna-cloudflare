@@ -1,0 +1,3 @@
+## 2024-05-18 - Keyboard Accessible Custom Interactive Elements
+**Learning:** When using custom HTML elements (like `div`) as interactive controls (e.g. image drop zones that act as buttons), it is critical to add full keyboard support. Relying solely on `onClick` excludes users navigating via keyboard. This pattern is easily missed but significantly impacts accessibility.
+**Action:** Always ensure custom interactive elements include `role="button"`, an appropriate `tabIndex` (`0` or `-1` if disabled/loading), an `onKeyDown` handler to trigger action on "Enter" or "Space", and explicit `focus-visible` styles for visual focus indicators. Additionally, remember to add `aria-label` to nested icon-only buttons (like delete 'X' buttons).
