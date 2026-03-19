@@ -34,9 +34,9 @@
     --sar: env(safe-area-inset-right, 0px);
   }
 
-  /* Apply safe area padding to the app root */
+  /* Apply safe area padding to the app root.
+     padding-top is handled by the fixed header (Layout.tsx) */
   #root {
-    padding-top: var(--sat);
     padding-bottom: var(--sab);
     padding-left: var(--sal);
     padding-right: var(--sar);

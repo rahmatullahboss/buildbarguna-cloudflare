@@ -66,7 +66,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Top bar — fixed height, never scrolls */}
-      <header className="bg-gradient-to-r from-primary-800 via-primary-700 to-teal-700 text-white z-50 shadow-lg flex-shrink-0 fixed top-0 left-0 right-0">
+      <header className="bg-gradient-to-r from-primary-800 via-primary-700 to-teal-700 text-white z-50 shadow-lg flex-shrink-0 fixed top-0 left-0 right-0 pt-[var(--sat)]">
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
           <Link to="/dashboard" className="font-bold text-lg tracking-tight flex items-center gap-2">
             <img src="/bbi logo.jpg" alt="BBI Logo" className="h-8 w-8 object-contain" />
@@ -82,8 +82,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Spacer for fixed header */}
-      <div className="h-14 flex-shrink-0" />
+      {/* Spacer for fixed header (h-14 navbar + safe-area top) */}
+      <div className="flex-shrink-0" style={{ height: 'calc(3.5rem + var(--sat))' }} />
 
       {/* Body row — fills remaining height, no overflow */}
       <div className="flex flex-1 min-h-0">
