@@ -159,6 +159,9 @@ app.use('/api/*', async (c, next) => {
   // Prevent clickjacking
   c.header('X-Frame-Options', 'DENY')
   
+  // Enforce HTTPS
+  c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
+
   // Prevent MIME type sniffing
   c.header('X-Content-Type-Options', 'nosniff')
   
