@@ -162,6 +162,12 @@ app.use('/api/*', async (c, next) => {
   // Prevent MIME type sniffing
   c.header('X-Content-Type-Options', 'nosniff')
   
+  // HSTS - enforce HTTPS
+  c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
+
+  // XSS Protection
+  c.header('X-XSS-Protection', '1; mode=block')
+
   // Referrer policy
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
   
