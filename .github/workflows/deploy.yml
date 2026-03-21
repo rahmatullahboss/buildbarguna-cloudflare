@@ -206,17 +206,32 @@ jobs:
           BUCKET="${{ secrets.R2_BUCKET_NAME }}"
           ENDPOINT="https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
 
-          # Upload versioned APK
+          # ── Step 1: Clean up ALL old versioned APKs (keep only latest) ──
+          echo "🧹 Cleaning up old versioned APKs from R2..."
+          aws s3 ls "s3://${BUCKET}/builds/android/" \
+            --endpoint-url "$ENDPOINT" 2>/dev/null | \
+            awk '{print $4}' | \
+            grep -v '^$' | \
+            grep -v 'buildbarguna-latest' | \
+            while read OLD_APK; do
+              if [ -n "$OLD_APK" ]; then
+                echo "  🗑️ Deleting: $OLD_APK"
+                aws s3 rm "s3://${BUCKET}/builds/android/${OLD_APK}" \
+                  --endpoint-url "$ENDPOINT" 2>/dev/null || true
+              fi
+            done
+          echo "✅ Old APK cleanup complete"
+
+          # ── Step 2: Upload new versioned APK ──
           aws s3 cp "$APK_NAME" "s3://${BUCKET}/builds/android/${APK_NAME}" \
             --endpoint-url "$ENDPOINT" \
             --content-type "application/vnd.android.package-archive" \
             --no-progress
 
-          # Delete old latest first (clean overwrite — no stale cache)
+          # ── Step 3: Delete old latest & upload new as latest ──
           aws s3 rm "s3://${BUCKET}/builds/android/buildbarguna-latest-release.apk" \
             --endpoint-url "$ENDPOINT" 2>/dev/null || true
 
-          # Upload as latest release (always current)
           aws s3 cp "$APK_NAME" "s3://${BUCKET}/builds/android/buildbarguna-latest-release.apk" \
             --endpoint-url "$ENDPOINT" \
             --content-type "application/vnd.android.package-archive" \
