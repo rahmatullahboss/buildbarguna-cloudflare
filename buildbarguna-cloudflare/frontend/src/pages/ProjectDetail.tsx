@@ -117,7 +117,7 @@ export default function ProjectDetail() {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      <button onClick={() => navigate(-1)} className="text-sm text-gray-500 hover:text-primary-600 flex items-center gap-1 transition-colors">← ফিরে যান</button>
+      <button onClick={() => navigate(-1)} aria-label="ফিরে যান" className="text-sm text-gray-500 hover:text-primary-600 flex items-center gap-1 transition-colors">← ফিরে যান</button>
 
       <div className="card overflow-hidden p-0">
         {/* Project image or gradient banner */}

@@ -153,6 +153,7 @@ export default function EditProfile() {
 
         <button
           onClick={() => navigate(-1)}
+          aria-label="ফিরে যান"
           className="w-full py-3 mt-4 text-gray-600 hover:text-gray-800 text-sm"
         >
           ← ফিরে যান
