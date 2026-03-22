@@ -81,13 +81,13 @@ export default function AdminReferrals() {
       {msg && (
         <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">
           <CheckCircle size={16} /> {msg}
-          <button onClick={() => setMsg('')} className="ml-auto text-green-500 hover:text-green-700">✕</button>
+          <button aria-label="বার্তা বন্ধ করুন" onClick={() => setMsg('')} className="ml-auto text-green-500 hover:text-green-700">✕</button>
         </div>
       )}
       {errMsg && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
           <AlertTriangle size={16} /> {errMsg}
-          <button onClick={() => setErrMsg('')} className="ml-auto text-red-400 hover:text-red-600">✕</button>
+          <button aria-label="বার্তা বন্ধ করুন" onClick={() => setErrMsg('')} className="ml-auto text-red-400 hover:text-red-600">✕</button>
         </div>
       )}
 
