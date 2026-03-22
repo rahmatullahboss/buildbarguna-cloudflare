@@ -440,7 +440,7 @@ export default function Withdraw() {
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">৳</span>
               <input
-                className="input pl-7"
+                className="input pl-7 pr-16"
                 type="number"
                 step="1"
                 min={balance ? balance.settings.min_paisa / 100 : 100}
@@ -449,6 +449,19 @@ export default function Withdraw() {
                 value={amountTaka}
                 onChange={e => { setAmountTaka(e.target.value); setErrMsg('') }}
               />
+              {balance && balance.available_paisa > 0 && (
+                <button
+                  type="button"
+                  aria-label="সম্পূর্ণ ব্যালেন্স নির্বাচন করুন"
+                  onClick={() => {
+                    setAmountTaka(String(Math.floor(balance.available_paisa / 100)))
+                    setErrMsg('')
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-bold px-2 py-1 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-purple-500 outline-none"
+                >
+                  সব
+                </button>
+              )}
             </div>
             {amountTaka && balance && amountPaisa > balance.available_paisa && (
               <p className="text-xs text-red-500 mt-1">উপলব্ধ ব্যালেন্সের বেশি হতে পারবে না</p>
