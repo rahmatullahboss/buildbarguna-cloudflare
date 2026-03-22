@@ -157,15 +157,18 @@ authRoutes.post('/login', zValidator('json', loginSchema), async (c) => {
   ).bind(isEmail ? identifier.toLowerCase() : identifier).first<User>()
 
   if (!user) {
+    // Verify a dummy hash to ensure constant-time execution against timing attacks
+    await verifyPassword(password, '00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000')
     // Generic error message to prevent account enumeration
     return err(c, 'ইনপুট সঠিক নয়', 401)
   }
+
+  const valid = await verifyPassword(password, user.password_hash)
 
   if (!user.is_active) {
     return err(c, 'আপনার অ্যাকাউন্ট নিষ্ক্রিয় করা হয়েছে', 401)
   }
 
-  const valid = await verifyPassword(password, user.password_hash)
   if (!valid) {
     // Generic error message
     return err(c, 'ইনপুট সঠিক নয়', 401)
@@ -277,21 +280,19 @@ authRoutes.post('/forgot-password', zValidator('json', forgotPasswordSchema), as
     }
     const resetLink = `${frontendUrl}/reset-password?token=${token}`
 
-    // Send password reset email using Resend
-    const emailSent = await sendPasswordResetEmail({
-      to: user.email,
-      name: user.name,
-      resetLink,
-      expiryMinutes: 15
-    })
-
-    if (!emailSent) {
-      console.error('Failed to send password reset email')
-      // Don't reveal email failure to user for security reasons
-    }
-  } else {
-    // Simulate work to prevent timing attacks (constant-time delay)
-    await new Promise(resolve => setTimeout(resolve, 100))
+    // Send password reset email in the background to prevent timing attacks
+    c.executionCtx.waitUntil(
+      sendPasswordResetEmail({
+        to: user.email,
+        name: user.name,
+        resetLink,
+        expiryMinutes: 15
+      }).then(emailSent => {
+        if (!emailSent) {
+          console.error('Failed to send password reset email')
+        }
+      })
+    )
   }
 
   return ok(c, { message: 'যদি এই ইমেইলটি রেজিস্টার্ড থাকে, তবে আপনি শীঘ্রই একটি পাসওয়ার্ড রিসেট লিঙ্ক পাবেন।' })
