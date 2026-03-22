@@ -98,18 +98,21 @@ earningRoutes.get('/portfolio', async (c) => {
 
   const rows = projectRows.results
 
-  // 2. Fetch monthly history for each project in parallel
-  const monthlyHistories = await Promise.all(
-    rows.map(row =>
+  // 2. Fetch monthly history for each project in a single batch
+  // ⚡ Bolt: Replaced Promise.all with db.batch to avoid N+1 per-query HTTP network overhead in D1
+  let monthlyHistories: { results: { month: string; rate_bps: number; earned_paisa: number }[] }[] = []
+  if (rows.length > 0) {
+    const historyStmts = rows.map(row =>
       c.env.DB.prepare(
         `SELECT e.month, e.rate AS rate_bps, e.amount AS earned_paisa
          FROM earnings e
          WHERE e.user_id = ? AND e.project_id = ?
          ORDER BY e.month DESC
          LIMIT 24`
-      ).bind(userId, row.project_id).all<{ month: string; rate_bps: number; earned_paisa: number }>()
+      ).bind(userId, row.project_id) // Do not chain .all() on prepared statements for batch()
     )
-  )
+    monthlyHistories = await c.env.DB.batch<{ month: string; rate_bps: number; earned_paisa: number }>(historyStmts)
+  }
 
   // 3. Compute portfolio-level totals
   let totalInvestedPaisa = 0
