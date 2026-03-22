@@ -93,7 +93,7 @@ export default function ProfitDistribution() {
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="bg-white/15 p-2 rounded-xl hover:bg-white/25 transition">
+            <button onClick={() => navigate(-1)} aria-label="ফিরে যান" className="bg-white/15 p-2 rounded-xl hover:bg-white/25 transition">
               <ArrowLeft size={20} />
             </button>
             <div>

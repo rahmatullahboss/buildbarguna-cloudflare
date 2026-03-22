@@ -74,7 +74,7 @@ export default function ProjectFinance() {
         <div className="relative z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <button onClick={() => navigate('/admin/projects')} className="bg-white/15 p-2 rounded-xl hover:bg-white/25 transition">
+              <button onClick={() => navigate('/admin/projects')} aria-label="ফিরে যান" className="bg-white/15 p-2 rounded-xl hover:bg-white/25 transition">
                 <ArrowLeft size={20} />
               </button>
               <div>
