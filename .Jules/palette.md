@@ -1,0 +1,3 @@
+## 2024-03-20 - Missing Accessible Label on Primary Layout Button
+**Learning:** The primary navigation menu toggle button in `Layout.tsx` lacked an `aria-label`, making it difficult for screen reader users to understand its purpose. It also lacked an `aria-expanded` state to announce when the menu is opened/closed and visual focus indicators (`focus-visible`).
+**Action:** When creating icon-only buttons, especially for primary layout interactions like navigation menus, always ensure they have descriptive `aria-label` attributes, manage states like `aria-expanded` where applicable, and include `focus-visible` styles for keyboard navigation.
