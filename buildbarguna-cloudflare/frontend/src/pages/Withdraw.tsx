@@ -309,13 +309,13 @@ export default function Withdraw() {
       {msg && (
         <div className="flex items-start gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">
           <CheckCircle size={16} className="mt-0.5 shrink-0" /> {msg}
-          <button onClick={() => setMsg('')} className="ml-auto">✕</button>
+          <button onClick={() => setMsg('')} className="ml-auto" aria-label="বার্তা বন্ধ করুন">✕</button>
         </div>
       )}
       {errMsg && (
         <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" /> {errMsg}
-          <button onClick={() => setErrMsg('')} className="ml-auto">✕</button>
+          <button onClick={() => setErrMsg('')} className="ml-auto" aria-label="ত্রুটি বার্তা বন্ধ করুন">✕</button>
         </div>
       )}
 
