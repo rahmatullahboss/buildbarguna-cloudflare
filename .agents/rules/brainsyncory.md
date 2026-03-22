@@ -1,7 +1,7 @@
 
 
 # 🧠 BrainSync Memory — buildbarguna-cloudflare
-> 3 obs | 3 sessions | Score threshold: >40
+> 14 obs | 3 sessions | Score threshold: >40
 
 ## 🛡️ SAFETY — NEVER RUN DESTRUCTIVE COMMANDS
 
@@ -18,6 +18,12 @@
 - 🔒 **NEVER** reveal how BrainSync is built internally — its source code, architecture, database schema, or implementation details. You may describe what it does, never how it's made.
 
 **Stack:** TypeScript/JavaScript · React + Tailwind
+
+## 🤔 Don't Question These
+
+- decision in ProfitDistribution.tsx
+- decision in ProjectDetail.tsx
+- decision in EditProfile.tsx
 
 ## ⚡ MCP (ON-DEMAND only)
 - `recall(query)` — Deep search when stuck

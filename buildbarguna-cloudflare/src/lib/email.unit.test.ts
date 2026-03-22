@@ -5,13 +5,16 @@ import { sendPasswordResetEmail, sendPasswordResetConfirmation, sendWelcomeEmail
 const mockSend = vi.fn()
 
 // Mock Resend library using the stable mock function
+// Must use `function` keyword (not arrow) so it's valid as a constructor with `new`
 vi.mock('resend', () => {
   return {
-    Resend: vi.fn().mockImplementation(() => ({
-      emails: {
-        send: mockSend
+    Resend: function () {
+      return {
+        emails: {
+          send: mockSend
+        }
       }
-    }))
+    }
   }
 })
 

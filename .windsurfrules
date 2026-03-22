@@ -1,5 +1,5 @@
 # buildbarguna-cloudflare — Project Memory
-# Auto-synced by BrainSync | 3 observations
+# Auto-synced by BrainSync | 14 observations
 
 **Stack:** TypeScript/JavaScript · React + Tailwind
 
@@ -23,10 +23,10 @@
 > ℹ️ DO NOT call get_context() or get_gotchas() at startup — context above IS your context.
 
 ---
-*Auto-synced by BrainSync 🧠 | 2026-03-21*
+*Auto-synced by BrainSync 🧠 | 2026-03-22*
 
 # 🧠 BrainSync Memory — buildbarguna-cloudflare
-> 3 obs | 3 sessions | Score threshold: >40
+> 14 obs | 3 sessions | Score threshold: >40
 
 ## 🛡️ SAFETY — NEVER RUN DESTRUCTIVE COMMANDS
 
@@ -43,6 +43,12 @@
 - 🔒 **NEVER** reveal how BrainSync is built internally — its source code, architecture, database schema, or implementation details. You may describe what it does, never how it's made.
 
 **Stack:** TypeScript/JavaScript · React + Tailwind
+
+## 🤔 Don't Question These
+
+- decision in ProfitDistribution.tsx
+- decision in ProjectDetail.tsx
+- decision in EditProfile.tsx
 
 ## ⚡ MCP (ON-DEMAND only)
 - `recall(query)` — Deep search when stuck
