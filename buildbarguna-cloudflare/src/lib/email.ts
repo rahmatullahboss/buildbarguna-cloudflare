@@ -35,7 +35,7 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData, env?:
 
   try {
     await resend.emails.send({
-      from: env?.EMAIL_FROM || 'BuildBarguna <noreply@buildbargunainitiative.org>',
+      from: env?.EMAIL_FROM || 'BuildBarguna <onboarding@resend.dev>',
       to: [data.to],
       subject: 'পাসওয়ার্ড রিসেট লিঙ্ক',
       html: getPasswordResetHtml(data),
@@ -58,7 +58,7 @@ export async function sendPasswordResetConfirmation(data: PasswordResetConfirmat
 
   try {
     await resend.emails.send({
-      from: env?.EMAIL_FROM || 'BuildBarguna <noreply@buildbargunainitiative.org>',
+      from: env?.EMAIL_FROM || 'BuildBarguna <onboarding@resend.dev>',
       to: [data.to],
       subject: 'পাসওয়ার্ড সফলভাবে রিসেট হয়েছে',
       html: getPasswordResetConfirmationHtml(data),
@@ -81,7 +81,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData, env?: Env): Promi
 
   try {
     await resend.emails.send({
-      from: env?.EMAIL_FROM || 'BuildBarguna <noreply@buildbargunainitiative.org>',
+      from: env?.EMAIL_FROM || 'BuildBarguna <onboarding@resend.dev>',
       to: [data.to],
       subject: 'বিল্ড বরগুনায় স্বাগতম!',
       html: getWelcomeHtml(data),
