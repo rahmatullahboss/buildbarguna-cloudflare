@@ -5,7 +5,7 @@ import { formatTaka, formatDate } from '../lib/auth'
 import type { Withdrawal, WithdrawalStatus, IncomeBreakdownItem } from '../lib/api'
 import {
   Clock, CheckCircle, XCircle, AlertTriangle,
-  ArrowDownCircle, ChevronDown, ChevronUp, Info, Send, CircleDot, Layers
+  ArrowDownCircle, ChevronDown, ChevronUp, Info, Send, CircleDot, Layers, Loader2
 } from 'lucide-react'
 import Disclaimer from '../components/Disclaimer'
 
@@ -309,13 +309,13 @@ export default function Withdraw() {
       {msg && (
         <div className="flex items-start gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">
           <CheckCircle size={16} className="mt-0.5 shrink-0" /> {msg}
-          <button onClick={() => setMsg('')} className="ml-auto">✕</button>
+          <button onClick={() => setMsg('')} className="ml-auto" aria-label="Close message">✕</button>
         </div>
       )}
       {errMsg && (
         <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" /> {errMsg}
-          <button onClick={() => setErrMsg('')} className="ml-auto">✕</button>
+          <button onClick={() => setErrMsg('')} className="ml-auto" aria-label="Close error message">✕</button>
         </div>
       )}
 
@@ -436,10 +436,11 @@ export default function Withdraw() {
 
         <div className="space-y-4">
           <div>
-            <label className="label">উত্তোলনের পরিমাণ (টাকায়)</label>
+            <label htmlFor="withdrawAmount" className="label">উত্তোলনের পরিমাণ (টাকায়)</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">৳</span>
               <input
+                id="withdrawAmount"
                 className="input pl-7"
                 type="number"
                 step="1"
@@ -457,8 +458,9 @@ export default function Withdraw() {
 
           {withdrawalMethod === 'bkash' && (
           <div>
-            <label className="label">bKash নম্বর</label>
+            <label htmlFor="bkashNumber" className="label">bKash নম্বর</label>
             <input
+              id="bkashNumber"
               className="input font-mono"
               type="tel"
               placeholder="01XXXXXXXXX"
@@ -508,9 +510,11 @@ export default function Withdraw() {
                 <button
                   onClick={() => { setMsg(''); setErrMsg(''); requestMutation.mutate() }}
                   disabled={requestMutation.isPending}
-                  className="btn-primary flex-1 text-sm py-2"
+                  className="btn-primary flex-1 text-sm py-2 flex items-center justify-center gap-2"
                 >
-                  {requestMutation.isPending ? 'জমা হচ্ছে...' : 'হ্যাঁ, অনুরোধ করুন'}
+                  {requestMutation.isPending ? (
+                    <><Loader2 size={16} className="animate-spin" /> জমা হচ্ছে...</>
+                  ) : 'হ্যাঁ, অনুরোধ করুন'}
                 </button>
                 <button onClick={() => setShowConfirm(false)} className="btn-secondary flex-1 text-sm py-2">
                   বাতিল
