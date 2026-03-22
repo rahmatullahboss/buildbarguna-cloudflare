@@ -1,0 +1,3 @@
+## 2024-03-21 - Keyboard Accessibility for Div Dropzones and Bengali ARIA Labels
+**Learning:** Custom interactive elements, like div-based drag-and-drop file upload zones, must include keyboard interactivity (`role="button"`, `tabIndex`, and `onKeyDown` handlers) for full accessibility. Without these, screen reader and keyboard users cannot trigger actions effectively. Furthermore, since the UI is entirely localized in Bengali, all ARIA labels must also be provided in Bengali to ensure consistency and correct screen reader pronunciation for the target demographic.
+**Action:** Always ensure custom interactive areas implement proper keyboard and focus states (`focus-visible:ring`), and double-check that newly added ARIA labels match the application's localized language.
