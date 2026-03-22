@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { memberApi } from '../lib/api'
 import { authApi } from '../lib/api'
-import { FileText, CheckCircle, AlertCircle, Download, Wallet, Smartphone, Home, RefreshCw } from 'lucide-react'
+import { FileText, CheckCircle, AlertCircle, Download, Wallet, Smartphone, Home, RefreshCw, ArrowLeft } from 'lucide-react'
 
 export default function MemberRegistration() {
   const navigate = useNavigate()
@@ -217,6 +217,14 @@ export default function MemberRegistration() {
       {/* Header */}
       <div className="card bg-gradient-to-r from-primary-800 via-primary-700 to-teal-700 text-white">
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors flex-shrink-0"
+            aria-label="পিছনে যান"
+          >
+            <ArrowLeft size={20} />
+          </button>
           <FileText size={32} />
           <div>
             <h1 className="text-2xl font-bold">BBI মেম্বার রেজিস্ট্রেশন</h1>

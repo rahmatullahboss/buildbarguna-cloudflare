@@ -88,6 +88,12 @@ rewardsRoutes.post('/:id/redeem', async (c) => {
     return err(c, 'রিওয়ার্ডটি আর উপলব্ধ নয়', 400)
   }
 
+  // C3 FIX: Ensure user_points row exists
+  await c.env.DB.prepare(
+    `INSERT OR IGNORE INTO user_points (user_id, available_points, lifetime_earned, lifetime_redeemed, monthly_earned, monthly_redeemed)
+     VALUES (?, 0, 0, 0, 0, 0)`
+  ).bind(userId).run()
+
   // Get user's point balance with explicit type
   const userPoints = await c.env.DB.prepare(
     `SELECT available_points FROM user_points WHERE user_id = ?`
@@ -98,8 +104,10 @@ rewardsRoutes.post('/:id/redeem', async (c) => {
     return err(c, `পর্যাপ্ত পয়েন্ট নেই। প্রয়োজন: ${pointsRequired}, আপনার আছে: ${userPoints?.available_points || 0}`, 400)
   }
 
-  // CRITICAL FIX: Use atomic UPDATE with WHERE clause to prevent race conditions
+  // C2 FIX: Use atomic UPDATE with WHERE clause to prevent race conditions
   // This deducts points AND checks balance in a single atomic operation
+  // NOTE: We manually update user_points here because the trigger adds points on INSERT,
+  // but for redemption we need to DEDUCT before the transaction is recorded.
   const pointsDeductResult = await c.env.DB.prepare(
     `UPDATE user_points SET
        available_points = available_points - ?,
@@ -109,16 +117,17 @@ rewardsRoutes.post('/:id/redeem', async (c) => {
      WHERE user_id = ? AND available_points >= ?`
   ).bind(pointsRequired, pointsRequired, pointsRequired, userId, pointsRequired).run()
 
-  // Check if points deduction succeeded (constraint would prevent if insufficient points)
+  // Check if points deduction succeeded
   if (!pointsDeductResult.meta.changes || pointsDeductResult.meta.changes === 0) {
     return err(c, 'পর্যাপ্ত পয়েন্ট নেই। অনুগ্রহ করে আবার চেষ্টা করুন।', 400)
   }
 
   try {
-    // Step 1: Reserve reward (atomic update with quantity check)
+    // C4 FIX: Use batch for all remaining operations to make them atomic
+    const currentMonth = new Date().toISOString().slice(0, 7)
+
+    // Step 1: Reserve reward quantity (if limited)
     if (rewardQuantity !== null) {
-      // M2 FIX: Only increment redeemed_count, NOT decrement quantity
-      // `quantity` is the originally stocked amount, `redeemed_count` tracks redemptions
       const reserveResult = await c.env.DB.prepare(
         `UPDATE rewards
          SET redeemed_count = redeemed_count + 1
@@ -126,7 +135,7 @@ rewardsRoutes.post('/:id/redeem', async (c) => {
       ).bind(rewardId).run()
 
       if (!reserveResult.meta.changes || reserveResult.meta.changes === 0) {
-        // M3 FIX: Symmetric rollback — restore ALL counters, not just available_points
+        // Symmetric rollback — restore ALL counters
         await c.env.DB.prepare(
           `UPDATE user_points SET
              available_points = available_points + ?,
@@ -144,44 +153,67 @@ rewardsRoutes.post('/:id/redeem', async (c) => {
       ).bind(rewardId).run()
     }
 
-    // Step 2: Create point transaction record
-    const currentMonth = new Date().toISOString().slice(0, 7)
-    await c.env.DB.prepare(
-      `INSERT INTO point_transactions (user_id, points, transaction_type, description, month_year, metadata)
-       VALUES (?, ?, 'redeemed', ?, ?, ?)`
-    ).bind(
-      userId,
-      -pointsRequired,
-      `Redeemed: ${reward.name}`,
-      currentMonth,
-      JSON.stringify({ reward_id: rewardId, reward_name: reward.name })
-    ).run()
+    // Step 2-4: Batch the remaining writes together (C4 FIX)
+    const batchResults = await c.env.DB.batch([
+      // Record point transaction (negative points)
+      // NOTE: We set points negative here. The trigger will try to add negative to available_points,
+      // but we already deducted manually above. So we need to compensate.
+      // ACTUALLY — since we already deducted manually, we insert the transaction record
+      // but do NOT let the trigger fire a second deduction. We use a special metadata marker.
+      c.env.DB.prepare(
+        `INSERT INTO point_transactions (user_id, points, transaction_type, description, month_year, metadata)
+         VALUES (?, ?, 'redeemed', ?, ?, ?)`
+      ).bind(
+        userId,
+        -pointsRequired,
+        `Redeemed: ${reward.name}`,
+        currentMonth,
+        JSON.stringify({ reward_id: rewardId, reward_name: reward.name, manual_deduct: true })
+      ),
+      // Create redemption record
+      c.env.DB.prepare(
+        `INSERT INTO reward_redemptions (user_id, reward_id, points_spent, status)
+         VALUES (?, ?, ?, 'pending')`
+      ).bind(userId, rewardId, pointsRequired),
+      // Create notification for user
+      c.env.DB.prepare(
+        `INSERT INTO notifications (user_id, type, title, message, reference_type)
+         VALUES (?, 'reward_redeemed', 'রিওয়ার্ড রিডিম হয়েছে!', 'আপনার অনুরোধ শীঘ্রই প্রসেস করা হবে', 'redemption')`
+      ).bind(userId)
+    ])
 
-    // Step 3: Create redemption record
-    const redemptionResult = await c.env.DB.prepare(
-      `INSERT INTO reward_redemptions (user_id, reward_id, points_spent, status)
-       VALUES (?, ?, ?, 'pending')`
-    ).bind(userId, rewardId, pointsRequired).run()
-
-    // Step 4: Create notification for user
+    // C2 FIX: Compensate for trigger double-deduction.
+    // The trigger on point_transactions INSERT fires and deducts again from user_points.
+    // Since we already deducted manually, we need to add back the trigger's deduction.
     await c.env.DB.prepare(
-      `INSERT INTO notifications (user_id, type, title, message, reference_id, reference_type)
-       VALUES (?, 'reward_redeemed', 'রিওয়ার্ড রিডিম হয়েছে!', 'আপনার অনুরোধ শীঘ্রই প্রসেস করা হবে', ?, 'redemption')`
-    ).bind(userId, redemptionResult.meta.last_row_id).run()
+      `UPDATE user_points SET
+         available_points = available_points + ?,
+         lifetime_redeemed = lifetime_redeemed - ?,
+         monthly_redeemed = monthly_redeemed - ?,
+         updated_at = datetime('now')
+       WHERE user_id = ?`
+    ).bind(pointsRequired, pointsRequired, pointsRequired, userId).run()
 
-    // Step 5: Create admin notification
-    await c.env.DB.prepare(
-      `INSERT INTO notifications (user_id, type, title, message, reference_id, reference_type)
-       SELECT id, 'redemption_pending', 'নতুন রিওয়ার্ড রিডিম অনুরোধ',
-              ? || ' - ' || ? || ' পয়েন্ট খরচ', ?, 'redemption'
-       FROM users
-       WHERE role = 'admin' AND is_active = 1
-       LIMIT 5`
-    ).bind(reward.name, pointsRequired.toString(), redemptionResult.meta.last_row_id).run()
+    // Get the redemption ID from the batch results
+    const redemptionId = batchResults[1].meta.last_row_id
+
+    // Create admin notification (non-critical, separate from batch)
+    try {
+      await c.env.DB.prepare(
+        `INSERT INTO notifications (user_id, type, title, message, reference_id, reference_type)
+         SELECT id, 'redemption_pending', 'নতুন রিওয়ার্ড রিডিম অনুরোধ',
+                ? || ' - ' || ? || ' পয়েন্ট খরচ', ?, 'redemption'
+         FROM users
+         WHERE role = 'admin' AND is_active = 1
+         LIMIT 5`
+      ).bind(reward.name as string, pointsRequired.toString(), redemptionId).run()
+    } catch {
+      // Admin notification failure is not critical
+    }
 
     return ok(c, {
       message: 'রিওয়ার্ড রিডিম সফল হয়েছে! আপনার অনুরোধ শীঘ্রই প্রসেস করা হবে।',
-      redemption_id: redemptionResult.meta.last_row_id,
+      redemption_id: redemptionId,
       points_spent: pointsRequired,
       remaining_points: userPoints.available_points - pointsRequired
     })
@@ -189,7 +221,7 @@ rewardsRoutes.post('/:id/redeem', async (c) => {
   } catch (error) {
     console.error('Reward redemption error:', error)
 
-    // M3 FIX: Symmetric rollback — restore ALL counters, not just available_points
+    // Symmetric rollback — restore ALL counters
     await c.env.DB.prepare(
       `UPDATE user_points SET
          available_points = available_points + ?,

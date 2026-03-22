@@ -14,10 +14,6 @@ export default function Rewards() {
   const qc = useQueryClient()
   const [showConfirm, setShowConfirm] = useState<number | null>(null)
   const [showWithdrawModal, setShowWithdrawModal] = useState<boolean>(false)
-  const [showWithdrawConfirm, setShowWithdrawConfirm] = useState<{amount: number, bkash: string} | null>(null)
-  const [amount, setAmount] = useState<string>('')
-  const [bkashNumber, setBkashNumber] = useState<string>('')
-  const [error, setError] = useState<string | null>(null)
 
   const { data: pointsData } = useQuery({
     queryKey: ['points'],
@@ -453,11 +449,11 @@ function WithdrawModal({
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-gray-500">প্রাপ্য টাকা</span>
-              <span className="font-bold text-green-600">{showWithdrawConfirm.amount} টাকা</span>
+              <span className="font-bold text-green-600">{pointsToTaka(showWithdrawConfirm.amount)} টাকা</span>
             </div>
             <div className="border-t pt-2 mt-2">
               <p className="text-xs text-gray-500">
-                বর্তমান ব্যালেন্স: {points?.available_points || 0} পয়েন্ট → উত্তোলনের পরে: {points!.available_points - showWithdrawConfirm.amount} পয়েন্ট
+                বর্তমান ব্যালেন্স: {points?.available_points || 0} পয়েন্ট → উত্তোলনের পরে: {(points?.available_points || 0) - showWithdrawConfirm.amount} পয়েন্ট
               </p>
             </div>
           </div>

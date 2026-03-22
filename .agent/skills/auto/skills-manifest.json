@@ -1,0 +1,13 @@
+{
+  "project": {
+    "enabled": true,
+    "lastGenerated": "2026-03-22T06:09:56.968Z",
+    "observationCount": 2,
+    "skillCount": 0,
+    "domain": "project",
+    "triggerGlobs": [
+      "**/*"
+    ],
+    "description": "Project for buildbarguna-cloudflare. ."
+  }
+}

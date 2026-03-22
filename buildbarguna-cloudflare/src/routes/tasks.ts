@@ -8,6 +8,29 @@ export const taskRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>
 // All routes require authentication
 taskRoutes.use('*', authMiddleware)
 
+// GET /api/tasks/history - Task completion history
+// IMPORTANT: Must come BEFORE /:id to avoid being matched as a task ID (H1 FIX)
+taskRoutes.get('/history', async (c) => {
+  const userId = c.get('userId')
+  const { page, limit, offset } = getPagination(c.req.query())
+  
+  const [countResult, historyResult] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT COUNT(*) as total FROM task_completions WHERE user_id = ?`
+    ).bind(userId).first() as Promise<{ total: number }>,
+    c.env.DB.prepare(
+      `SELECT tc.*, dt.title as task_title, dt.platform, dt.points as points_awarded
+       FROM task_completions tc
+       LEFT JOIN daily_tasks dt ON tc.task_id = dt.id
+       WHERE tc.user_id = ?
+       ORDER BY tc.completed_at DESC
+       LIMIT ? OFFSET ?`
+    ).bind(userId, limit, offset).all()
+  ])
+  
+  return ok(c, paginate(historyResult.results, countResult.total, page, limit))
+})
+
 // GET /api/tasks - List available tasks for the logged-in member
 taskRoutes.get('/', async (c) => {
   const userId = c.get('userId')
@@ -108,6 +131,12 @@ taskRoutes.get('/', async (c) => {
       can_complete: canComplete
     })
   }
+  
+  // Ensure user_points row exists (C3 FIX)
+  await c.env.DB.prepare(
+    `INSERT OR IGNORE INTO user_points (user_id, available_points, lifetime_earned, lifetime_redeemed, monthly_earned, monthly_redeemed)
+     VALUES (?, 0, 0, 0, 0, 0)`
+  ).bind(userId).run()
   
   // Get user's point balance
   const userPointsResult = await c.env.DB.prepare(
@@ -272,9 +301,12 @@ taskRoutes.post('/:id/complete', async (c) => {
     return err(c, `আরও ${remaining} সেকেন্ড অপেক্ষা করুন`, 400)
   }
 
-  // FRAUD DETECTION: Check for suspiciously fast completions
+  // H3 FIX: FRAUD DETECTION — block suspiciously fast completions
   const completionTimeSeconds = elapsedSeconds
-  const isSuspiciouslyFast = completionTimeSeconds < 5 // Less than 5 seconds is suspicious
+  if (completionTimeSeconds < 3) {
+    return err(c, 'সন্দেহজনক কার্যকলাপ সনাক্ত হয়েছে। পরে আবার চেষ্টা করুন।', 429)
+  }
+  const isSuspiciouslyFast = completionTimeSeconds < 5
   const flagReason = isSuspiciouslyFast ? 'সন্দেহজনক দ্রুত সম্পাদন' : null
 
   // Check if already completed today (prevent double submission)
@@ -310,36 +342,47 @@ taskRoutes.post('/:id/complete', async (c) => {
       return err(c, 'এককালীন টাস্ক ইতিমধ্যে সম্পন্ন হয়েছে', 409)
     }
   }
-  
-  // ATOMIC FIX (C4): All 3 operations in a single batch — prevents partial state
-  // If completion already exists (INSERT OR IGNORE), no rows change, and we detect that.
-  const batchResults = await c.env.DB.batch([
-    // 1. Create completion
-    c.env.DB.prepare(
-      `INSERT OR IGNORE INTO task_completions (user_id, task_id, clicked_at, completed_at, task_date, points_earned, completion_time_seconds, is_flagged, flag_reason, is_one_time)
-       VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)`
-    ).bind(userId, taskId, session.clicked_at, today, task.points, completionTimeSeconds, isSuspiciouslyFast ? 1 : 0, flagReason, task.is_one_time),
-    // 2. Insert point transaction
-    c.env.DB.prepare(
-      `INSERT OR IGNORE INTO point_transactions (user_id, task_id, points, transaction_type, description, month_year)
-       VALUES (?, ?, ?, 'earned', ?, strftime('%Y-%m', 'now'))`
-    ).bind(userId, taskId, task.points, `Completed: ${task.title}`),
-    // 3. Update user point balance
-    c.env.DB.prepare(
-      `UPDATE user_points SET
-         available_points = available_points + ?,
-         lifetime_earned = lifetime_earned + ?,
-         monthly_earned = monthly_earned + ?,
-         updated_at = datetime('now')
-       WHERE user_id = ?`
-    ).bind(task.points, task.points, task.points, userId)
-  ])
-  
-  // If completion INSERT OR IGNORE produced 0 changes → already completed
-  if (!batchResults[0].meta.changes || batchResults[0].meta.changes === 0) {
+
+  // C3 FIX: Ensure user_points row exists before crediting
+  await c.env.DB.prepare(
+    `INSERT OR IGNORE INTO user_points (user_id, available_points, lifetime_earned, lifetime_redeemed, monthly_earned, monthly_redeemed)
+     VALUES (?, 0, 0, 0, 0, 0)`
+  ).bind(userId).run()
+
+  // H2 FIX: Reset monthly counters if month has changed
+  const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
+  await c.env.DB.prepare(
+    `UPDATE user_points SET
+       monthly_earned = 0,
+       monthly_redeemed = 0,
+       current_month = ?,
+       updated_at = datetime('now')
+     WHERE user_id = ? AND current_month != ?`
+  ).bind(currentMonth, userId, currentMonth).run()
+
+  // C1+C2 FIX: Use INSERT OR IGNORE for completion first, then check if it worked.
+  // Do NOT manually update user_points — rely on the trigger from point_transactions.
+  // Step 1: Insert completion record (this is the de-duplication gate)
+  const completionResult = await c.env.DB.prepare(
+    `INSERT OR IGNORE INTO task_completions (user_id, task_id, clicked_at, completed_at, task_date, points_earned, completion_time_seconds, is_flagged, flag_reason, is_one_time)
+     VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)`
+  ).bind(userId, taskId, session.clicked_at, today, task.points, completionTimeSeconds, isSuspiciouslyFast ? 1 : 0, flagReason, task.is_one_time).run()
+
+  // If completion INSERT was ignored (duplicate) → already completed
+  if (!completionResult.meta.changes || completionResult.meta.changes === 0) {
     return err(c, 'টাস্ক ইতিমধ্যে সম্পন্ন হয়েছে', 409)
   }
-  
+
+  // Step 2: Only NOW insert the point transaction (trigger will update user_points)
+  await c.env.DB.prepare(
+    `INSERT INTO point_transactions (user_id, task_id, points, transaction_type, description, month_year)
+     VALUES (?, ?, ?, 'earned', ?, strftime('%Y-%m', 'now'))`
+  ).bind(userId, taskId, task.points, `Completed: ${task.title}`).run()
+
+  // NOTE: The DB trigger `update_user_points_on_transaction` handles updating
+  // user_points.available_points, lifetime_earned, monthly_earned automatically.
+  // We do NOT manually UPDATE user_points here (C2 FIX — no double crediting).
+
   // Get new total
   const userPoints = await c.env.DB.prepare(
     'SELECT available_points FROM user_points WHERE user_id = ?'
@@ -352,26 +395,4 @@ taskRoutes.post('/:id/complete', async (c) => {
   }
   
   return ok(c, response)
-})
-
-// GET /api/tasks/history - Task completion history
-taskRoutes.get('/history', async (c) => {
-  const userId = c.get('userId')
-  const { page, limit, offset } = getPagination(c.req.query())
-  
-  const [countResult, historyResult] = await Promise.all([
-    c.env.DB.prepare(
-      `SELECT COUNT(*) as total FROM task_completions WHERE user_id = ?`
-    ).bind(userId).first() as Promise<{ total: number }>,
-    c.env.DB.prepare(
-      `SELECT tc.*, dt.title as task_title, dt.platform, dt.points as points_awarded
-       FROM task_completions tc
-       LEFT JOIN daily_tasks dt ON tc.task_id = dt.id
-       WHERE tc.user_id = ?
-       ORDER BY tc.completed_at DESC
-       LIMIT ? OFFSET ?`
-    ).bind(userId, limit, offset).all()
-  ])
-  
-  return ok(c, paginate(historyResult.results, countResult.total, page, limit))
 })

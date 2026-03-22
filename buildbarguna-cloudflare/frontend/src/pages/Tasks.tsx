@@ -139,9 +139,7 @@ function ConfirmButton({
         onComplete()
       }
     },
-    onError: (error) => {
-      // If API fails (e.g., cooldown not complete), show error
-      alert(error instanceof Error ? error.message : 'Error completing task')
+    onError: () => {
       setIsClicked(false)
     },
     onSettled: () => {
@@ -157,11 +155,7 @@ function ConfirmButton({
   }
 
   const handleCancel = () => {
-    if (cooldownRemaining > 0) {
-      onCancel()
-    } else {
-      onCancel()
-    }
+    onCancel()
   }
 
   // Show countdown if waiting for cooldown
@@ -238,13 +232,6 @@ export default function Tasks() {
   // Start task - call API and open link
   const startTaskMutation = useMutation({
     mutationFn: async (task: TaskListItem) => {
-      console.log('[Task] Starting task:', {
-        id: task.id,
-        title: task.title,
-        destination_url: task.destination_url,
-        platform: task.platform
-      })
-      
       // Validate task has destination URL
       if (!task.destination_url || task.destination_url.trim() === '') {
         throw new Error('Task has no destination URL. Please contact admin.')
@@ -256,7 +243,6 @@ export default function Tasks() {
       
       // Then call API to record start time
       const response = await tasksApi.start(task.id)
-      console.log('[Task] API Response:', response)
       
       // Get wait_seconds from response if successful
       let waitSeconds = 0
@@ -267,13 +253,11 @@ export default function Tasks() {
       return { task, success: response.success, wait_seconds: waitSeconds }
     },
     onSuccess: (result) => {
-      console.log('[Task] Success:', result)
       // Set active task for confirmation with wait_seconds
       setActiveTask({ ...result.task, wait_seconds: result.wait_seconds })
     },
-    onError: (error) => {
-      console.error('[Task] Mutation error:', error)
-      alert(error instanceof Error ? error.message : 'Task start failed. Please try again.')
+    onError: () => {
+      // Error handled silently — task card remains clickable
     }
   })
 

@@ -287,7 +287,12 @@ export default function AdminRewards() {
                           অনুমোদন
                         </button>
                         <button
-                          onClick={() => updateStatusMutation.mutate({ id: redemption.id, status: 'rejected', admin_note: 'Not eligible' })}
+                          onClick={() => {
+                            const reason = prompt('প্রত্যাখ্যানের কারণ লিখুন:')
+                            if (reason !== null && reason.trim()) {
+                              updateStatusMutation.mutate({ id: redemption.id, status: 'rejected', admin_note: reason.trim() })
+                            }
+                          }}
                           className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors"
                         >
                           প্রত্যাখ্যান

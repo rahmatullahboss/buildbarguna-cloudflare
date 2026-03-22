@@ -295,15 +295,33 @@ function TaskModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // H4 FIX: Client-side validation
+    const pointsNum = parseInt(points) || 0
+    const cooldownNum = parseInt(cooldownSeconds) || 0
+    const dailyLimitNum = parseInt(dailyLimit) || 1
+    
+    if (!title.trim()) return alert('টাস্কের নাম দিন')
+    if (!destinationUrl.trim()) return alert('লিংক দিন')
+    if (pointsNum < 1 || pointsNum > 1000) return alert('পয়েন্ট 1 থেকে 1000 এর মধ্যে হতে হবে')
+    if (cooldownNum < 1 || cooldownNum > 600) return alert('টাইমার 1 থেকে 600 সেকেন্ডের মধ্যে হতে হবে')
+    if (dailyLimitNum < 1 || dailyLimitNum > 100) return alert('দৈনিক লিমিট 1 থেকে 100 এর মধ্যে হতে হবে')
+    
+    try {
+      new URL(destinationUrl)
+    } catch {
+      return alert('সঠিক URL দিন (https://...)')
+    }
+    
     setSaving(true)
 
     const data = {
-      title,
-      destination_url: destinationUrl,
+      title: title.trim(),
+      destination_url: destinationUrl.trim(),
       platform,
-      points: parseInt(points) || 10,
-      cooldown_seconds: parseInt(cooldownSeconds) || 10,
-      daily_limit: parseInt(dailyLimit) || 5,
+      points: pointsNum,
+      cooldown_seconds: cooldownNum,
+      daily_limit: dailyLimitNum,
       is_one_time: isOneTime ? 1 : 0,
       is_active: isActive ? 1 : 0
     }

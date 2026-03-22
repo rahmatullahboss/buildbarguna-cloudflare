@@ -59,3 +59,7 @@ PDFServicesSDK-Node.jsSamples/
 
 # OpenSpec (development tooling)
 openspec/
+
+AGENT.md
+CLAUDE.md
+.agent-mem/
