@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getToken } from '../lib/api'
+import { downloadShareCertificate, type ShareCertificateData } from '../lib/certificateGenerator'
 
 interface UseCertificateDownloadReturn {
   downloading: boolean
@@ -10,13 +11,13 @@ interface UseCertificateDownloadReturn {
 
 /**
  * Reusable hook for downloading share certificates
- * Provides consistent download logic with loading state and error handling
+ * Generates PDF entirely in the browser — zero server CPU cost
  */
 export function useCertificateDownload(): UseCertificateDownloadReturn {
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const downloadCertificate = async (purchaseId: number, certificateId?: string): Promise<void> => {
+  const downloadCertificate = async (purchaseId: number, _certificateId?: string): Promise<void> => {
     setDownloading(true)
     setError(null)
 
@@ -27,25 +28,23 @@ export function useCertificateDownload(): UseCertificateDownloadReturn {
         return
       }
 
-      const response = await fetch(`/api/shares/certificate/${purchaseId}`, {
+      // Fetch certificate data as JSON from the preview endpoint
+      const res = await fetch(`/api/shares/certificate/${purchaseId}/preview`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
 
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Download failed')
+      if (!res.ok) {
+        const json = await res.json()
+        throw new Error(json.error || 'Preview data fetch failed')
       }
 
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `BBI_Share_Certificate_${certificateId || purchaseId}.pdf`
-      link.click()
-      window.URL.revokeObjectURL(url)
+      const json = await res.json() as { data: ShareCertificateData }
+
+      // Generate PDF entirely in the browser
+      await downloadShareCertificate(json.data)
     } catch (err: any) {
-      console.error('Download error:', err)
-      setError(err.message || 'ডাউনলোড ব্যর্থ হয়েছে')
+      console.error('Certificate generation error:', err)
+      setError(err.message || 'সার্টিফিকেট তৈরি ব্যর্থ হয়েছে')
     } finally {
       setDownloading(false)
     }

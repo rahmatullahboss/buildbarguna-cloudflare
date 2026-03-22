@@ -144,14 +144,27 @@ export default function AdminMembers() {
     }
   }
 
-  const handleDownloadCertificate = (formNumber: string) => {
-    const url = memberApi.downloadCertificate(formNumber)
-    window.open(url, '_blank')
+  const handleDownloadCertificate = async (formNumber: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`/api/member/certificate/${formNumber}/preview`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (!response.ok) {
+        const json = await response.json()
+        throw new Error(json.error || 'ডাউনলোড ব্যর্থ')
+      }
+      const json = await response.json()
+      const { downloadMemberCertificate } = await import('../../lib/certificateGenerator')
+      await downloadMemberCertificate(json.data)
+    } catch (err: any) {
+      alert(err.message || 'সার্টিফিকেট ডাউনলোড ব্যর্থ হয়েছে')
+    }
   }
 
-  const handlePreviewCertificate = (formNumber: string) => {
-    const url = memberApi.previewCertificate(formNumber)
-    window.open(url, '_blank')
+  const handlePreviewCertificate = async (formNumber: string) => {
+    // Preview = same as download (generates PDF and saves)
+    await handleDownloadCertificate(formNumber)
   }
 
   const toggleExpand = (id: number) => {

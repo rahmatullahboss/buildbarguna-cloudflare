@@ -515,8 +515,8 @@ memberRoutes.get('/certificate/:formNumber', authMiddleware, async (c) => {
   }
 })
 
-// GET /api/member/certificate/:formNumber/preview - Preview certificate (optional feature)
-// Issue: 3.7 - Add certificate preview before download
+// GET /api/member/certificate/:formNumber/preview - Get certificate data as JSON
+// Used by browser-side PDF generation (no server CPU cost)
 memberRoutes.get('/certificate/:formNumber/preview', authMiddleware, async (c) => {
   const formNumber = c.req.param('formNumber')
   const userId = c.get('userId')
@@ -524,9 +524,10 @@ memberRoutes.get('/certificate/:formNumber/preview', authMiddleware, async (c) =
 
   // Fetch registration data
   const registration = await c.env.DB.prepare(
-    `SELECT mr.*, u.id as user_id
+    `SELECT mr.*, u.id as user_id, admin.name as verified_by_name
      FROM member_registrations mr
      JOIN users u ON mr.user_id = u.id
+     LEFT JOIN users admin ON mr.verified_by = admin.id
      WHERE mr.form_number = ? AND (mr.user_id = ? OR ? = 'admin')`
   ).bind(formNumber, userId, userRole).first()
 
@@ -539,67 +540,35 @@ memberRoutes.get('/certificate/:formNumber/preview', authMiddleware, async (c) =
     return err(c, 'সার্টিফিকেট প্রিভিউ করতে হলে পেমেন্ট যাচাই হতে হবে', 403)
   }
 
-  try {
-    // Try to get logo from static assets (via request origin) then R2
-    let logoBuffer: ArrayBuffer | undefined
-    try {
-      const origin = new URL(c.req.url).origin
-      const logoRes = await fetch(`${origin}/bbi%20logo.jpg`)
-      if (logoRes.ok) logoBuffer = await logoRes.arrayBuffer()
-    } catch (_) { /* ignore */ }
-    if (!logoBuffer) {
-      try {
-        if (c.env.FILES) {
-          const logoObject = await c.env.FILES.get('assets/bbi-logo.jpg')
-          if (logoObject) logoBuffer = await logoObject.arrayBuffer()
-        }
-      } catch (e) {
-        console.warn('Logo not found in R2:', e)
-      }
-    }
+  // Log audit event for certificate preview
+  await logAuditEvent(
+    c,
+    'certificate_previewed',
+    registration.user_id as number | null,
+    registration.id as number | null,
+    formNumber,
+    { user_role: userRole }
+  )
 
-    // Generate PDF certificate
-    const pdfBuffer = await generateMemberCertificate(
-      {
-        form_number: registration.form_number as string,
-        name_english: registration.name_english as string,
-        name_bangla: registration.name_bangla as string | undefined,
-        father_name: registration.father_name as string,
-        mother_name: registration.mother_name as string,
-        date_of_birth: registration.date_of_birth as string,
-        blood_group: registration.blood_group as string | undefined,
-        present_address: registration.present_address as string,
-        permanent_address: registration.permanent_address as string,
-        facebook_id: registration.facebook_id as string | undefined,
-        mobile_whatsapp: registration.mobile_whatsapp as string,
-        emergency_contact: registration.emergency_contact as string | undefined,
-        email: registration.email as string | undefined,
-        skills_interests: registration.skills_interests as string | undefined,
-        created_at: registration.created_at as string
-      },
-      logoBuffer,
-      new URL(c.req.url).origin
-    )
-
-    // Log audit event for certificate preview
-    await logAuditEvent(
-      c,
-      'certificate_previewed',
-      registration.user_id as number | null,
-      registration.id as number | null,
-      formNumber,
-      { user_role: userRole }
-    )
-
-    // Return PDF as inline response for preview — convert Uint8Array to ArrayBuffer for Hono
-    return c.body(pdfBuffer.buffer as ArrayBuffer, 200, {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="BBI_Certificate_${formNumber}.pdf"`
-    })
-  } catch (error: any) {
-    console.error('Certificate preview error:', error)
-    return err(c, 'সার্টিফিকেট প্রিভিউ করা যায়নি। আবার চেষ্টা করুন।', 500)
-  }
+  // Return JSON data for browser-side PDF generation
+  return ok(c, {
+    form_number: registration.form_number as string,
+    name_english: registration.name_english as string,
+    name_bangla: (registration.name_bangla as string | undefined) || undefined,
+    father_name: registration.father_name as string,
+    mother_name: registration.mother_name as string,
+    date_of_birth: registration.date_of_birth as string,
+    blood_group: (registration.blood_group as string | undefined) || undefined,
+    present_address: registration.present_address as string,
+    permanent_address: registration.permanent_address as string,
+    facebook_id: (registration.facebook_id as string | undefined) || undefined,
+    mobile_whatsapp: registration.mobile_whatsapp as string,
+    emergency_contact: (registration.emergency_contact as string | undefined) || undefined,
+    email: (registration.email as string | undefined) || undefined,
+    skills_interests: (registration.skills_interests as string | undefined) || undefined,
+    created_at: registration.created_at as string,
+    verified_at: (registration.verified_at as string | undefined) || undefined,
+  })
 })
 
 // POST /api/admin/members/certificates/bulk - Bulk certificate generation

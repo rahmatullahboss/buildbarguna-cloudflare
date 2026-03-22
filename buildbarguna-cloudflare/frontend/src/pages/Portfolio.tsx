@@ -84,7 +84,8 @@ function ProjectCard({ item, purchases }: { item: ProjectPortfolioItem; purchase
         return
       }
       
-      const response = await fetch(`/api/shares/certificate/${purchaseId}`, {
+      // Fetch certificate data as JSON from preview endpoint
+      const response = await fetch(`/api/shares/certificate/${purchaseId}/preview`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       
@@ -93,13 +94,11 @@ function ProjectCard({ item, purchases }: { item: ProjectPortfolioItem; purchase
         throw new Error(data.error || 'Download failed')
       }
       
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `BBI_Share_Certificate_${purchaseId}.pdf`
-      link.click()
-      window.URL.revokeObjectURL(url)
+      const json = await response.json()
+      
+      // Generate PDF in browser — zero server CPU cost
+      const { downloadShareCertificate } = await import('../lib/certificateGenerator')
+      await downloadShareCertificate(json.data)
     } catch (err: any) {
       console.error('Download error:', err)
       setError(err.message || 'ডাউনলোড ব্যর্থ হয়েছে')

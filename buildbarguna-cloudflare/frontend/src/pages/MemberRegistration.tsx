@@ -118,21 +118,21 @@ export default function MemberRegistration() {
     setDownloading(true)
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`/api/member/certificate/${formNumber}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      // Fetch certificate data as JSON from preview endpoint
+      const response = await fetch(`/api/member/certificate/${formNumber}/preview`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       })
 
-      if (!response.ok) throw new Error('পিডিএফ তৈরি করা যায়নি')
+      if (!response.ok) {
+        const json = await response.json()
+        throw new Error(json.error || 'পিডিএফ তৈরি করা যায়নি')
+      }
 
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `BBI_Member_${formNumber}_${form.name_english.replace(/\s+/g, '_')}.pdf`
-      link.click()
-      window.URL.revokeObjectURL(url)
+      const json = await response.json()
+
+      // Generate PDF in browser — zero server CPU cost
+      const { downloadMemberCertificate } = await import('../lib/certificateGenerator')
+      await downloadMemberCertificate(json.data)
     } catch (err: any) {
       setError(err.message)
     } finally {
