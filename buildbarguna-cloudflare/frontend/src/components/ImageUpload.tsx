@@ -87,10 +87,18 @@ export default function ImageUpload({ value, onChange, label = 'ছবি আপ
 
       {/* Drop zone */}
       <div
+        role="button"
+        tabIndex={isLoading ? -1 : 0}
         onDrop={handleDrop}
         onDragOver={e => e.preventDefault()}
         onClick={() => !isLoading && inputRef.current?.click()}
-        className={`relative border-2 border-dashed rounded-xl transition-all cursor-pointer
+        onKeyDown={e => {
+          if (!isLoading && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault()
+            inputRef.current?.click()
+          }
+        }}
+        className={`relative border-2 border-dashed rounded-xl transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none
           ${isLoading ? 'cursor-not-allowed opacity-70' : 'hover:border-primary-400 hover:bg-primary-50'}
           ${state === 'error' ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-gray-50'}
           ${state === 'done' ? 'border-green-300 bg-green-50' : ''}`}
@@ -101,8 +109,9 @@ export default function ImageUpload({ value, onChange, label = 'ছবি আপ
             {!isLoading && (
               <button
                 type="button"
+                aria-label="ছবি মুছে ফেলুন"
                 onClick={e => { e.stopPropagation(); handleClear() }}
-                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-lg transition-colors"
+                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-lg transition-colors focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
               >
                 <X size={16} />
               </button>
