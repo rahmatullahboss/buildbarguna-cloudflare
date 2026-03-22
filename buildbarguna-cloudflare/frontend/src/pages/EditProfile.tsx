@@ -152,6 +152,7 @@ export default function EditProfile() {
         </form>
 
         <button
+          aria-label="আগের পেজে ফিরে যান"
           onClick={() => navigate(-1)}
           className="w-full py-3 mt-4 text-gray-600 hover:text-gray-800 text-sm"
         >
