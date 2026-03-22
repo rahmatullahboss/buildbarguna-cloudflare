@@ -143,8 +143,9 @@ export default function Login() {
               <button
                 type="button"
                 aria-label={showPass ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                title={showPass ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
                 onClick={() => setShowPass(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-md p-1"
               >
                 {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
