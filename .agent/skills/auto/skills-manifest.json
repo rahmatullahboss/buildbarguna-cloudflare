@@ -1,7 +1,7 @@
 {
   "project": {
     "enabled": true,
-    "lastGenerated": "2026-03-22T08:09:56.991Z",
+    "lastGenerated": "2026-03-22T08:39:56.990Z",
     "observationCount": 3,
     "skillCount": 0,
     "domain": "project",
@@ -12,19 +12,19 @@
   },
   "typescript": {
     "enabled": true,
-    "lastGenerated": "2026-03-22T08:09:56.991Z",
-    "observationCount": 2,
+    "lastGenerated": "2026-03-22T08:39:56.990Z",
+    "observationCount": 3,
     "skillCount": 0,
     "domain": "typescript",
     "triggerGlobs": [
       "**/*.ts",
       "**/*.tsx"
     ],
-    "description": "Typescript for buildbarguna-cloudflare. 2 fixes."
+    "description": "Typescript for buildbarguna-cloudflare. 1 conventions, 2 fixes."
   },
   "typescript-react": {
     "enabled": true,
-    "lastGenerated": "2026-03-22T08:09:56.991Z",
+    "lastGenerated": "2026-03-22T08:39:56.990Z",
     "observationCount": 6,
     "skillCount": 0,
     "domain": "typescript-react",
@@ -35,7 +35,7 @@
   },
   "javascript": {
     "enabled": true,
-    "lastGenerated": "2026-03-22T08:09:56.991Z",
+    "lastGenerated": "2026-03-22T08:39:56.990Z",
     "observationCount": 3,
     "skillCount": 0,
     "domain": "javascript",

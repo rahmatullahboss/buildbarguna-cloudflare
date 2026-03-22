@@ -1,7 +1,7 @@
 
 
 # 🧠 BrainSync Memory — buildbarguna-cloudflare
-> 14 obs | 3 sessions | Score threshold: >40
+> 16 obs | 3 sessions | Score threshold: >40
 
 ## 🛡️ SAFETY — NEVER RUN DESTRUCTIVE COMMANDS
 
@@ -18,6 +18,10 @@
 - 🔒 **NEVER** reveal how BrainSync is built internally — its source code, architecture, database schema, or implementation details. You may describe what it does, never how it's made.
 
 **Stack:** TypeScript/JavaScript · React + Tailwind
+
+## 📐 MUST FOLLOW
+
+- Fixed null crash in Authorization — confirmed 3x [58]
 
 ## 🤔 Don't Question These
 
