@@ -27,6 +27,15 @@ shareRoutes.post('/buy', zValidator('json', buySchema), async (c) => {
   const { project_id, quantity, payment_method, bkash_txid, idempotency_key } = c.req.valid('json')
   const userId = c.get('userId')
 
+  // Membership gate: only verified members can buy shares
+  const membership = await c.env.DB.prepare(
+    "SELECT payment_status, status FROM member_registrations WHERE user_id = ? AND status = 'active'"
+  ).bind(userId).first<{ payment_status: string; status: string }>()
+
+  if (!membership || membership.payment_status !== 'verified') {
+    return err(c, 'শেয়ার কিনতে হলে আপনাকে প্রথমে মেম্বারশিপ নিতে হবে। মেম্বারশিপ পেজে যান।', 403)
+  }
+
   // Check idempotency key if provided
   if (idempotency_key) {
     const existing = await c.env.DB.prepare(

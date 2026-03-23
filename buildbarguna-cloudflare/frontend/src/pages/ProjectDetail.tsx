@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { projectsApi, sharesApi, type ProjectUpdate } from '../lib/api'
+import { projectsApi, sharesApi, memberApi, type ProjectUpdate } from '../lib/api'
 import { formatTaka } from '../lib/auth'
 import Disclaimer from '../components/Disclaimer'
-import { HelpCircle, X, AlertTriangle, CheckSquare, Plus, Minus, Wallet, Phone, CheckCircle, ArrowRight, FileText, PartyPopper, MapPin, Calendar, Clock, Newspaper } from 'lucide-react'
+import { HelpCircle, X, AlertTriangle, CheckSquare, Plus, Minus, Wallet, Phone, CheckCircle, ArrowRight, FileText, PartyPopper, MapPin, Calendar, Clock, Newspaper, ShieldAlert } from 'lucide-react'
 
 type PaymentMethod = 'bkash' | 'manual'
 
@@ -49,6 +49,13 @@ export default function ProjectDetail() {
     queryKey: ['project', id],
     queryFn: () => projectsApi.get(Number(id))
   })
+
+  // Check membership status
+  const { data: memberStatus } = useQuery({
+    queryKey: ['member-status'],
+    queryFn: () => memberApi.status()
+  })
+  const isVerifiedMember = memberStatus?.success && memberStatus.data?.registered && memberStatus.data?.payment_status === 'verified'
 
   const { data: updatesData } = useQuery({
     queryKey: ['project-updates', id],
@@ -249,6 +256,24 @@ export default function ProjectDetail() {
                 <p className="font-bold text-teal-800">এই প্রজেক্ট সম্পন্ন হয়েছে</p>
                 <p className="text-teal-600 text-sm mt-0.5">আর শেয়ার কেনার সুযোগ নেই। বিনিয়োগকারীদের মুনাফা বিতরণ করা হয়েছে।</p>
               </div>
+            </div>
+          </div>
+        ) : !isVerifiedMember ? (
+          <div className="border-t border-gray-100 p-5">
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-center space-y-3">
+              <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
+                <ShieldAlert size={28} className="text-amber-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-amber-800 text-lg">মেম্বারশিপ প্রয়োজন</h3>
+                <p className="text-amber-700 text-sm mt-1">শেয়ার কিনতে হলে আপনাকে প্রথমে মেম্বারশিপ নিতে হবে।</p>
+              </div>
+              <button
+                onClick={() => navigate('/membership')}
+                className="btn-primary w-full py-3 text-base flex items-center justify-center gap-2"
+              >
+                মেম্বারশিপ নিন <ArrowRight size={16} />
+              </button>
             </div>
           </div>
         ) : p.available_shares > 0 ? (

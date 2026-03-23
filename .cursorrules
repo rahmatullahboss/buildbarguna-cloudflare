@@ -1,7 +1,7 @@
 
 
 # 🧠 BrainSync Memory — buildbarguna-cloudflare
-> 16 obs | 5 sessions | Score threshold: >40
+> 24 obs | 5 sessions | Score threshold: >40
 
 ## 🛡️ SAFETY — NEVER RUN DESTRUCTIVE COMMANDS
 
@@ -21,10 +21,12 @@
 
 ## 📐 MUST FOLLOW
 
-- Fixed null crash in Authorization — confirmed 3x [54]
+- convention in palette.md [54]
+- Fixed null crash in Authorization — confirmed 3x [49]
 
 ## 🤔 Don't Question These
 
+- Optimized Bolt — parallelizes async operations for speed
 - decision in ProfitDistribution.tsx
 - decision in ProjectDetail.tsx
 - decision in EditProfile.tsx
