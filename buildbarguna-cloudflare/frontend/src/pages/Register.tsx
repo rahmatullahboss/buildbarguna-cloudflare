@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authApi, referralsApi } from '../lib/api'
-import { Gift, User, Mail, Phone, Lock, CheckCircle } from 'lucide-react'
+import { Gift, User, Mail, Phone, Lock, CheckCircle, Eye, EyeOff } from 'lucide-react'
 import LottieIcon from '../components/LottieIcon'
 
 export default function Register() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const [showPass, setShowPass] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', referral_code: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -95,8 +96,19 @@ export default function Register() {
           </div>
           <div>
             <label className="label"><Lock size={16} className="inline-block mr-1" /> পাসওয়ার্ড</label>
-            <input className="input" type="password" placeholder="কমপক্ষে ৬ অক্ষর" value={form.password}
-              onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required minLength={6} />
+            <div className="relative">
+              <input className="input pr-11" type={showPass ? 'text' : 'password'} placeholder="কমপক্ষে ৬ অক্ষর" value={form.password}
+                onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required minLength={6} />
+              <button
+                type="button"
+                aria-label={showPass ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                title={showPass ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                onClick={() => setShowPass(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-md p-1"
+              >
+                {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
           <div>
             <label className="label"><Gift size={16} className="inline-block mr-1" /> রেফারেল কোড <span className="text-gray-400 font-normal text-xs">(ঐচ্ছিক)</span></label>
