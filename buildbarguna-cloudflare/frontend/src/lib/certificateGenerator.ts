@@ -46,7 +46,7 @@ export interface MemberCertificateData {
 // ─── Shared CSS ──────────────────────────────────────────────────────────────
 
 const SHARED_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;700&family=Playfair+Display:wght@700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap');
   
   * { margin: 0; padding: 0; box-sizing: border-box; }
   
@@ -106,10 +106,7 @@ const SHARED_CSS = `
     margin: 12px 0;
   }
   
-  .member-name-bangla {
-    font-family: 'Noto Sans Bengali', sans-serif;
-    font-size: 22px; color: #003366; margin-bottom: 15px;
-  }
+
   
   .project-name {
     font-family: 'Playfair Display', serif;
@@ -131,14 +128,13 @@ const SHARED_CSS = `
   }
   
   .details .value, .share-details .value {
-    font-size: 10px; color: #1a1a1a;
-    border-bottom: 0.5px solid #ddd; padding-bottom: 2px;
+    font-size: 11px; color: #1a1a1a;
+    border-bottom: 0.5px solid #ddd; padding-bottom: 4px;
+    word-wrap: break-word; overflow-wrap: break-word;
+    line-height: 1.5;
   }
   
-  .bangla-value {
-    font-family: 'Noto Sans Bengali', sans-serif;
-    font-size: 11px;
-  }
+
   
   .footer { margin-top: 25px; }
   .verification { text-align: center; font-size: 10px; color: #228B22; margin-bottom: 5px; }
@@ -260,7 +256,7 @@ function generateMemberCertificateHTML(reg: MemberCertificateData): string {
     <div class="body">
       <p>This is to certify that</p>
       <div class="member-name">${reg.name_english}</div>
-      ${reg.name_bangla ? `<div class="member-name-bangla">${reg.name_bangla}</div>` : ''}
+
       <p>has been accepted as a Member of</p>
       <div class="project-name">Build Barguna Initiative (BBI)</div>
     </div>

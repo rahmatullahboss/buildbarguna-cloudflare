@@ -1,7 +1,7 @@
 
 
 # 🧠 BrainSync Memory — buildbarguna-cloudflare
-> 16 obs | 3 sessions | Score threshold: >40
+> 16 obs | 5 sessions | Score threshold: >40
 
 ## 🛡️ SAFETY — NEVER RUN DESTRUCTIVE COMMANDS
 
@@ -21,7 +21,7 @@
 
 ## 📐 MUST FOLLOW
 
-- Fixed null crash in Authorization — confirmed 3x [58]
+- Fixed null crash in Authorization — confirmed 3x [54]
 
 ## 🤔 Don't Question These
 
