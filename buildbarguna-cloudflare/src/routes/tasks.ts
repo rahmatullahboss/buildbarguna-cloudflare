@@ -14,10 +14,11 @@ taskRoutes.get('/history', async (c) => {
   const userId = c.get('userId')
   const { page, limit, offset } = getPagination(c.req.query())
   
-  const [countResult, historyResult] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const results = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT COUNT(*) as total FROM task_completions WHERE user_id = ?`
-    ).bind(userId).first() as Promise<{ total: number }>,
+    ).bind(userId),
     c.env.DB.prepare(
       `SELECT tc.*, dt.title as task_title, dt.platform, dt.points as points_awarded
        FROM task_completions tc
@@ -25,10 +26,13 @@ taskRoutes.get('/history', async (c) => {
        WHERE tc.user_id = ?
        ORDER BY tc.completed_at DESC
        LIMIT ? OFFSET ?`
-    ).bind(userId, limit, offset).all()
+    ).bind(userId, limit, offset)
   ])
   
-  return ok(c, paginate(historyResult.results, countResult.total, page, limit))
+  const countResult = results[0].results?.[0] as unknown as { total: number } | undefined
+  const historyResult = results[1]
+
+  return ok(c, paginate(historyResult.results, countResult?.total ?? 0, page, limit))
 })
 
 // GET /api/tasks - List available tasks for the logged-in member
@@ -36,24 +40,37 @@ taskRoutes.get('/', async (c) => {
   const userId = c.get('userId')
   const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
   
-  // Get all active tasks
-  const tasksResult = await c.env.DB.prepare(
-    `SELECT 
-      dt.id,
-      dt.title,
-      dt.destination_url,
-      dt.platform,
-      dt.points,
-      dt.cooldown_seconds,
-      dt.daily_limit,
-      dt.is_one_time,
-      dt.is_active
-    FROM daily_tasks dt
-    WHERE dt.is_active = 1
-    ORDER BY dt.points DESC`
-  ).all()
+  // ⚡ Bolt: Use db.batch() instead of sequential queries to prevent per-query HTTP network overhead in D1
+  const results = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `SELECT
+        dt.id,
+        dt.title,
+        dt.destination_url,
+        dt.platform,
+        dt.points,
+        dt.cooldown_seconds,
+        dt.daily_limit,
+        dt.is_one_time,
+        dt.is_active
+      FROM daily_tasks dt
+      WHERE dt.is_active = 1
+      ORDER BY dt.points DESC`
+    ),
+    c.env.DB.prepare(
+      `SELECT task_id, COUNT(*) as count
+       FROM task_completions
+       WHERE user_id = ? AND task_date = ?
+       GROUP BY task_id`
+    ).bind(userId, today),
+    c.env.DB.prepare(
+      `SELECT task_id
+       FROM task_completions
+       WHERE user_id = ? AND task_id IN (SELECT id FROM daily_tasks WHERE is_one_time = 1)`
+    ).bind(userId)
+  ])
   
-  const tasks = tasksResult.results as Array<{
+  const tasks = results[0].results as Array<{
     id: number
     title: string
     destination_url: string
@@ -64,29 +81,14 @@ taskRoutes.get('/', async (c) => {
     is_one_time: number
   }>
   
-  // Get today's completions for this user
-  const completionsResult = await c.env.DB.prepare(
-    `SELECT task_id, COUNT(*) as count
-     FROM task_completions 
-     WHERE user_id = ? AND task_date = ?
-     GROUP BY task_id`
-  ).bind(userId, today).all()
-  
   const todayCompletions = new Map<number, number>()
-  for (const row of completionsResult.results) {
+  for (const row of results[1].results) {
     const r = row as { task_id: number; count: number }
     todayCompletions.set(r.task_id, r.count)
   }
   
-  // Get one-time completions (ever)
-  const oneTimeResult = await c.env.DB.prepare(
-    `SELECT task_id
-     FROM task_completions 
-     WHERE user_id = ? AND task_id IN (SELECT id FROM daily_tasks WHERE is_one_time = 1)`
-  ).bind(userId).all()
-  
   const oneTimeCompleted = new Set<number>()
-  for (const row of oneTimeResult.results) {
+  for (const row of results[2].results) {
     const r = row as { task_id: number }
     oneTimeCompleted.add(r.task_id)
   }
