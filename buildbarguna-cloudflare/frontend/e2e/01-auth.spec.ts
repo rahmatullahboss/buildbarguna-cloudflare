@@ -23,7 +23,7 @@ test.describe('Login', () => {
     await page.goto('/login')
     await page.getByPlaceholder('01XXXXXXXXX').fill(TEST_USER.phone)
     await page.getByPlaceholder('পাসওয়ার্ড দিন').fill('wrongpassword')
-    await page.getByRole('button', { name: 'লগইন করুন' }).click()
+    await page.getByRole('button', { name: 'লগইন করুন', exact: true }).click()
     // Should show error message, not redirect
     await expect(page).toHaveURL('/login')
     await expect(page.locator('[class*="red"],[class*="error"]').first()).toBeVisible({ timeout: 5_000 })
@@ -33,7 +33,7 @@ test.describe('Login', () => {
     await page.goto('/login')
     await page.getByPlaceholder('01XXXXXXXXX').fill('12345')
     await page.getByPlaceholder('পাসওয়ার্ড দিন').fill('password123')
-    await page.getByRole('button', { name: 'লগইন করুন' }).click()
+    await page.getByRole('button', { name: 'লগইন করুন', exact: true }).click()
     await expect(page).toHaveURL('/login')
   })
 
