@@ -3,11 +3,14 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authApi, referralsApi } from '../lib/api'
 import { Gift, User, Mail, Phone, Lock, CheckCircle, Eye, EyeOff } from 'lucide-react'
 import LottieIcon from '../components/LottieIcon'
+import TermsModal from '../components/TermsModal'
 
 export default function Register() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [showPass, setShowPass] = useState(false)
+  const [showTerms, setShowTerms] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', referral_code: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -42,6 +45,12 @@ export default function Register() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    
+    if (!termsAccepted) {
+      setError('এগিয়ে যেতে শর্তাবলীতে সম্মতি প্রদান করুন')
+      return;
+    }
+    
     setLoading(true)
     const body = { ...form, referral_code: form.referral_code || undefined, phone: form.phone || undefined }
     const res = await authApi.register(body)
@@ -136,7 +145,21 @@ export default function Register() {
               <p className="text-red-500 text-xs mt-1">❌ রেফারেল কোড সঠিক নয়</p>
             )}
           </div>
-          <button type="submit" className="btn-primary w-full py-3.5 text-base mt-2" disabled={loading}>
+
+          <div className="flex items-start gap-2 mt-2">
+            <input
+              type="checkbox"
+              id="terms"
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+              className="mt-1 w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+            />
+            <label htmlFor="terms" className="text-sm text-gray-600 cursor-pointer">
+              আমি <button type="button" onClick={() => setShowTerms(true)} className="text-primary-600 font-semibold hover:underline">উপরের সকল শর্তাবলী</button> পড়েছি এবং এতে আমার পূর্ণ সম্মতি রয়েছে।
+            </label>
+          </div>
+
+          <button type="submit" className="btn-primary w-full py-3.5 text-base mt-4" disabled={loading}>
             {loading
               ? <span className="flex items-center justify-center gap-2">
                   <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />রেজিস্ট্রেশন হচ্ছে...
@@ -188,6 +211,8 @@ export default function Register() {
           <Link to="/login" className="text-primary-600 font-semibold hover:underline">লগইন করুন →</Link>
         </p>
       </div>
+
+      <TermsModal isOpen={showTerms} onClose={() => setShowTerms(false)} />
     </div>
   )
 }

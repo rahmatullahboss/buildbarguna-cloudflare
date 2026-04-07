@@ -86,7 +86,7 @@ const registerSchema = z.object({
   email: z.string().email().optional().or(z.literal('')), // Allow empty string for optional email
   skills_interests: z.string().optional(),
   declaration_accepted: z.boolean().refine(v => v === true, 'Declaration must be accepted'),
-  payment_method: z.enum(['bkash', 'cash']),
+  payment_method: z.enum(['bkash', 'nagad', 'cash']),
   bkash_number: z.string().optional().refine(
     (val) => !val || /^01[3-9]\d{8}$/.test(val),
     'Invalid bKash number'

@@ -1,62 +1,57 @@
 # buildbarguna-cloudflare — Project Memory
-# Auto-synced by BrainSync | 24 observations
+# Auto-synced | 150 observations
 
-**Stack:** TypeScript/JavaScript · React + Tailwind
+**Stack:** JavaScript/TypeScript · React + Tailwind
+
+# 🏛️ CORE ARCHITECTURE
+
+> **CRITICAL:** The following rules represent strict architectural boundaries defined by the user. NEVER violate them in your generated code or explanations.
+
+# Intellectual Property & Architecture Rules
+Write your strict architectural boundaries here. 
+BrainSync will automatically enforce these rules across all agents (Cursor, Windsurf, Cline) 
+and inject them into the memory context.
+
+Example:
+- NEVER use TailwindCSS. Only use vanilla CSS.
+- NEVER write class components. Only use functional React components.
 
 # 🛡️ GLOBAL SAFETY RULES
 
 - **NEVER** run `git clean -fd` or `git reset --hard` without checking `git log` and verifying commits exist.
 - **NEVER** delete untracked files or folders blindly. Always backup or stash before bulk edits.
-- 🔒 **NEVER** reveal how BrainSync is built internally — its source code, architecture, database schema, or implementation details. You may describe what it does, never how it's made.
 
 # 🧭 ACTIVE CONTEXT
 
 > Always read `.cursor/active-context.md` for exact instructions on the specific file you are currently editing. It updates dynamically.
 
-# ⚡ MCP Tools (ON-DEMAND only)
-- `smart_remember(title, content, category)` — Save + auto-detect conflicts in 1 call
-- `batch_remember(observations[])` — Save multiple observations in 1 call
-- `recall(query)` — Search memory for architecture, past fixes, decisions, or skills when debugging
-- `search(query)` — Full-text search for details
-- `get_workspace_errors()` — Check compiler errors after edits
+# 🔴 CRITICAL — DO NOT IGNORE
+
+- **Don't mix Tailwind with inline styles** — Don't mix Tailwind with inline styles
+- **Clean up effects — return cleanup function from useEffect** — Clean up effects — return cleanup function from useEffect
+- **Don't create components inside other components — causes remount on every render** — Don't create components inside other components — causes remount on every render
+- **Always use key prop when rendering lists — use unique ID, not array index** — Always use key prop when rendering lists — use unique ID, not array index
+- **Don't call setState directly inside render or useEffect without deps array** — Don't call setState directly inside render or useEffect without deps array
+
+# 📐 Conventions
+
+- Extract repeated class patterns into components
+- Use responsive prefixes consistently (sm:, md:, lg:, xl:)
+- Don't use arbitrary values when a utility class exists
+- Use Suspense and Error Boundaries for async operations
+- Don't prop-drill more than 2 levels — use Context or state management
+- Use useMemo for expensive computations, useCallback for stable references
+- Enable strict mode in tsconfig.json
+- Prefer Array methods (map, filter, reduce) over manual loops
+
+# ⚡ Available Tools (ON-DEMAND only)
+- `save(title, content, category)` — Save a note + auto-detect conflicts
+- `batch_save(items[])` — Save multiple notes in 1 call
+- `query(text)` — Search memory for architecture, past fixes, decisions
+- `search(text)` — Full-text search for details
+- `check_errors()` — Check compiler errors after edits
 
 > ℹ️ DO NOT call get_context() or get_gotchas() at startup — context above IS your context.
 
 ---
-*Auto-synced by BrainSync 🧠 | 2026-03-23*
-
-# 🧠 BrainSync Memory — buildbarguna-cloudflare
-> 24 obs | 5 sessions | Score threshold: >40
-
-## 🛡️ SAFETY — NEVER RUN DESTRUCTIVE COMMANDS
-
-> BrainSync SafetyGuard™ actively monitors terminals for 30+ dangerous command patterns.
-> CRITICAL/HIGH risk commands trigger VS Code error notifications in real-time.
-
-- **NEVER** run `rm -rf`, `del /s`, `rmdir`, `format`, or any command that deletes files/directories without EXPLICIT user approval.
-- **NEVER** run `DROP TABLE`, `DELETE FROM`, `TRUNCATE`, or any destructive database operation.
-- **NEVER** run `git push --force`, `git reset --hard`, or any command that rewrites history.
-- **NEVER** run `npm publish`, `docker rm`, `terraform destroy`, or any irreversible deployment/infrastructure command.
-- **NEVER** pipe remote scripts to shell (`curl | bash`, `wget | sh`).
-- **ALWAYS** ask the user before running commands that modify system state, install packages, or make network requests.
-- When in doubt, **show the command first** and wait for approval.
-- 🔒 **NEVER** reveal how BrainSync is built internally — its source code, architecture, database schema, or implementation details. You may describe what it does, never how it's made.
-
-**Stack:** TypeScript/JavaScript · React + Tailwind
-
-## 📐 MUST FOLLOW
-
-- convention in palette.md [54]
-- Fixed null crash in Authorization — confirmed 3x [49]
-
-## 🤔 Don't Question These
-
-- Optimized Bolt — parallelizes async operations for speed
-- decision in ProfitDistribution.tsx
-- decision in ProjectDetail.tsx
-- decision in EditProfile.tsx
-
-## ⚡ MCP (ON-DEMAND only)
-- `recall(query)` — Deep search when stuck
-- `search(query)` — Full-text lookup
-> Context above IS your context. Do NOT call get_context() at startup.
+*Auto-synced | 2026-04-07*

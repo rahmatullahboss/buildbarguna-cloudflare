@@ -1,18 +1,18 @@
 {
   "project": {
     "enabled": true,
-    "lastGenerated": "2026-03-23T15:00:58.691Z",
-    "observationCount": 4,
+    "lastGenerated": "2026-04-07T00:17:05.163Z",
+    "observationCount": 99,
     "skillCount": 0,
     "domain": "project",
     "triggerGlobs": [
       "**/*"
     ],
-    "description": "Project for buildbarguna-cloudflare. 1 conventions."
+    "description": "Project for buildbarguna-cloudflare. 30 gotchas, 47 conventions, 1 fixes."
   },
   "typescript": {
     "enabled": true,
-    "lastGenerated": "2026-03-23T15:00:58.691Z",
+    "lastGenerated": "2026-04-07T00:17:05.164Z",
     "observationCount": 5,
     "skillCount": 0,
     "domain": "typescript",
@@ -24,18 +24,18 @@
   },
   "typescript-react": {
     "enabled": true,
-    "lastGenerated": "2026-03-23T15:00:58.690Z",
-    "observationCount": 11,
+    "lastGenerated": "2026-04-07T00:17:05.164Z",
+    "observationCount": 13,
     "skillCount": 0,
     "domain": "typescript-react",
     "triggerGlobs": [
       "**/*.tsx"
     ],
-    "description": "Typescript React for buildbarguna-cloudflare. 1 fixes."
+    "description": "Typescript React for buildbarguna-cloudflare. 2 fixes."
   },
   "javascript": {
     "enabled": true,
-    "lastGenerated": "2026-03-23T15:00:58.691Z",
+    "lastGenerated": "2026-04-07T00:17:05.164Z",
     "observationCount": 3,
     "skillCount": 0,
     "domain": "javascript",
@@ -44,5 +44,41 @@
       "**/*.jsx"
     ],
     "description": "Javascript for buildbarguna-cloudflare. ."
+  },
+  "config": {
+    "enabled": true,
+    "lastGenerated": "2026-04-07T00:17:05.164Z",
+    "observationCount": 22,
+    "skillCount": 0,
+    "domain": "config",
+    "triggerGlobs": [
+      "**/*.yaml",
+      "**/*.yml",
+      "**/*.json",
+      "**/*.toml"
+    ],
+    "description": "Config for buildbarguna-cloudflare. 1 gotchas, 5 conventions, 3 fixes."
+  },
+  "decision": {
+    "enabled": true,
+    "lastGenerated": "2026-04-07T00:17:05.164Z",
+    "observationCount": 0,
+    "skillCount": 1,
+    "domain": "decision",
+    "triggerGlobs": [
+      "**/*"
+    ],
+    "description": "Decision for buildbarguna-cloudflare. ."
+  },
+  "convention": {
+    "enabled": true,
+    "lastGenerated": "2026-04-07T00:17:05.164Z",
+    "observationCount": 0,
+    "skillCount": 1,
+    "domain": "convention",
+    "triggerGlobs": [
+      "**/*"
+    ],
+    "description": "Convention for buildbarguna-cloudflare. ."
   }
 }

@@ -458,13 +458,13 @@ export default function AdminMembers() {
                             <p className="text-blue-600 text-xs">ফি</p>
                             <p className="font-medium">৳{(member.payment_amount || 0) / 100}</p>
                           </div>
-                          {member.payment_method === 'bkash' && member.bkash_number && (
+                          {['bkash', 'nagad'].includes(member.payment_method) && member.bkash_number && (
                             <div>
-                              <p className="text-blue-600 text-xs">bKash নং</p>
+                              <p className="text-blue-600 text-xs capitalize">{member.payment_method} নং</p>
                               <p className="font-mono font-medium">{member.bkash_number}</p>
                             </div>
                           )}
-                          {member.payment_method === 'bkash' && member.bkash_trx_id && (
+                          {['bkash', 'nagad'].includes(member.payment_method) && member.bkash_trx_id && (
                             <div>
                               <p className="text-blue-600 text-xs">TxID</p>
                               <p className="font-mono font-medium">{member.bkash_trx_id}</p>

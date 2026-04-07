@@ -37,9 +37,9 @@ export default function MemberRegistration() {
     email: '',
     skills_interests: '',
     declaration_accepted: false,
-    payment_method: 'bkash' as 'bkash' | 'cash',
-    bkash_number: '',
-    bkash_trx_id: '',
+    payment_method: 'bkash' as 'bkash' | 'nagad' | 'cash',
+    payment_number: '',
+    payment_trx_id: '',
     payment_note: ''
   })
 
@@ -56,16 +56,16 @@ export default function MemberRegistration() {
       return
     }
 
-    // Validate bKash payment
-    if (form.payment_method === 'bkash' && !form.bkash_trx_id) {
-      setError('অনুগ্রহ করে bKash ট্রানজেকশন আইডি দিন')
+    // Validate Mobile Banking payment
+    if ((form.payment_method === 'bkash' || form.payment_method === 'nagad') && !form.payment_trx_id) {
+      setError('অনুগ্রহ করে ট্রানজেকশন আইডি দিন')
       setLoading(false)
       return
     }
 
-    // Validate bKash number format
-    if (form.payment_method === 'bkash' && form.bkash_number && !/^01[3-9]\d{8}$/.test(form.bkash_number)) {
-      setError('অকার্যক bKash নাম্বার। সঠিক ফরম্যাট: 01XXXXXXXXX')
+    // Validate payment number format
+    if ((form.payment_method === 'bkash' || form.payment_method === 'nagad') && form.payment_number && !/^01[3-9]\d{8}$/.test(form.payment_number)) {
+      setError('অকার্যকর নাম্বার। সঠিক ফরম্যাট: 01XXXXXXXXX')
       setLoading(false)
       return
     }
@@ -90,10 +90,11 @@ export default function MemberRegistration() {
       payment_note: form.payment_note || undefined
     }
 
-    // Only include bKash fields if payment method is bKash
-    if (form.payment_method === 'bkash') {
-      payload.bkash_number = form.bkash_number || undefined
-      payload.bkash_trx_id = form.bkash_trx_id || undefined
+    // Only include payment fields if method is mobile banking
+    // We send payload.bkash_number to match the API and DB schema
+    if (form.payment_method === 'bkash' || form.payment_method === 'nagad') {
+      payload.bkash_number = form.payment_number || undefined
+      payload.bkash_trx_id = form.payment_trx_id || undefined
     }
 
     const res = await memberApi.register(payload)
@@ -239,9 +240,12 @@ export default function MemberRegistration() {
           <Wallet size={24} className="text-blue-600 mt-1" />
           <div>
             <h3 className="font-bold text-blue-900">পেমেন্ট তথ্য</h3>
-            <div className="mt-2 space-y-2 text-blue-800">
-              <p><strong>bKash নাম্বার:</strong> <span className="font-mono bg-blue-100 px-2 py-1 rounded">01635222142</span></p>
-              <p><strong>পেমেন্ট পদ্ধতি:</strong> bKash অথবা Cash</p>
+            <div className="mt-2 text-blue-800 space-y-3">
+              <div className="flex flex-col gap-1.5">
+                <p><strong>bKash নাম্বার (Send Money):</strong> <span className="font-mono bg-blue-100 px-2 py-1 rounded select-all font-semibold text-lg tracking-wider">01635222142</span></p>
+                <p><strong>Nagad নাম্বার (Send Money):</strong> <span className="font-mono bg-blue-100 px-2 py-1 rounded select-all font-semibold text-lg tracking-wider text-orange-600">01306410966</span></p>
+              </div>
+              <p><strong>পেমেন্ট পদ্ধতি:</strong> bKash, Nagad অথবা Cash</p>
               <p><strong>টাকা:</strong> ৳100 (একশত টাকা)</p>
             </div>
           </div>
@@ -413,16 +417,22 @@ export default function MemberRegistration() {
           </h3>
           
           <div className="bg-blue-50 p-4 rounded-lg mb-4">
-            <div className="flex items-center gap-2 text-blue-900 mb-2">
+            <div className="flex items-center gap-2 text-blue-900 mb-3">
               <Smartphone size={18} />
-              <strong>bKash পেমেন্ট:</strong>
+              <strong>bKash / Nagad পেমেন্ট:</strong>
             </div>
-            <p className="text-blue-800">
-              <strong>bKash নাম্বার:</strong>{' '}
-              <span className="font-mono bg-white px-2 py-1 rounded">01635222142</span>
-            </p>
-            <p className="text-blue-700 text-sm mt-1">
-              এই নাম্বারে ৳100 সেন্ড মানি করুন অথবা এই নাম্বারে পেমেন্ট করে ট্রানজেকশন আইডি দিন
+            <div className="flex flex-col gap-2 mb-2 text-blue-800">
+              <p>
+                <strong>bKash (Send Money):</strong>{' '}
+                <span className="font-mono bg-white px-2 py-1 rounded select-all font-semibold tracking-wider">01635222142</span>
+              </p>
+              <p>
+                <strong>Nagad (Send Money):</strong>{' '}
+                <span className="font-mono bg-white px-2 py-1 rounded select-all font-semibold tracking-wider text-orange-600">01306410966</span>
+              </p>
+            </div>
+            <p className="text-blue-700 text-sm mt-2">
+              উপরের যেকোনো একটি নাম্বারে ৳100 সেন্ড মানি করুন এবং পেমেন্ট করার পর নিচের ফর্মে আপনার নাম্বার ও ট্রানজেকশন আইডি দিন।
             </p>
           </div>
 
@@ -436,34 +446,35 @@ export default function MemberRegistration() {
                 required
               >
                 <option value="bkash">bKash</option>
+                <option value="nagad">Nagad</option>
                 <option value="cash">Cash</option>
               </select>
             </div>
 
-            {form.payment_method === 'bkash' ? (
+            {(form.payment_method === 'bkash' || form.payment_method === 'nagad') ? (
               <>
                 <div>
-                  <label className="label">আপনার bKash নাম্বার</label>
+                  <label className="label">আপনার {form.payment_method === 'bkash' ? 'bKash' : 'Nagad'} নাম্বার</label>
                   <input
                     type="tel"
                     className="input"
-                    value={form.bkash_number}
-                    onChange={(e) => handleChange('bkash_number', e.target.value)}
+                    value={form.payment_number}
+                    onChange={(e) => handleChange('payment_number', e.target.value)}
                     placeholder="01XXX-XXXXXX"
                     pattern="01[3-9]\d{8}"
                   />
                 </div>
                 <div>
-                  <label className="label">bKash ট্রানজেকশন আইডি *</label>
+                  <label className="label">{form.payment_method === 'bkash' ? 'bKash' : 'Nagad'} ট্রানজেকশন আইডি *</label>
                   <input
                     className="input"
-                    value={form.bkash_trx_id}
-                    onChange={(e) => handleChange('bkash_trx_id', e.target.value)}
+                    value={form.payment_trx_id}
+                    onChange={(e) => handleChange('payment_trx_id', e.target.value)}
                     placeholder="e.g., 9H8G7F6E5D"
                     required
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    bKash অ্যাপ থেকে ট্রানজেকশন আইডি কপি করুন
+                    পেমেন্ট করার পর প্রাপ্ত ট্রানজেকশন আইডি কপি করুন
                   </p>
                 </div>
               </>

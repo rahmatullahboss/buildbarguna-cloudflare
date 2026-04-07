@@ -215,7 +215,133 @@ Guidance for using the `@tinybirdco/sdk` package to define Tinybird resources in
 - Preview in CI: `tinybird preview`
 - Server-side only; never expose tokens in browsers
 
-- [JavaScript/TypeScript] Use === not == (strict equality prevents type coercion bugs)
+
+### 📚 Core Framework Rules: [vercel-labs/react-best-practices]
+# Vercel React Best Practices
+
+Comprehensive performance optimization guide for React and Next.js applications, maintained by Vercel. Contains 64 rules across 8 categories, prioritized by impact to guide automated refactoring and code generation.
+
+## When to Apply
+
+Reference these guidelines when:
+- Writing new React components or Next.js pages
+- Implementing data fetching (client or server-side)
+- Reviewing code for performance issues
+- Refactoring existing React/Next.js code
+- Optimizing bundle size or load times
+
+## Rule Categories by Priority
+
+| Priority | Category | Impact | Prefix |
+|----------|----------|--------|--------|
+| 1 | Eliminating Waterfalls | CRITICAL | `async-` |
+| 2 | Bundle Size Optimization | CRITICAL | `bundle-` |
+| 3 | Server-Side Performance | HIGH | `server-` |
+| 4 | Client-Side Data Fetching | MEDIUM-HIGH | `client-` |
+| 5 | Re-render Optimization | MEDIUM | `rerender-` |
+| 6 | Rendering Performance | MEDIUM | `rendering-` |
+| 7 | JavaScript Performance | LOW-MEDIUM | `js-` |
+| 8 | Advanced Patterns | LOW | `advanced-` |
+
+## Quick Reference
+
+### 1. Eliminating Waterfalls (CRITICAL)
+
+- `async-defer-await` - Move await into branches where actually used
+- `async-parallel` - Use Promise.all() for independent operations
+- `async-dependencies` - Use better-all for partial dependencies
+- `async-api-routes` - Start promises early, await late in API routes
+- `async-suspense-boundaries` - Use Suspense to stream content
+
+### 2. Bundle Size Optimization (CRITICAL)
+
+- `bundle-barrel-imports` - Import directly, avoid barrel files
+- `bundle-dynamic-imports` - Use next/dynamic for heavy components
+- `bundle-defer-third-party` - Load analytics/logging after hydration
+- `bundle-conditional` - Load modules only when feature is activated
+- `bundle-preload` - Preload on hover/focus for perceived speed
+
+### 3. Server-Side Performance (HIGH)
+
+- `server-auth-actions` - Authenticate server actions like API routes
+- `server-cache-react` - Use React.cache() for per-request deduplication
+- `server-cache-lru` - Use LRU cache for cross-request caching
+- `server-dedup-props` - Avoid duplicate serialization in RSC props
+- `server-hoist-static-io` - Hoist static I/O (fonts, logos) to module level
+- `server-serialization` - Minimize data passed to client components
+- `server-parallel-fetching` - Restructure components to parallelize fetches
+- `server-after-nonblocking` - Use after() for non-blocking operations
+
+### 4. Client-Side Data Fetching (MEDIUM-HIGH)
+
+- `c...
+(truncated)
+
+
+### 📚 Core Framework Rules: [vercel-labs/react-native-skills]
+# React Native Skills
+
+Comprehensive best practices for React Native and Expo applications. Contains
+rules across multiple categories covering performance, animations, UI patterns,
+and platform-specific optimizations.
+
+## When to Apply
+
+Reference these guidelines when:
+
+- Building React Native or Expo apps
+- Optimizing list and scroll performance
+- Implementing animations with Reanimated
+- Working with images and media
+- Configuring native modules or fonts
+- Structuring monorepo projects with native dependencies
+
+## Rule Categories by Priority
+
+| Priority | Category         | Impact   | Prefix               |
+| -------- | ---------------- | -------- | -------------------- |
+| 1        | List Performance | CRITICAL | `list-performance-`  |
+| 2        | Animation        | HIGH     | `animation-`         |
+| 3        | Navigation       | HIGH     | `navigation-`        |
+| 4        | UI Patterns      | HIGH     | `ui-`                |
+| 5        | State Management | MEDIUM   | `react-state-`       |
+| 6        | Rendering        | MEDIUM   | `rendering-`         |
+| 7        | Monorepo         | MEDIUM   | `monorepo-`          |
+| 8        | Configuration    | LOW      | `fonts-`, `imports-` |
+
+## Quick Reference
+
+### 1. List Performance (CRITICAL)
+
+- `list-performance-virtualize` - Use FlashList for large lists
+- `list-performance-item-memo` - Memoize list item components
+- `list-performance-callbacks` - Stabilize callback references
+- `list-performance-inline-objects` - Avoid inline style objects
+- `list-performance-function-references` - Extract functions outside render
+- `list-performance-images` - Optimize images in lists
+- `list-performance-item-expensive` - Move expensive work outside items
+- `list-performance-item-types` - Use item types for heterogeneous lists
+
+### 2. Animation (HIGH)
+
+- `animation-gpu-properties` - Animate only transform and opacity
+- `animation-derived-value` - Use useDerivedValue for computed animations
+- `animation-gesture-detector-press` - Use Gesture.Tap instead of Pressable
+
+### 3. Navigation (HIGH)
+
+- `navigation-native-navigators` - Use native stack and native tabs over JS navigators
+
+### 4. UI Patterns (HIGH)
+
+- `ui-expo-image` - Use expo-image for all images
+- `ui-image-gallery` - Use Galeria for image lightboxes
+- `ui-pressable` - Use Pressable over TouchableOpacity
+- `ui-safe-area-scroll` - Handle safe areas in ScrollViews
+- `ui-scrollview-content-inset` - Use contentInset for headers
+- `ui-menus` - Use native context m...
+(truncated)
+
 
 ## Available Tools (ON-DEMAND only)
 - `query(q)` — Deep search when stuck
