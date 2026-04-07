@@ -5,3 +5,7 @@
 ## 2024-03-22 - Password Visibility Toggles & Icon Button Accessibility
 **Learning:** Icon-only buttons positioned absolutely inside inputs (like password visibility toggles) often lose their native focus outlines due to their container constraints. These elements require explicit focus states (e.g., `focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-md p-1`) so keyboard users know when they are focused. Furthermore, mouse users heavily rely on tooltips to decipher icons; the `title` attribute must always be added to match the `aria-label`.
 **Action:** When adding icon-only controls inside input fields, strictly implement explicit `focus-visible` ring classes, and always pair `aria-label` with a native `title` attribute for cross-device accessibility.
+
+## 2024-03-24 - Frontend E2E Mocking & Obfuscated Token Bypassing
+**Learning:** This app uses an obfuscated base64 payload prefix for its authentication tokens (`bb_tok`) to bypass frontend route guards (`ProtectedRoute.tsx`), alongside `sessionStorage` flags like `bb_logged_in` and `bb_user`. Standard JWT mocks fail validation.
+**Action:** When writing Playwright UI scripts to test protected components in this specific application, ensure to construct the mock token starting with the app's required `ey` prefix and inject the exact structure expected by `apiToken.ts` (`{"t":"ey...","e":...}`) to successfully bypass auth screens.
