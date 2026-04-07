@@ -61,7 +61,7 @@ export function GuideContent({ title, sections, isUserGuide }: GuideContentProps
                         setSelectedSection(section.id)
                         setShowMobileMenu(false)
                       }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors border-l-4 ${
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors border-l-4 focus-visible:outline-none focus-visible:bg-blue-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset ${
                         selectedSection === section.id
                           ? 'border-blue-600 bg-blue-50'
                           : 'border-transparent'
@@ -107,7 +107,7 @@ export function GuideContent({ title, sections, isUserGuide }: GuideContentProps
                         setSelectedSection(section.id)
                         setShowMobileMenu(false)
                       }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors border-l-4 ${
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors border-l-4 focus-visible:outline-none focus-visible:bg-blue-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset ${
                         selectedSection === section.id
                           ? 'border-blue-600 bg-blue-50'
                           : 'border-transparent'
@@ -144,7 +144,7 @@ export function GuideContent({ title, sections, isUserGuide }: GuideContentProps
                     <button
                       key={section.id}
                       onClick={() => setSelectedSection(section.id)}
-                      className="flex items-center gap-4 p-4 rounded-xl border hover:shadow-md transition-all hover:border-blue-300 text-left"
+                      className="flex items-center gap-4 p-4 rounded-xl border hover:shadow-md transition-all hover:border-blue-300 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     >
                       <span className="text-3xl">{section.icon}</span>
                       <div>
@@ -226,7 +226,7 @@ export function GuideContent({ title, sections, isUserGuide }: GuideContentProps
                         {prevSection && (
                           <button
                             onClick={() => setSelectedSection(prevSection.id)}
-                            className="flex-1 bg-white border rounded-xl px-4 py-3 hover:shadow-md transition-all text-left"
+                            className="flex-1 bg-white border rounded-xl px-4 py-3 hover:shadow-md transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                           >
                             <div className="text-xs text-gray-500 mb-1">পূর্ববর্তী</div>
                             <div className="font-medium text-gray-900 flex items-center gap-2">
@@ -238,7 +238,7 @@ export function GuideContent({ title, sections, isUserGuide }: GuideContentProps
                         {nextSection && (
                           <button
                             onClick={() => setSelectedSection(nextSection.id)}
-                            className="flex-1 bg-white border rounded-xl px-4 py-3 hover:shadow-md transition-all text-right"
+                            className="flex-1 bg-white border rounded-xl px-4 py-3 hover:shadow-md transition-all text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                           >
                             <div className="text-xs text-gray-500 mb-1">পরবর্তী</div>
                             <div className="font-medium text-gray-900 flex items-center gap-2 justify-end">
