@@ -5,3 +5,7 @@
 ## 2024-03-22 - Password Visibility Toggles & Icon Button Accessibility
 **Learning:** Icon-only buttons positioned absolutely inside inputs (like password visibility toggles) often lose their native focus outlines due to their container constraints. These elements require explicit focus states (e.g., `focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-md p-1`) so keyboard users know when they are focused. Furthermore, mouse users heavily rely on tooltips to decipher icons; the `title` attribute must always be added to match the `aria-label`.
 **Action:** When adding icon-only controls inside input fields, strictly implement explicit `focus-visible` ring classes, and always pair `aria-label` with a native `title` attribute for cross-device accessibility.
+
+## 2024-04-07 - Expandable Div Elements Accessibility
+**Learning:** In the withdrawal history, expandable list items were built using standard `<div>` elements with `onClick` handlers. Without specific roles, tab indexing, or keydown event listeners, these elements are completely invisible to keyboard-only users and screen readers, making it impossible to see further withdrawal details. Adding standard attributes (`role="button"`, `tabIndex={0}`, `aria-expanded`) and managing keyboard events ensures an inclusive experience.
+**Action:** Always add keyboard interaction (`onKeyDown` for 'Enter'/'Space') and appropriate semantic attributes (`role`, `tabIndex`, `aria-`) to custom interactive elements.
