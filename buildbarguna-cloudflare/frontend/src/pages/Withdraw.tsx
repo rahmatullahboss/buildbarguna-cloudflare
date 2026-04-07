@@ -83,8 +83,17 @@ function WithdrawalCard({ w }: { w: Withdrawal }) {
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
       <div
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         onClick={() => setExpanded(v => !v)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setExpanded(v => !v)
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
       >
         <div className="flex-1">
           <p className="font-bold text-gray-900">{formatTaka(w.amount_paisa)}</p>
