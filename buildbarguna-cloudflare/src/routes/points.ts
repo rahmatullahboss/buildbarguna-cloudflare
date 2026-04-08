@@ -416,18 +416,21 @@ pointsRoutes.get('/withdrawals', async (c) => {
   const userId = c.get('userId')
   const { page, limit, offset } = getPagination(c.req.query())
 
-  const [countResult, historyResult] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const [countResult, historyResult] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT COUNT(*) as total FROM point_withdrawals WHERE user_id = ?`
-    ).bind(userId).first() as Promise<{ total: number }>,
+    ).bind(userId),
     c.env.DB.prepare(
       `SELECT * FROM point_withdrawals
        WHERE user_id = ?
        ORDER BY requested_at DESC
        LIMIT ? OFFSET ?`
-    ).bind(userId, limit, offset).all()
+    ).bind(userId, limit, offset)
   ])
 
-  return ok(c, paginate(historyResult.results, countResult.total, page, limit))
+  const total = (countResult.results?.[0] as { total: number } | undefined)?.total || 0
+
+  return ok(c, paginate(historyResult.results, total, page, limit))
 })
 
