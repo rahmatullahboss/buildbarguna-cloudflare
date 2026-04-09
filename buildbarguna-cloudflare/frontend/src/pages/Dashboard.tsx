@@ -339,7 +339,12 @@ export default function Dashboard() {
         {/* Code + copy */}
         <div className="flex items-center gap-3 mb-4">
           <span className="text-2xl font-mono font-bold text-primary-700 tracking-widest">{user?.referral_code}</span>
-          <button onClick={copyReferral} className="flex items-center gap-1 text-sm btn-secondary py-1.5 px-3">
+          <button
+            onClick={copyReferral}
+            className="flex items-center gap-1 text-sm btn-secondary py-1.5 px-3"
+            aria-label={copied ? 'রেফারেল কোড কপি হয়েছে' : 'রেফারেল কোড কপি করুন'}
+            title={copied ? 'রেফারেল কোড কপি হয়েছে' : 'রেফারেল কোড কপি করুন'}
+          >
             <Copy size={14} />
             {copied ? 'কপি হয়েছে!' : 'কপি করুন'}
           </button>
