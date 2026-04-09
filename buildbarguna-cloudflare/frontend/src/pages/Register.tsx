@@ -87,26 +87,26 @@ export default function Register() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="label"><User size={16} className="inline-block mr-1" /> পূর্ণ নাম</label>
-            <input className="input" type="text" placeholder="আপনার নাম" value={form.name}
+            <label htmlFor="name" className="label"><User size={16} className="inline-block mr-1" /> পূর্ণ নাম</label>
+            <input id="name" className="input" type="text" placeholder="আপনার নাম" value={form.name}
               onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required />
           </div>
           <div>
-            <label className="label"><Mail size={16} className="inline-block mr-1" /> ইমেইল ঠিকানা <span className="text-red-500">*</span></label>
-            <input className="input" type="email" placeholder="আপনার ইমেইল দিন" value={form.email}
+            <label htmlFor="email" className="label"><Mail size={16} className="inline-block mr-1" /> ইমেইল ঠিকানা <span className="text-red-500">*</span></label>
+            <input id="email" className="input" type="email" placeholder="আপনার ইমেইল দিন" value={form.email}
               onChange={e => setForm(p => ({ ...p, email: e.target.value }))} required />
           </div>
           <div>
-            <label className="label"><Phone size={16} className="inline-block mr-1" /> মোবাইল নম্বর <span className="text-gray-400 font-normal text-xs">(ঐচ্ছিক)</span></label>
-            <input className="input" type="tel" placeholder="01XXXXXXXXX" value={form.phone}
+            <label htmlFor="phone" className="label"><Phone size={16} className="inline-block mr-1" /> মোবাইল নম্বর <span className="text-gray-400 font-normal text-xs">(ঐচ্ছিক)</span></label>
+            <input id="phone" className="input" type="tel" placeholder="01XXXXXXXXX" value={form.phone}
               onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
               pattern="01[3-9][0-9]{8}"
               title="সঠিক বাংলাদেশি মোবাইল নম্বর দিন (যেমন: 01712345678)" />
           </div>
           <div>
-            <label className="label"><Lock size={16} className="inline-block mr-1" /> পাসওয়ার্ড</label>
+            <label htmlFor="password" className="label"><Lock size={16} className="inline-block mr-1" /> পাসওয়ার্ড</label>
             <div className="relative">
-              <input className="input pr-11" type={showPass ? 'text' : 'password'} placeholder="কমপক্ষে ৬ অক্ষর" value={form.password}
+              <input id="password" className="input pr-11" type={showPass ? 'text' : 'password'} placeholder="কমপক্ষে ৬ অক্ষর" value={form.password}
                 onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required minLength={6} />
               <button
                 type="button"
@@ -120,9 +120,10 @@ export default function Register() {
             </div>
           </div>
           <div>
-            <label className="label"><Gift size={16} className="inline-block mr-1" /> রেফারেল কোড <span className="text-gray-400 font-normal text-xs">(ঐচ্ছিক)</span></label>
+            <label htmlFor="referral_code" className="label"><Gift size={16} className="inline-block mr-1" /> রেফারেল কোড <span className="text-gray-400 font-normal text-xs">(ঐচ্ছিক)</span></label>
             <div className="relative">
               <input
+                id="referral_code"
                 className={`input pr-10 font-mono tracking-widest ${refValid === false ? 'border-red-400 focus:ring-red-300' : refValid === true ? 'border-green-400 focus:ring-green-300' : ''}`}
                 type="text" placeholder="রেফারেল কোড থাকলে দিন"
                 value={form.referral_code}
