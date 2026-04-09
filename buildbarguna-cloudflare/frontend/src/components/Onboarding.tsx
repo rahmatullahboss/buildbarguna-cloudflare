@@ -111,7 +111,8 @@ export default function Onboarding({ onDismiss }: OnboardingProps) {
             <button
               onClick={finish}
               aria-label="গাইড বন্ধ করুন"
-              className="text-gray-300 hover:text-gray-500 transition-colors p-1 hover:bg-gray-100 rounded-xl"
+              title="গাইড বন্ধ করুন"
+              className="text-gray-300 hover:text-gray-500 transition-colors p-1 hover:bg-gray-100 rounded-xl focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-gray-400"
             >
               <X size={20} />
             </button>
@@ -181,7 +182,8 @@ export default function Onboarding({ onDismiss }: OnboardingProps) {
                 key={i}
                 onClick={() => setStep(i)}
                 aria-label={`ধাপ ${i + 1}`}
-                className={`h-2 rounded-full transition-all duration-300 ${
+                title={`ধাপ ${i + 1}`}
+                className={`h-2 rounded-full transition-all duration-300 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                   i === step ? 'bg-primary-500 w-6' : 'w-2 bg-gray-200 hover:bg-gray-300'
                 }`}
               />
