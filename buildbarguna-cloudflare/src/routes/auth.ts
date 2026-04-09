@@ -246,8 +246,9 @@ authRoutes.post('/forgot-password', zValidator('json', forgotPasswordSchema), as
   const { email } = c.req.valid('json')
   const normalizedEmail = email.toLowerCase()
 
-  // Rate limiting: max 3 requests per hour per email
-  const rateLimitKey = `forgot:${normalizedEmail}`
+  // Rate limiting: max 3 requests per hour per IP (prevent email enumeration/spam)
+  const ip = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? 'unknown'
+  const rateLimitKey = `forgot:${ip}`
   const rateLimit = await checkRateLimit(c.env, rateLimitKey, 3, 3600)
   
   if (!rateLimit.allowed) {
