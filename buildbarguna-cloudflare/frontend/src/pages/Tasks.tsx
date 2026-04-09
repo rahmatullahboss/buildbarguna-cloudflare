@@ -32,8 +32,17 @@ function TaskCard({
 
   return (
     <div 
+      role="button"
+      tabIndex={isDisabled ? -1 : 0}
+      aria-disabled={isDisabled}
       onClick={handleTaskClick}
-      className={`bg-white rounded-xl p-4 shadow-sm border cursor-pointer transition-all hover:shadow-md ${isCompleted ? 'border-success-200 bg-success-50' : 'border-gray-100 hover:border-primary-300'}`}
+      onKeyDown={(e) => {
+        if (!isDisabled && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          handleTaskClick()
+        }
+      }}
+      className={`bg-white rounded-xl p-4 shadow-sm border cursor-pointer transition-all hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none ${isCompleted ? 'border-success-200 bg-success-50' : 'border-gray-100 hover:border-primary-300'}`}
     >
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
