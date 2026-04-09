@@ -1,0 +1,3 @@
+## 2026-04-09 - Localized Accessibility for Icon Buttons
+**Learning:** The application heavily relies on Bengali for its user interface. When adding accessibility enhancements like `aria-label` to generic, non-text UI elements (like Lucide React's `<X />` close buttons in modals/forms), the labels must be consistently localized (e.g., `aria-label="শর্তাবলী বন্ধ করুন"` or `aria-label="মেনু বন্ধ করুন"`) to match the linguistic context of the app.
+**Action:** Always inspect the surrounding UI text context before applying ARIA attributes to ensure the labels use the correct, descriptive Bengali phrasing rather than generic English defaults.
