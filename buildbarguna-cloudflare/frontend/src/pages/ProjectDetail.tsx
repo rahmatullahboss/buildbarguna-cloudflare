@@ -362,13 +362,15 @@ export default function ProjectDetail() {
 
               {/* Payment Method Selection */}
               <div>
-                <label className="label mb-3">💳 পেমেন্ট মেথড</label>
-                <div className="grid grid-cols-2 gap-3">
+                <label className="label mb-3" id="payment-method-label">💳 পেমেন্ট মেথড</label>
+                <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-labelledby="payment-method-label">
                   {/* bKash Option */}
                   <button
                     type="button"
+                    role="radio"
+                    aria-checked={paymentMethod === 'bkash'}
                     onClick={() => { setPaymentMethod('bkash'); setError('') }}
-                    className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
+                    className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none ${
                       paymentMethod === 'bkash'
                         ? 'border-primary-500 bg-primary-50'
                         : 'border-gray-200 hover:border-gray-300 bg-white'
@@ -386,8 +388,10 @@ export default function ProjectDetail() {
                   {/* Manual/Cash Option */}
                   <button
                     type="button"
+                    role="radio"
+                    aria-checked={paymentMethod === 'manual'}
                     onClick={() => { setPaymentMethod('manual'); setTxid(''); setError('') }}
-                    className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
+                    className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none ${
                       paymentMethod === 'manual'
                         ? 'border-primary-500 bg-primary-50'
                         : 'border-gray-200 hover:border-gray-300 bg-white'
@@ -435,7 +439,7 @@ export default function ProjectDetail() {
               {paymentMethod === 'bkash' && (
                 <div className="animate-fadeIn">
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="label mb-0">📱 bKash Transaction ID</label>
+                    <label className="label mb-0" htmlFor="bkash-txid">📱 bKash Transaction ID</label>
                     <button
                       type="button"
                       aria-label="bKash TxID সম্পর্কে সাহায্য"
@@ -458,6 +462,7 @@ export default function ProjectDetail() {
                     <strong>{formatTaka(total)}</strong> bKash করুন তারপর TxID নিচে দিন
                   </p>
                   <input 
+                    id="bkash-txid"
                     className="input font-mono" 
                     type="text" 
                     placeholder="TxID যেমন: 8N4K2M9X1P"

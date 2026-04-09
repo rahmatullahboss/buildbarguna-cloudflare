@@ -407,12 +407,14 @@ export default function Withdraw() {
 
         {/* Withdrawal Method Toggle */}
         <div className="mb-4">
-          <label className="label">উত্তোলন পদ্ধতি</label>
-          <div className="grid grid-cols-2 gap-2">
+          <label className="label" id="withdraw-method-label">উত্তোলন পদ্ধতি</label>
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-labelledby="withdraw-method-label">
             <button
               type="button"
+              role="radio"
+              aria-checked={withdrawalMethod === 'bkash'}
               onClick={() => setWithdrawalMethod('bkash')}
-              className={`py-2.5 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
+              className={`py-2.5 px-4 rounded-xl text-sm font-medium transition-all border-2 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none ${
                 withdrawalMethod === 'bkash'
                   ? 'bg-pink-50 border-pink-500 text-pink-700 shadow-sm'
                   : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
@@ -422,8 +424,10 @@ export default function Withdraw() {
             </button>
             <button
               type="button"
+              role="radio"
+              aria-checked={withdrawalMethod === 'cash'}
               onClick={() => setWithdrawalMethod('cash')}
-              className={`py-2.5 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
+              className={`py-2.5 px-4 rounded-xl text-sm font-medium transition-all border-2 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none ${
                 withdrawalMethod === 'cash'
                   ? 'bg-green-50 border-green-500 text-green-700 shadow-sm'
                   : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
@@ -436,10 +440,11 @@ export default function Withdraw() {
 
         <div className="space-y-4">
           <div>
-            <label className="label">উত্তোলনের পরিমাণ (টাকায়)</label>
+            <label className="label" htmlFor="withdraw-amount">উত্তোলনের পরিমাণ (টাকায়)</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">৳</span>
               <input
+                id="withdraw-amount"
                 className="input pl-7"
                 type="number"
                 step="1"
@@ -457,8 +462,9 @@ export default function Withdraw() {
 
           {withdrawalMethod === 'bkash' && (
           <div>
-            <label className="label">bKash নম্বর</label>
+            <label className="label" htmlFor="withdraw-bkash">bKash নম্বর</label>
             <input
+              id="withdraw-bkash"
               className="input font-mono"
               type="tel"
               placeholder="01XXXXXXXXX"
