@@ -293,8 +293,9 @@ export default function ProjectDetail() {
                     type="button"
                     onClick={handleMinus}
                     disabled={qty <= 1}
-                    className="w-14 h-14 rounded-2xl bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all active:scale-95"
+                    className="w-14 h-14 rounded-2xl bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all active:scale-95 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500"
                     aria-label="শেয়ার সংখ্যা কমান"
+                    title="শেয়ার সংখ্যা কমান"
                   >
                     <Minus size={24} className="text-gray-700" />
                   </button>
@@ -310,8 +311,9 @@ export default function ProjectDetail() {
                     type="button"
                     onClick={handlePlus}
                     disabled={qty >= p.available_shares}
-                    className="w-14 h-14 rounded-2xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all active:scale-95"
+                    className="w-14 h-14 rounded-2xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all active:scale-95 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500"
                     aria-label="শেয়ার সংখ্যা বাড়ান"
+                    title="শেয়ার সংখ্যা বাড়ান"
                   >
                     <Plus size={24} className="text-white" />
                   </button>
