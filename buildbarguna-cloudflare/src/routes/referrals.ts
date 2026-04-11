@@ -87,18 +87,19 @@ referralRoutes.get('/stats', async (c) => {
 
   const origin = new URL(c.req.url).origin
 
-  const [referredUsers, bonusSummary, recentReferrals, pendingReferrals, bonusSetting] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const batchResults = await c.env.DB.batch([
     // Total referred user count — use referrer_user_id FK (not string code)
     c.env.DB.prepare(
       `SELECT COUNT(*) as total FROM users WHERE referrer_user_id = ?`
-    ).bind(userId).first<{ total: number }>(),
+    ).bind(userId),
 
     // Total bonus earned from referrals
     c.env.DB.prepare(
       `SELECT COALESCE(SUM(amount_paisa), 0) as total_bonus_paisa,
               COUNT(*) as bonuses_earned
        FROM referral_bonuses WHERE referrer_user_id = ?`
-    ).bind(userId).first<{ total_bonus_paisa: number; bonuses_earned: number }>(),
+    ).bind(userId),
 
     // Recent referred users — use referrer_user_id FK (not string code)
     c.env.DB.prepare(
@@ -116,7 +117,7 @@ referralRoutes.get('/stats', async (c) => {
        WHERE u.referrer_user_id = ?
        ORDER BY u.created_at DESC
        LIMIT 20`
-    ).bind(userId, userId).all(),
+    ).bind(userId, userId),
 
     // Count referred users who haven't invested yet (potential bonuses)
     c.env.DB.prepare(
@@ -130,13 +131,19 @@ referralRoutes.get('/stats', async (c) => {
            SELECT 1 FROM referral_bonuses rb
            WHERE rb.referred_user_id = u.id AND rb.referrer_user_id = ?
          )`
-    ).bind(userId, userId).first<{ cnt: number }>(),
+    ).bind(userId, userId),
 
     // Current bonus amount setting
     c.env.DB.prepare(
       `SELECT value FROM withdrawal_settings WHERE key = 'referral_bonus_paisa'`
-    ).first<{ value: string }>()
+    )
   ])
+
+  const referredUsers = batchResults[0].results?.[0] as { total: number } | undefined
+  const bonusSummary = batchResults[1].results?.[0] as { total_bonus_paisa: number; bonuses_earned: number } | undefined
+  const recentReferrals = { results: batchResults[2].results ?? [] }
+  const pendingReferrals = batchResults[3].results?.[0] as { cnt: number } | undefined
+  const bonusSetting = batchResults[4].results?.[0] as { value: string } | undefined
 
   const bonusPerReferral = parseInt(bonusSetting?.value ?? '5000', 10)
   const pendingCount = pendingReferrals?.cnt ?? 0
@@ -203,12 +210,13 @@ adminReferralRoutes.patch('/settings', zValidator('json', referralSettingsSchema
 
 // GET /api/admin/referrals/stats — global referral network overview
 adminReferralRoutes.get('/stats', async (c) => {
-  const [totalBonuses, topReferrers] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const batchResults = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT COUNT(*) as total_bonuses,
               COALESCE(SUM(amount_paisa), 0) as total_paid_paisa
        FROM referral_bonuses`
-    ).first<{ total_bonuses: number; total_paid_paisa: number }>(),
+    ),
 
     // Fix: don't use alias in HAVING — SQLite doesn't support it reliably.
     // Use subquery inline in HAVING instead.
@@ -223,8 +231,11 @@ adminReferralRoutes.get('/stats', async (c) => {
        HAVING (SELECT COUNT(*) FROM users u2 WHERE u2.referrer_user_id = u.id) > 0
        ORDER BY total_earned_paisa DESC
        LIMIT 10`
-    ).all()
+    )
   ])
+
+  const totalBonuses = batchResults[0].results?.[0] as { total_bonuses: number; total_paid_paisa: number } | undefined
+  const topReferrers = { results: batchResults[1].results ?? [] }
 
   return ok(c, {
     total_bonuses_issued: totalBonuses?.total_bonuses ?? 0,
