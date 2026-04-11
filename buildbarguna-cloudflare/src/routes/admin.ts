@@ -99,7 +99,7 @@ adminRoutes.patch('/users/:id/toggle', async (c) => {
 const projectSchema = z.object({
   title: z.string().min(2),
   description: z.string().optional(),
-  image_url: z.string().url().optional().or(z.literal('')),
+  image_url: z.string().url().refine(val => val.toLowerCase().startsWith('http://') || val.toLowerCase().startsWith('https://'), { message: 'URL must start with http:// or https://' }).optional().or(z.literal('')),
   total_capital: z.number().int().positive(),   // paisa
   total_shares: z.number().int().positive(),
   share_price: z.number().int().positive(),      // paisa
@@ -608,7 +608,7 @@ const rewardSchema = z.object({
   description: z.string().optional(),
   points_required: z.number().int().min(1),
   quantity: z.number().int().min(1).nullable(), // null = unlimited
-  image_url: z.string().url().optional()
+  image_url: z.string().url().refine(val => val.toLowerCase().startsWith('http://') || val.toLowerCase().startsWith('https://'), { message: 'URL must start with http:// or https://' }).optional()
 })
 
 adminRoutes.get('/rewards', async (c) => {
