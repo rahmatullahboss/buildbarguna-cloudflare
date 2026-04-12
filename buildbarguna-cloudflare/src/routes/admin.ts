@@ -221,6 +221,10 @@ async function executeCapitalRefund(c: any, projectId: number, project: { share_
   }
 }
 
+function isTestProjectTitle(title: string) {
+  return /\b(test|demo|sandbox|sample|trial)\b/i.test(title)
+}
+
 adminRoutes.use('*', authMiddleware)
 adminRoutes.use('*', adminMiddleware)
 
@@ -388,6 +392,11 @@ adminRoutes.delete('/projects/:id', async (c) => {
   const id = parseInt(c.req.param('id'))
   if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
 
+  const project = await c.env.DB.prepare(
+    'SELECT id, title, status FROM projects WHERE id = ?'
+  ).bind(id).first<{ id: number; title: string; status: string }>()
+  if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
+
   // Safety guard: block delete if project has any approved shares
   const [sharesCheck, txCheck] = await Promise.all([
     c.env.DB.prepare(
@@ -399,10 +408,67 @@ adminRoutes.delete('/projects/:id', async (c) => {
   ])
 
   if ((sharesCheck?.cnt ?? 0) > 0) {
-    return err(c, 'এই প্রজেক্টে শেয়ার আছে তাই মুছতে পারবেন না। প্রজেক্ট বন্ধ করুন।', 409)
+    if (!isTestProjectTitle(project.title)) {
+      return err(c, 'এই প্রজেক্টে শেয়ার আছে তাই মুছতে পারবেন না। প্রজেক্ট বন্ধ করুন।', 409)
+    }
   }
   if ((txCheck?.cnt ?? 0) > 0) {
-    return err(c, 'এই প্রজেক্টে আর্থিক লেনদেন আছে তাই মুছতে পারবেন না।', 409)
+    if (!isTestProjectTitle(project.title)) {
+      return err(c, 'এই প্রজেক্টে আর্থিক লেনদেন আছে তাই মুছতে পারবেন না।', 409)
+    }
+  }
+
+  if (isTestProjectTitle(project.title)) {
+    const earningsByUser = await c.env.DB.prepare(
+      `SELECT user_id, COALESCE(SUM(amount), 0) as total
+       FROM earnings
+       WHERE project_id = ?
+       GROUP BY user_id`
+    ).bind(id).all<{ user_id: number; total: number }>()
+
+    for (const row of earningsByUser.results) {
+      const balance = await c.env.DB.prepare(
+        `SELECT total_earned_paisa FROM user_balances WHERE user_id = ?`
+      ).bind(row.user_id).first<{ total_earned_paisa: number }>()
+
+      if (balance && balance.total_earned_paisa < row.total) {
+        return err(c, 'এই test project delete করলে user balance negative হয়ে যাবে। আগে সংশ্লিষ্ট withdrawal/earnings ঠিক করুন।', 409)
+      }
+    }
+
+    const distributions = await c.env.DB.prepare(
+      `SELECT id FROM profit_distributions WHERE project_id = ?`
+    ).bind(id).all<{ id: number }>()
+
+    for (const row of earningsByUser.results) {
+      await c.env.DB.prepare(
+        `UPDATE user_balances
+         SET total_earned_paisa = total_earned_paisa - ?, updated_at = datetime('now')
+         WHERE user_id = ? AND total_earned_paisa >= ?`
+      ).bind(row.total, row.user_id, row.total).run()
+    }
+
+    await c.env.DB.prepare('DELETE FROM shareholder_profits WHERE project_id = ?').bind(id).run()
+    await c.env.DB.prepare('DELETE FROM profit_distributions WHERE project_id = ?').bind(id).run()
+    await c.env.DB.prepare('DELETE FROM earnings WHERE project_id = ?').bind(id).run()
+    await c.env.DB.prepare('DELETE FROM expense_allocations WHERE project_id = ?').bind(id).run()
+    await c.env.DB.prepare('DELETE FROM project_transactions WHERE project_id = ?').bind(id).run()
+    await c.env.DB.prepare('DELETE FROM user_shares WHERE project_id = ?').bind(id).run()
+    await c.env.DB.prepare('DELETE FROM share_purchases WHERE project_id = ?').bind(id).run()
+    await c.env.DB.prepare('DELETE FROM project_compliance_profiles WHERE project_id = ?').bind(id).run()
+    await c.env.DB.prepare('DELETE FROM project_updates WHERE project_id = ?').bind(id).run()
+    await c.env.DB.prepare('DELETE FROM project_gallery WHERE project_id = ?').bind(id).run()
+    await c.env.DB.prepare(
+      `DELETE FROM balance_audit_log
+       WHERE reference_type = 'capital_refund' AND reference_id = ?`
+    ).bind(id).run()
+
+    for (const distribution of distributions.results) {
+      await c.env.DB.prepare(
+        `DELETE FROM balance_audit_log
+         WHERE reference_type = 'profit_distribution' AND reference_id = ?`
+      ).bind(distribution.id).run()
+    }
   }
 
   // Safe to delete (cascade will remove project_updates & project_gallery)
