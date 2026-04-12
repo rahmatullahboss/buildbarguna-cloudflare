@@ -4,6 +4,7 @@ import { authApi, referralsApi } from '../lib/api'
 import { Gift, User, Mail, Phone, Lock, CheckCircle, Eye, EyeOff } from 'lucide-react'
 import LottieIcon from '../components/LottieIcon'
 import TermsModal from '../components/TermsModal'
+import SEO from '../components/SEO'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -66,6 +67,7 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-teal-700 flex items-center justify-center p-4 relative overflow-hidden">
+      <SEO title="রেজিস্ট্রেশন" description="Build Barguna Initiative (BBI) - বিনামূল্যে রেজিস্ট্রেশন করে বরগুনার সেরা গ্রুপ ইনভেস্টমেন্টে যুক্ত হোন।" />
       {/* Decorative circles */}
       <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />

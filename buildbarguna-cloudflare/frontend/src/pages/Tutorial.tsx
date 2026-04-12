@@ -6,6 +6,7 @@ import {
   Smartphone, CreditCard, Calculator, BarChart3, Star, 
   FileText, Coins, Award
 } from 'lucide-react'
+import SEO from '../components/SEO'
 
 export default function Tutorial() {
   const [openSections, setOpenSections] = useState<string[]>(['getting-started'])
@@ -436,6 +437,7 @@ export default function Tutorial() {
 
   return (
     <div className="space-y-4">
+      <SEO title="গাইড ও টিউটোরিয়াল" description="Build Barguna Initiative (BBI) - ইনভেস্টমেন্ট, মুনাফা উত্তোলন এবং অন্যান্য সকল ফিচার সম্পর্কে বিস্তারিত জানুন।" />
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-400 via-teal-400 to-emerald-400 rounded-3xl p-5 text-white shadow-lg">
         <div className="flex items-center gap-3">

@@ -4,6 +4,7 @@ import { authApi, setToken } from '../lib/api'
 import { saveUser } from '../lib/auth'
 import { Eye, EyeOff, Mail, Lock, CheckCircle } from 'lucide-react'
 import LottieIcon from '../components/LottieIcon'
+import SEO from '../components/SEO'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -84,6 +85,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-teal-700 flex items-center justify-center p-4 relative overflow-hidden">
+      <SEO title="লগইন" description="Build Barguna Initiative (BBI) - প্ল্যাটফর্মে লগইন করে আপনার বিনিয়োগ ড্যাশবোর্ড ও মুনাফা দেখুন।" />
       {/* Decorative background circles */}
       <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />

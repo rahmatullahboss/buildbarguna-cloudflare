@@ -1,41 +1,41 @@
 {
   "project": {
     "enabled": true,
-    "lastGenerated": "2026-04-07T00:17:05.163Z",
-    "observationCount": 99,
+    "lastGenerated": "2026-04-12T19:40:14.084Z",
+    "observationCount": 265,
     "skillCount": 0,
     "domain": "project",
     "triggerGlobs": [
       "**/*"
     ],
-    "description": "Project for buildbarguna-cloudflare. 30 gotchas, 47 conventions, 1 fixes."
+    "description": "Project for buildbarguna-cloudflare. 35 gotchas, 185 conventions, 1 fixes."
   },
   "typescript": {
     "enabled": true,
-    "lastGenerated": "2026-04-07T00:17:05.164Z",
-    "observationCount": 5,
+    "lastGenerated": "2026-04-12T19:40:14.084Z",
+    "observationCount": 11,
     "skillCount": 0,
     "domain": "typescript",
     "triggerGlobs": [
       "**/*.ts",
       "**/*.tsx"
     ],
-    "description": "Typescript for buildbarguna-cloudflare. 1 conventions, 3 fixes."
+    "description": "Typescript for buildbarguna-cloudflare. 5 conventions, 3 fixes."
   },
   "typescript-react": {
     "enabled": true,
-    "lastGenerated": "2026-04-07T00:17:05.164Z",
-    "observationCount": 13,
+    "lastGenerated": "2026-04-12T19:40:14.084Z",
+    "observationCount": 14,
     "skillCount": 0,
     "domain": "typescript-react",
     "triggerGlobs": [
       "**/*.tsx"
     ],
-    "description": "Typescript React for buildbarguna-cloudflare. 2 fixes."
+    "description": "Typescript React for buildbarguna-cloudflare. 1 conventions, 2 fixes."
   },
   "javascript": {
     "enabled": true,
-    "lastGenerated": "2026-04-07T00:17:05.164Z",
+    "lastGenerated": "2026-04-12T19:40:14.084Z",
     "observationCount": 3,
     "skillCount": 0,
     "domain": "javascript",
@@ -47,8 +47,8 @@
   },
   "config": {
     "enabled": true,
-    "lastGenerated": "2026-04-07T00:17:05.164Z",
-    "observationCount": 22,
+    "lastGenerated": "2026-04-12T19:40:14.084Z",
+    "observationCount": 48,
     "skillCount": 0,
     "domain": "config",
     "triggerGlobs": [
@@ -57,13 +57,13 @@
       "**/*.json",
       "**/*.toml"
     ],
-    "description": "Config for buildbarguna-cloudflare. 1 gotchas, 5 conventions, 3 fixes."
+    "description": "Config for buildbarguna-cloudflare. 2 gotchas, 15 conventions, 3 fixes."
   },
   "decision": {
     "enabled": true,
-    "lastGenerated": "2026-04-07T00:17:05.164Z",
+    "lastGenerated": "2026-04-12T19:40:14.084Z",
     "observationCount": 0,
-    "skillCount": 1,
+    "skillCount": 2,
     "domain": "decision",
     "triggerGlobs": [
       "**/*"
@@ -72,9 +72,9 @@
   },
   "convention": {
     "enabled": true,
-    "lastGenerated": "2026-04-07T00:17:05.164Z",
+    "lastGenerated": "2026-04-12T19:40:14.084Z",
     "observationCount": 0,
-    "skillCount": 1,
+    "skillCount": 4,
     "domain": "convention",
     "triggerGlobs": [
       "**/*"

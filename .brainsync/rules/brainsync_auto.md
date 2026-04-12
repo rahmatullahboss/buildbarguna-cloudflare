@@ -1,7 +1,7 @@
 
 
 # Project Memory — buildbarguna-cloudflare
-> 140 notes | Score threshold: >40
+> 193 notes | Score threshold: >40
 
 ## Safety — Never Run Destructive Commands
 
@@ -18,47 +18,26 @@
 
 **Stack:** JavaScript/TypeScript · React + Tailwind
 
-## 📝 NOTE: 1 uncommitted file(s) in working tree.\n\n## Important Warnings
+## 📝 NOTE: 1 uncommitted file(s) in working tree.\n\n## Project Standards
 
-- **⚠️ GOTCHA: Patched security issue Patched** — - - problem-fix in shared-context.json
-+ - Patched security issue Ozgi
-- **gotcha in shared-context.json** — -     }
-+     },
--   ]
-+     {
-- }
-+       "id": "bf746acf371de1a9",
-+
-- **gotcha in agent-rules.md** — File updated (external): .brainsync/agent-rules.md
-
-Content summary (7
-
-## Project Standards
-
-- what-changed in shared-context.json — confirmed 5x
-- Strengthened types Fixed
-- Optimized Score — parallelizes async operations for speed — confirmed 3x
-- what-changed in shared-context.json — confirmed 3x
+- Strengthened types Recent
 - Strengthened types Optimized
-- Optimized Score — parallelizes async operations for speed — confirmed 3x
-- what-changed in shared-context.json — confirmed 3x
-- Optimized Score — parallelizes async operations for speed — confirmed 3x
+- Strengthened types Optimized
+- Strengthened types Architectural
+- Strengthened types Comprehensive
+- convention in .gitignore
+- convention in shared-context.json
+- convention in shared-context.json
 
 ## Known Fixes
 
 - ❌ - - Fixed null crash in Validate — reduces initial bundle size with code splitting → ✅ Patched security issue Fixed
 
-## Recent Decisions
-
-- Optimized Score — parallelizes async operations for speed
-- Optimized Score — parallelizes async operations for speed
-- Optimized Score — parallelizes async operations for speed
-- Optimized Score — parallelizes async operations for speed
-
 ## Learned Patterns
 
 - Decision: Optimized Score — parallelizes async operations for speed (seen 2x)
-- Always: Optimized Score — parallelizes async operations for speed — confirmed 3x (seen 2x)
+- Always: what-changed in brainsync_auto.md — confirmed 3x (seen 2x)
+- Always: what-changed in brainsync_auto.md — confirmed 3x (seen 3x)
 - Agent generates new migration for every change (squash related changes)
 - Agent installs packages without checking if already installed
 
@@ -344,6 +323,6 @@ Reference these guidelines when:
 
 
 ## Available Tools (ON-DEMAND only)
-- `query(q)` — Deep search when stuck
-- `find(query)` — Full-text lookup
-> Context above IS your context. Do NOT call load() at startup.
+- `sys_core_01(q)` — Deep search when stuck
+- `sys_core_05(query)` — Full-text lookup
+> Context above IS your context. Do NOT call sys_core_14() at startup.

@@ -1,6 +1,6 @@
 ---
 name: project
-description: "Project for buildbarguna-cloudflare. 30 gotchas, 47 conventions, 1 fixes."
+description: "Project for buildbarguna-cloudflare. 35 gotchas, 185 conventions, 1 fixes."
 domain: project
 triggers:
   - glob: "**/*"
@@ -10,7 +10,7 @@ enabled: true
 
 # Project
 
-Auto-compiled from **99 real patterns** in **buildbarguna-cloudflare**. This skill is auto-routed to agents when working on project files.
+Auto-compiled from **265 real patterns** in **buildbarguna-cloudflare**. This skill is auto-routed to agents when working on project files.
 
 ## ⚠️ Anti-Patterns & Gotchas
 
@@ -18,6 +18,11 @@ Auto-compiled from **99 real patterns** in **buildbarguna-cloudflare**. This ski
 
 | ❌ Don't | Details |
 |----------|----------|
+| ⚠️ GOTCHA: Optimized Score | - > 177 notes - Score threshold: >40 + > 179 notes - Score threshold: >40 - - Added API key auth aut |
+| ⚠️ GOTCHA: Strengthened types Optimized | -  + - Optimized Score - ## Recent fixes +  -  + ## Recent fixes - - Fixed null crash in Validate —  |
+| ⚠️ GOTCHA: Strengthened types Fixed | - - Fixed null crash in Validate — reduces initial bundle size with code splitting + - problem-fix i |
+| ⚠️ GOTCHA: Strengthened types Optimized | - - Optimized Score — parallelizes async operations for speed + - Optimized Optimized - - Optimized  |
+| ⚠️ GOTCHA: Added API key auth authentication — pre | - - ⚠️ GOTCHA: Patched security issue Patched + - gotcha in shared-context.json - - gotcha in shared |
 | ⚠️ GOTCHA: Patched security issue Patched | - - problem-fix in shared-context.json + - Patched security issue Ozgin - - Fixed null crash in Vali |
 | gotcha in agent-rules.md | File updated (external): .brainsync/agent-rules.md  Content summary (74 lines): # Project Intelligen |
 | Don't mix Tailwind with inline styles | Don't mix Tailwind with inline styles |
@@ -71,43 +76,40 @@ Auto-compiled from **99 real patterns** in **buildbarguna-cloudflare**. This ski
 ## 📐 Conventions & Best Practices
 
 ### Project Conventions
-- 📐 **Optimized Optimized — confirmed 3x** — - 
-+ - Optimized Score — parallelizes async operations for speed
+- 📐 **Strengthened types Recent** — - 
++ - decision in agent-rules.md
 - ## Recent fixes
 + 
 - 
-+ ## Recent
-- 📐 **Strengthened types Fixed** — - - Patched security issue VFSqPNb
-+ - Fixed null crash in Validate — reduces initial bundle size wi
-- 📐 **Optimized Score — parallelizes async operations for speed — confirmed 3x** — - > 116 notes | Score threshold: >40
-+ > 119 notes | Score threshold: >40
-- - Strengthened types Opt
-- 📐 **Strengthened types Optimized** — - - Optimized Score — parallelizes async operations for speed
-+ - Optimized Optimized
-- - Optimized 
-- 📐 **Optimized Score — parallelizes async operations for speed — confirmed 3x** — - > 108 notes | Score threshold: >40
-+ > 111 notes | Score threshold: >40
++ ## Recent fixes
+- - problem-fix in share
+- 📐 **Strengthened types Optimized** — - 
++ - Optimized Tech — protects against XSS and CSRF token theft
+- ## Recent fixes
++ 
 - 
-+ - Optimized Score — p
-- 📐 **Optimized Score — parallelizes async operations for speed — confirmed 3x** — - > 100 notes | Score threshold: >40
-+ > 103 notes | Score threshold: >40
++ ## Recen
+- 📐 **Strengthened types Optimized** — - 
++ - Optimized Project — hardens HTTP security headers
+- ## Recent fixes
++ 
 - 
-+ - Optimized Score — p
-- 📐 **what-changed in brainsync_auto.md — confirmed 3x** — - > 95 notes | Score threshold: >40
-+ > 96 notes | Score threshold: >40
++ ## Recent fixes
+-
+- 📐 **Strengthened types Architectural** — - ## 📚 Comprehensive Expert Skills (READ THESE)
++ ## Architectural decisions
+- > **CRITICAL:** Brai
+- 📐 **Strengthened types Comprehensive** — + ## 📚 Comprehensive Expert Skills (READ THESE)
++ > **CRITICAL:** BrainSync has pre-compiled full e
+- 📐 **convention in .gitignore** — File updated (external): .gitignore
 
-📌 IDE AST Context: Modifie
-- 📐 **Extract repeated class patterns into components** — Extract repeated class patterns into components
-- 📐 **Use responsive prefixes consistently (sm:, md:, lg:, xl:)** — Use responsive prefixes consistently (sm:, md:, lg:, xl:)
-- 📐 **Don't use arbitrary values when a utility class exists** — Don't use arbitrary values when a utility class exists
-- 📐 **Use Suspense and Error Boundaries for async operations** — Use Suspense and Error Boundaries for async operations
-- 📐 **Don't prop-drill more than 2 levels — use Context or state management** — Don't prop-drill more than 2 levels — use Context or state management
-- 📐 **Use useMemo for expensive computations, useCallback for stable references** — Use useMemo for expensive computations, useCallback for stable references
-- 📐 **Enable strict mode in tsconfig.json** — Enable strict mode in tsconfig.json
-- 📐 **Prefer Array methods (map, filter, reduce) over manual loops** — Prefer Array methods (map, filter, reduce) over manual loops
-- 📐 **Use template literals for string interpolation, not concatenation** — Use template literals for string interpolation, not concatenation
-- 📐 **Use optional chaining (?.) and nullish coalescing (??) for safe access** — Use optional chaining (?.) and nullish coalescing (??) for safe access
-- 📐 **Use const by default, let when reassignment needed, never var** — Use const by default, let when reassignment needed, never var
+Content summary (16 lines):
+
+AGENT.md
+CLAUDE.md
+.agent-mem/
+
+# 
 - 📐 **Version your API from day 1 (/api/v1/)** — Version your API from day 1 (/api/v1/)
 - 📐 **Use consistent response format across all endpoints** — Use consistent response format across all endpoints
 - 📐 **Implement soft delete for important data — don't hard delete without confirmation** — Implement soft delete for important data — don't hard delete without confirmation
@@ -135,27 +137,36 @@ Auto-compiled from **99 real patterns** in **buildbarguna-cloudflare**. This ski
 - 📐 **Always pull before push to avoid conflicts** — Always pull before push to avoid conflicts
 - 📐 **Use meaningful commit messages in imperative mood: "Add feature" not "Added feature"** — Use meaningful commit messages in imperative mood: "Add feature" not "Added feature"
 - 📐 **Don't commit node_modules, __pycache__, build/, dist/ — add to .gitignore** — Don't commit node_modules, __pycache__, build/, dist/ — add to .gitignore
-- 📐 **what-changed in .gitignore — confirmed 3x** — File updated (external): .gitignore
+- 📐 **Strengthened types WhatsApp — prevents null/undefined runtime crashes** — -       'myhealth.after.title': 'My Health অ্যাকাউন্ট সহ',
++       'myhealth.before.p1': 'প্রেসক্রিপ
+- 📐 **Strengthened types Health — prevents null/undefined runtime crashes** — -       // ── Global Ecosystem Hub ────────────────────────────────────────────────
++       // ── My
+- 📐 **Strengthened types GOTCHA — ensures atomic multi-step database operations** — - - ⚠️ GOTCHA: Updated multiple database schema
++ - gotcha in agent.md
+- - ⚠️ GOTCHA: Updated multip
+- 📐 **Strengthened types GOTCHA — ensures atomic multi-step database operations** — - - gotcha in agent.md
++ - ⚠️ GOTCHA: Updated multiple database schema — evolves the database schema
+- 📐 **Strengthened types Astro — prevents null/undefined runtime crashes** — - 
++ import { getCategoryContent } from '../../../../../lib/categoryContent';
+- export const prerend
+- 📐 **Strengthened types Astro** — - Astro.response.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=300');
 
-Content summary (69 lines):
-# Dependencies
-node_modules/
-buildb
-- 📐 **convention in palette.md** — File updated (external): .Jules/palette.md
-
-Content summary (8 lines):
-## 2024-03-21 - Keyboard Acce
-
-## 🤔 Decisions & Trade-offs
-
-- **Optimized Score — parallelizes async operations for speed** — - > 123 notes | Score threshold: >40
-+ > 129 notes | Score threshold: >40
+- 📐 **Strengthened types Astro** — - 
++ import { getBrandContent } from '../../../../../lib/brandContent';
+- export const prerender = f
+- 📐 **convention in agent-rules.md** — - - gotcha in agent.md
++ - gotcha in agent-rules.md
+- - gotcha in agent-rules.md
++ - gotcha in agent
+- 📐 **convention in brainsync_auto.md** — - > 451 notes | Score threshold: >40
++ > 452 notes | Score threshold: >40
 - - what-changed in shared
-- **Optimized Score — parallelizes async operations for speed** — - > 119 notes | Score threshold: >40
-+ > 123 notes | Score threshold: >40
-- - **gotcha in agent-rule
-- **Optimized Score — parallelizes async operations for speed** — - > 114 notes | Score threshold: >40
-+ > 116 notes | Score threshold: >40
-- - Optimized S
+- 📐 **convention in brainsync_auto.md** — - > 447 notes | Score threshold: >40
++ > 451 notes | Score threshold: >40
+- - convention in brainsyn
+- 📐 **convention in brainsync_auto.md** — - > 446 notes | Score threshold: >40
++ > 447 notes | Score threshold: >40
+- - what-changed in shared
+- 📐 **convention in brainsync_auto.md** — - > 
 
 ... [Truncated — see individual observations for full content]

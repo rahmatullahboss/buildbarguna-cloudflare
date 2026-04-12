@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { authApi } from '../lib/api'
 import { ArrowLeft, Mail, CheckCircle, AlertTriangle, Lightbulb, Lock } from 'lucide-react'
 import LottieIcon from '../components/LottieIcon'
+import SEO from '../components/SEO'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -29,6 +30,7 @@ export default function ForgotPassword() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-teal-700 flex items-center justify-center p-4 relative overflow-hidden">
+      <SEO title="পাসওয়ার্ড রিসেট" description="Build Barguna Initiative (BBI) - পাসওয়ার্ড ভুলে গেলে সহজেই রিসেট করুন।" />
       {/* Decorative background circles */}
       <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />

@@ -1,5 +1,5 @@
 # buildbarguna-cloudflare — Project Memory
-# Auto-synced | 150 observations
+# Auto-synced | 343 observations
 
 **Stack:** JavaScript/TypeScript · React + Tailwind
 
@@ -35,23 +35,23 @@ Example:
 
 # 📐 Conventions
 
-- Extract repeated class patterns into components
-- Use responsive prefixes consistently (sm:, md:, lg:, xl:)
-- Don't use arbitrary values when a utility class exists
-- Use Suspense and Error Boundaries for async operations
-- Don't prop-drill more than 2 levels — use Context or state management
-- Use useMemo for expensive computations, useCallback for stable references
-- Enable strict mode in tsconfig.json
-- Prefer Array methods (map, filter, reduce) over manual loops
+- Version your API from day 1 (/api/v1/)
+- Use consistent response format across all endpoints
+- Implement soft delete for important data — don't hard delete without confirmation
+- Handle timezone correctly — store UTC, display in user's timezone
+- Make layouts responsive from the start — mobile-first approach
+- Disable submit button during form submission — prevent double-submit
+- Always add empty states ("No items yet" with call-to-action)
+- Always add error states with retry button — not just blank screen
 
 # ⚡ Available Tools (ON-DEMAND only)
-- `save(title, content, category)` — Save a note + auto-detect conflicts
-- `batch_save(items[])` — Save multiple notes in 1 call
-- `query(text)` — Search memory for architecture, past fixes, decisions
-- `search(text)` — Full-text search for details
-- `check_errors()` — Check compiler errors after edits
+- `sys_core_02(title, content, category)` — Save a note + auto-detect conflicts
+- `sys_core_03(items[])` — Save multiple notes in 1 call
+- `sys_core_01(text)` — Search memory for architecture, past fixes, decisions
+- `sys_core_05(text)` — Full-text search for details
+- `sys_core_16()` — Check compiler errors after edits
 
-> ℹ️ DO NOT call get_context() or get_gotchas() at startup — context above IS your context.
+> ℹ️ DO NOT call sys_core_14() or sys_core_08() at startup — context above IS your context.
 
 ---
-*Auto-synced | 2026-04-07*
+*Auto-synced | 2026-04-12*

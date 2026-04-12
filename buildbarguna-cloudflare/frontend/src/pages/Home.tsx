@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
-import { TrendingUp, Users, Shield, CheckCircle, ArrowRight, Star, Download, Bell, BarChart2, Zap, Lock } from 'lucide-react'
+import { TrendingUp, Users, Shield, CheckCircle, ArrowRight, Star, Download, Bell, BarChart2, Zap, Lock, ChevronDown } from 'lucide-react'
 import { isLoggedIn } from '../lib/auth'
 import LottieIcon from '../components/LottieIcon'
+import SEO from '../components/SEO'
 
 const APK_URL = 'https://pub-ab7b08208848418f9562358e8b65ad06.r2.dev/builds/android/buildbarguna-latest-release.apk'
 
@@ -49,6 +50,42 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white">
+      <SEO 
+        title="হোম" 
+        description="BBI (Build Barguna Initiative) হলো একটি শরিয়াহ-সম্মত গ্রুপ ইনভেস্টমেন্ট প্ল্যাটফর্ম। ছোট বিনিয়োগে বড় ব্যবসার শেয়ারহোল্ডার হোন এবং হালাল মাসিক মুনাফা উপভোগ করুন।" 
+      />
+      {/* Dynamic JSON-LD Schema for FAQPage & AI SEO */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "বিল্ড বরগুনা (BBI) কী?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "বিল্ড বরগুনা (Build Barguna Initiative) হলো বরগুনার একটি গ্রুপ ইনভেস্টমেন্ট প্ল্যাটফর্ম যেখানে একাধিক মানুষ একসাথে ছোট বিনিয়োগ করে বড় ব্যবসার শেয়ারহোল্ডার হতে পারে এবং হালাল উপায়ে মাসিক মুনাফা অর্জন করতে পারে।"
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "এটি কি শরিয়াহ-সম্মত?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "হ্যাঁ, বিল্ড বরগুনার বিনিয়োগ পদ্ধতি মুশারাকা (profit-sharing) নীতির ওপর ভিত্তি করে পরিচালিত। এখানে নির্দিষ্ট সুদের পরিবর্তে ব্যবসার বাস্তব লাভ-ক্ষতির অংশীদারিত্ব থাকে, যা ১০০% শরিয়াহ-সম্মত।"
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "কিভাবে বিনিয়োগ শুরু করব?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "আ্যপ বা ওয়েবসাইটে রেজিস্ট্রেশন করে লাইভ প্রজেক্ট বেছে নিন। এরপর bKash এর মাধ্যমে শেয়ারের টাকা পেমেন্ট করে TxID জমা দিলেই আপনি ওই প্রজেক্টের শেয়ারহোল্ডার হবেন।"
+            }
+          }
+        ]
+      })}} />
+
       {/* Navbar */}
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16">
@@ -186,6 +223,52 @@ export default function Home() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section for AI SEO extraction */}
+      <section className="py-20 bg-white border-t border-gray-100">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-14">
+            <span className="bg-primary-100 text-primary-700 text-sm font-semibold px-4 py-1.5 rounded-full inline-block mb-4">প্রশ্নোত্তর</span>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">সাধারণ জিজ্ঞাসা (FAQ)</h2>
+            <p className="text-gray-500">আপনাদের কিছু সাধারণ প্রশ্নের উত্তর নিচে দেওয়া হলো, যা আপনাকে বিল্ড বরগুনা সম্পর্কে স্পষ্ট ধারণা দেবে।</p>
+          </div>
+          
+          <div className="space-y-4">
+            {/* FAQ 1 */}
+            <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center shrink-0">?</div>
+                বিল্ড বরগুনা (Build Barguna Initiative) কী?
+              </h3>
+              <p className="text-gray-600 leading-relaxed pl-8">
+                বিল্ড বরগুনা হলো বরগুনার একটি গ্রুপ ইনভেস্টমেন্ট প্ল্যাটফর্ম। এর মাধ্যমে আমাদের বরগুনার মানুষ একসাথে ছোট ছোট এমাউন্ট ইনভেস্ট করে লাভজনক ব্যবসায়িক উদ্যোগের <strong>শেয়ারহোল্ডার</strong> হতে পারেন এবং প্রতি মাসে হালাল উপায়ে মুনাফা পেতে পারেন।
+              </p>
+            </div>
+            
+            {/* FAQ 2 */}
+            <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center shrink-0">?</div>
+                এটি কি শরিয়াহ-সম্মত?
+              </h3>
+              <p className="text-gray-600 leading-relaxed pl-8">
+                হ্যাঁ, আমাদের বিনিয়োগ পদ্ধতি <strong>মুশারাকা</strong> বা profit-sharing নীতির ওপর ভিত্তি করে পরিচালিত। এখানে নির্দিষ্ট সুদের ব্যবস্থা নেই বরং ব্যবসার বাস্তব লাভ-ক্ষতির অংশীদারিত্ব থাকে।
+              </p>
+            </div>
+
+            {/* FAQ 3 */}
+            <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center shrink-0">?</div>
+                আমি কিভাবে বিনিয়োগ শুরু করব?
+              </h3>
+              <p className="text-gray-600 leading-relaxed pl-8">
+                আপনাকে প্রথমে সাইট বা অ্যাপে রেজিস্ট্রেশন করতে হবে। এরপর আমাদের লাইভ প্রজেক্টগুলো চেক করে যেকোনো প্রজেক্ট বেছে নিন। bKash এর মাধ্যমে উক্ত শেয়ারের টাকা পরিশোধ করে TxID জমা দিলেই আপনার বিনিয়োগ সম্পন্ন হবে।
+              </p>
+            </div>
           </div>
         </div>
       </section>
