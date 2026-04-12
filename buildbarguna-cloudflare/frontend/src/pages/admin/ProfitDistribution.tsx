@@ -14,7 +14,7 @@ export default function ProfitDistribution() {
   const qc = useQueryClient()
   const id = parseInt(projectId || '0')
 
-  const [companyPct, setCompanyPct] = useState(30)
+  const [companyPct, setCompanyPct] = useState<number | null>(null)
   const [periodStart, setPeriodStart] = useState('')
   const [periodEnd, setPeriodEnd] = useState('')
   const [notes, setNotes] = useState('')
@@ -24,8 +24,8 @@ export default function ProfitDistribution() {
   const [selectedDistId, setSelectedDistId] = useState<number | null>(null)
 
   const { data: previewData, isLoading, refetch } = useQuery({
-    queryKey: ['profit-preview', id, companyPct],
-    queryFn: () => profitApi.preview(id, companyPct),
+    queryKey: ['profit-preview', id, companyPct ?? 'default'],
+    queryFn: () => profitApi.preview(id, companyPct ?? undefined),
     enabled: !!id
   })
 
@@ -43,7 +43,7 @@ export default function ProfitDistribution() {
 
   const distributeMutation = useMutation({
     mutationFn: () => profitApi.distribute(id, {
-      company_share_percentage: companyPct,
+      company_share_percentage: companyPct ?? undefined,
       period_start: periodStart || undefined,
       period_end: periodEnd || undefined,
       notes: notes || undefined
@@ -67,13 +67,9 @@ export default function ProfitDistribution() {
   })
 
   const preview = previewData?.success ? previewData.data : null
+  const previewError = previewData && !previewData.success ? previewData.error : ''
   const history = historyData?.success ? (historyData.data as any).items : []
   const detail = detailData?.success ? detailData.data : null
-
-  // Set initial company % from project default
-  const projectDefaultPct = preview?.project?.default_company_share_pct
-    ? Math.floor(preview.project.default_company_share_pct / 100)
-    : null
 
   const periodsValid = periodStart.length > 0 && periodEnd.length > 0 && periodEnd >= periodStart
 
@@ -117,6 +113,24 @@ export default function ProfitDistribution() {
         <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" /> {errMsg}
           <button onClick={() => setErrMsg('')} className="ml-auto text-red-400">✕</button>
+        </div>
+      )}
+
+      {previewError && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+            <div className="space-y-2">
+              <p className="font-semibold">প্রফিট প্রিভিউ লোড করা যায়নি</p>
+              <p className="text-sm">{previewError}</p>
+              <button
+                onClick={() => refetch()}
+                className="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition"
+              >
+                আবার চেষ্টা করুন
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -167,16 +181,16 @@ export default function ProfitDistribution() {
             <div className="mb-5">
               <div className="flex justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">কোম্পানির ভাগ</span>
-                <span className="font-bold text-amber-600">{companyPct}%</span>
+                <span className="font-bold text-amber-600">{preview.summary.company_share_pct}%</span>
               </div>
               <input
-                type="range" min="0" max="100" value={companyPct}
+                type="range" min="0" max="100" value={preview.summary.company_share_pct}
                 onChange={e => setCompanyPct(parseInt(e.target.value))}
                 className="w-full h-2 bg-amber-200 rounded-lg appearance-none cursor-pointer accent-amber-600"
               />
               <div className="flex justify-between text-xs text-gray-500 mt-1">
                 <span>কোম্পানি: <strong className="text-amber-600">{formatTaka(preview.summary.company_share_amount)}</strong></span>
-                <span>শেয়ারহোল্ডার ({100 - companyPct}%): <strong className="text-green-600">{formatTaka(preview.summary.investor_pool)}</strong></span>
+                <span>শেয়ারহোল্ডার ({preview.summary.investor_share_pct}%): <strong className="text-green-600">{formatTaka(preview.summary.investor_pool)}</strong></span>
               </div>
             </div>
 
@@ -315,6 +329,14 @@ export default function ProfitDistribution() {
             </div>
           </div>
         </>
+      )}
+
+      {!isLoading && !preview && !previewError && (
+        <div className="card text-center py-12 text-gray-500">
+          <AlertTriangle size={36} className="mx-auto mb-3 text-amber-500" />
+          <p className="font-semibold text-gray-700">প্রফিট ডিস্ট্রিবিউশন ডাটা পাওয়া যায়নি</p>
+          <p className="text-sm mt-1">এই প্রজেক্টের জন্য প্রিভিউ এখনো তৈরি করা যায়নি।</p>
+        </div>
       )}
 
       {/* Distribution History */}

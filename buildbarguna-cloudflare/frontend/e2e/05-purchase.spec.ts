@@ -19,7 +19,7 @@ test.describe('Projects Page', () => {
 
   test('halal disclaimer is visible on projects page', async ({ page }) => {
     await page.goto('/projects')
-    await expect(page.locator('text=সম্পূর্ণ হালাল বিনিয়োগ')).toBeVisible()
+    await expect(page.locator('text=শরিয়াহ-সম্মত বিনিয়োগ নোট')).toBeVisible()
   })
 
   test('investment risk disclaimer is visible', async ({ page }) => {
@@ -141,7 +141,7 @@ test.describe('Project Detail — Purchase Form', () => {
     if (!await buyLink.isVisible()) return
 
     await buyLink.click()
-    await expect(page.locator('text=সম্পূর্ণ হালাল বিনিয়োগ')).toBeVisible()
+    await expect(page.locator('text=শরিয়াহ-সম্মত বিনিয়োগ নোট')).toBeVisible()
   })
 })
 

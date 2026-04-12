@@ -11,7 +11,7 @@
 
 ## 1. Project Summary
 
-**BuildBarguna** is a group investing platform where members can buy shares in business projects and receive monthly profit distributions. Payment is manual (bKash) approved by admin.
+**BuildBarguna** is a share-based profit-sharing platform where members can buy shares in business projects and receive profit distributions derived from project revenue/expense performance. Payment is manual (bKash) approved by admin.
 
 ---
 
@@ -30,15 +30,19 @@
 - On approval, shares are atomically added to member portfolio
 - **bKash TxID is UNIQUE** — same TxID cannot be submitted twice
 
-### 2.3 Monthly Profit Distribution
-- Admin sets profit rate (%) per project per month in `profit_rates` table
-- Cron Trigger runs on the 1st of every month (BD midnight)
-- Distribution is **idempotent** — uses `INSERT OR IGNORE` with UNIQUE constraint on `(user_id, project_id, month)`
-- Earnings are stored as audit log; balance is computed dynamically from earnings table (no mutable balance column)
+### 2.3 P&L-Based Profit Distribution
+- Admin reviews project revenue, direct expense, and allocated company expense before distribution.
+- Distribution is executed from actual available profit, not from a guaranteed monthly rate.
+- Distribution is **idempotent** — duplicate period guard plus DB uniqueness prevents double distribution.
+- Earnings are stored as audit log; balance is computed dynamically from earnings table (no mutable balance column).
 - **Profit formula (explicit):**
-  `earning = (user_shares / total_shares) × total_capital × rate / 100`
-  Where `rate` is the monthly return % on total capital set by admin.
-  All amounts stored as **INTEGER (paisa)** — no floating point money.
+  `net_profit = total_revenue - direct_expense - company_expense_allocation`
+  `available_profit = max(0, net_profit - previously_distributed)`
+  `company_share = available_profit × company_share_pct / 100`
+  `investor_pool = available_profit - company_share`
+  `user_profit = investor_pool × (user_shares / total_shares)`
+- All amounts stored as **INTEGER (paisa)** — no floating point money.
+- Any “halal” or “shariah-compliant” claim must be backed by documented screening, disclosure, and governance review.
 
 ### 2.4 Daily Tasks
 - Admin configures social media links as tasks (Facebook, YouTube, Telegram, etc.)
@@ -51,7 +55,7 @@
 - Member management (view, activate/deactivate)
 - Project create/update/status change
 - Share purchase approval/rejection queue
-- Monthly profit rate setting and manual distribution trigger
+- P&L-based profit distribution preview and manual distribution trigger
 - Daily task configuration
 - Referral report
 

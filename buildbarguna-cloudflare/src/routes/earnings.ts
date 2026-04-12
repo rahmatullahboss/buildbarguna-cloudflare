@@ -30,7 +30,9 @@ earningRoutes.get('/summary', async (c) => {
   // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
   const [totalRowRes, thisMonthRowRes] = await c.env.DB.batch<{ total: number }>([
     c.env.DB.prepare(
-      'SELECT COALESCE(SUM(amount), 0) as total FROM earnings WHERE user_id = ?'
+      `SELECT COALESCE(SUM(amount), 0) as total
+       FROM earnings
+       WHERE user_id = ? AND month NOT LIKE 'refund-%'`
     ).bind(userId),
     c.env.DB.prepare(
       `SELECT COALESCE(SUM(amount), 0) as total FROM earnings
@@ -82,7 +84,10 @@ earningRoutes.get('/portfolio', async (c) => {
          ) AS latest_rate_bps
        FROM user_shares us
        JOIN projects p ON p.id = us.project_id
-       LEFT JOIN earnings e ON e.project_id = us.project_id AND e.user_id = us.user_id
+       LEFT JOIN earnings e
+         ON e.project_id = us.project_id
+        AND e.user_id = us.user_id
+        AND e.month NOT LIKE 'refund-%'
        WHERE us.user_id = ?
        GROUP BY us.project_id, p.title, p.status, p.share_price, us.quantity
        ORDER BY us.project_id`
@@ -114,6 +119,7 @@ earningRoutes.get('/portfolio', async (c) => {
         `SELECT e.month, e.rate AS rate_bps, e.amount AS earned_paisa
          FROM earnings e
          WHERE e.user_id = ? AND e.project_id = ?
+           AND e.month NOT LIKE 'refund-%'
          ORDER BY e.month DESC
          LIMIT 24`
       ).bind(userId, row.project_id)

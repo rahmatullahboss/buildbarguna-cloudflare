@@ -62,6 +62,11 @@ export default function ProjectDetail() {
     queryFn: () => projectsApi.getUpdates(Number(id)),
     enabled: !!id
   })
+  const { data: complianceData } = useQuery({
+    queryKey: ['project-compliance-disclosure', id],
+    queryFn: () => projectsApi.getCompliance(Number(id)),
+    enabled: !!id
+  })
   const updates: ProjectUpdate[] = updatesData?.success ? (updatesData.data as ProjectUpdate[]) : []
 
   const buyMutation = useMutation({
@@ -119,6 +124,7 @@ export default function ProjectDetail() {
   if (!data?.success) return <div className="card text-center py-12 text-red-500">প্রজেক্ট পাওয়া যায়নি</div>
 
   const p = data.data
+  const compliance = complianceData?.success ? complianceData.data.disclosure : null
   const total = qty * p.share_price
   const soldPct = Math.round(((p.total_shares - p.available_shares) / p.total_shares) * 100)
 
@@ -246,6 +252,38 @@ export default function ProjectDetail() {
             </div>
           )}
         </div>
+
+        {compliance && (
+          <div className="mx-5 mb-5 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold text-emerald-900">শরিয়াহ ও disclosure summary</p>
+                <p className="text-xs text-emerald-700 mt-1">
+                  Contract: <span className="font-semibold uppercase">{compliance.contract_type}</span> • Review: <span className="font-semibold">{compliance.shariah_screening_status}</span>
+                </p>
+              </div>
+              {compliance.external_reviewer_name && (
+                <span className="text-xs bg-white text-emerald-700 border border-emerald-200 px-2 py-1 rounded-full">
+                  {compliance.external_reviewer_name}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              <div className="rounded-xl bg-white/80 p-3 border border-emerald-100">
+                <p className="font-semibold text-gray-800 mb-1">Use of proceeds</p>
+                <p className="text-gray-600 leading-relaxed">{compliance.use_of_proceeds || 'এখনো প্রকাশ করা হয়নি'}</p>
+              </div>
+              <div className="rounded-xl bg-white/80 p-3 border border-emerald-100">
+                <p className="font-semibold text-gray-800 mb-1">Profit / loss policy</p>
+                <p className="text-gray-600 leading-relaxed">{compliance.profit_loss_policy || 'এখনো প্রকাশ করা হয়নি'}</p>
+              </div>
+              <div className="rounded-xl bg-white/80 p-3 border border-emerald-100">
+                <p className="font-semibold text-gray-800 mb-1">Principal risk notice</p>
+                <p className="text-gray-600 leading-relaxed">{compliance.principal_risk_notice || 'এখনো প্রকাশ করা হয়নি'}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Buy form */}
         {p.status === 'completed' ? (
@@ -500,7 +538,7 @@ export default function ProjectDetail() {
                   className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 cursor-pointer shrink-0"
                 />
                 <span className="text-xs text-emerald-800 leading-relaxed">
-                  আমি বুঝতে পেরেছি যে এই বিনিয়োগ হালাল মুশারাকা নীতিতে হচ্ছে। প্রজেক্টে লাভ বা লোকসান হলে আমি সেটা সমানুপাতিক হারে বহন করব।
+                  আমি বুঝতে পেরেছি যে এই বিনিয়োগ profit-sharing ভিত্তিক। নির্দিষ্ট মুনাফা গ্যারান্টিযুক্ত নয় এবং চূড়ান্ত শরিয়াহ screening / governance review-এর ওপর compliance নির্ভর করে।
                 </span>
               </label>
 
@@ -559,7 +597,7 @@ export default function ProjectDetail() {
                     </div>
                     <div className="flex items-start gap-2 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
                       <CheckSquare size={14} className="text-emerald-600 mt-0.5 flex-shrink-0" />
-                      <p className="text-xs text-emerald-700">আপনি হালাল মুশারাকা নীতিতে বিনিয়োগ করতে সম্মত হয়েছেন।</p>
+                      <p className="text-xs text-emerald-700">আপনি profit-sharing investment model-এ সম্মত হয়েছেন।</p>
                     </div>
                     <div className="flex gap-3">
                       <button

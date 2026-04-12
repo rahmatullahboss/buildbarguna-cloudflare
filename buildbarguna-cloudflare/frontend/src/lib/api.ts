@@ -98,6 +98,7 @@ export const authApi = {
 export const projectsApi = {
   list: (page = 1, limit = 20) => request<Paginated<ProjectItem>>(`/projects?page=${page}&limit=${limit}`),
   get: (id: number) => request<ProjectDetail>(`/projects/${id}`),
+  getCompliance: (id: number) => request<ProjectComplianceDisclosureResponse>(`/projects/${id}/compliance`),
   getUpdates: (id: number) => request<ProjectUpdate[]>(`/project-data/${id}/updates`),
   getGallery: (id: number) => request<GalleryImage[]>(`/project-data/${id}/gallery`)
 }
@@ -116,12 +117,13 @@ export const sharesApi = {
 
 // Withdrawal types
 export type WithdrawalStatus = 'pending' | 'approved' | 'completed' | 'rejected'
+export type WithdrawalMethod = 'bkash' | 'nagad' | 'cash'
 
-export type Withdrawal = {
+export interface Withdrawal {
   id: number
-  user_id: number
   amount_paisa: number
   bkash_number: string
+  withdrawal_method: WithdrawalMethod
   status: WithdrawalStatus
   admin_note: string | null
   approved_by: number | null
@@ -170,7 +172,7 @@ export const withdrawalsApi = {
   balance: () => request<AvailableBalance>('/withdrawals/balance'),
   incomeBreakdown: () => request<IncomeBreakdown>('/withdrawals/balance/breakdown'),
   history: (page = 1) => request<Paginated<Withdrawal>>(`/withdrawals/history?page=${page}`),
-  request: (amount_paisa: number, bkash_number?: string, withdrawal_method: 'bkash' | 'cash' = 'bkash') =>
+  request: (amount_paisa: number, bkash_number?: string, withdrawal_method: 'bkash' | 'cash' | 'nagad' = 'bkash') =>
     request<{ message: string; withdrawal_id: number; amount_paisa: number }>(
       '/withdrawals/request', {
         method: 'POST',
@@ -399,6 +401,28 @@ export const adminApi = {
     request(`/admin/projects/${id}`, { method: 'DELETE' }),
   setProjectStatus: (id: number, status: string) =>
     request(`/admin/projects/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  getProjectCloseoutPreview: (id: number, mode: 'completed' | 'closed') =>
+    request<ProjectCloseoutPreview>(`/admin/projects/${id}/closeout-preview?mode=${mode}`),
+  executeProjectCloseout: (
+    id: number,
+    body: {
+      mode: 'completed' | 'closed'
+      confirm_closeout: true
+      checklist: {
+        pending_purchases_resolved: boolean
+        pending_expenses_resolved: boolean
+        profits_resolved: boolean
+        losses_resolved: boolean
+      }
+    }
+  ) => request<{ message: string; status: 'completed' | 'closed'; shareholders_count: number; total_refunded: number }>(
+    `/admin/projects/${id}/closeout`,
+    { method: 'POST', body: JSON.stringify(body) }
+  ),
+  getProjectCompliance: (id: number) =>
+    request<ProjectComplianceAdminResponse>(`/admin/projects/${id}/compliance`),
+  updateProjectCompliance: (id: number, body: UpdateProjectComplianceBody) =>
+    request<{ message: string }>(`/admin/projects/${id}/compliance`, { method: 'PUT', body: JSON.stringify(body) }),
   // Project updates
   getProjectUpdates: (projectId: number) => request<ProjectUpdate[]>(`/project-data/admin/${projectId}`),
   createProjectUpdate: (projectId: number, body: { title: string; content?: string; image_url?: string }) =>
@@ -582,6 +606,121 @@ export type DataExport = {
 export type AdminUser = { id: number; name: string; phone: string; role: string; is_active: number; referral_code: string; referred_by: string | null; created_at: string }
 export type AdminUserDetail = AdminUser & { shares: MyShare[]; total_earnings_paisa: number }
 export type AdminProject = ProjectItem & { sold_shares: number }
+export type ProjectCloseoutBlocker = {
+  code: string
+  message: string
+  amount_paisa?: number
+  count?: number
+}
+
+export type ProjectCloseoutPreview = {
+  mode: 'completed' | 'closed'
+  can_closeout: boolean
+  blockers: ProjectCloseoutBlocker[]
+  project: {
+    id: number
+    title: string
+    status: 'draft' | 'active' | 'closed' | 'completed'
+    share_price: number
+    total_shares: number
+    total_capital: number
+    completed_at?: string | null
+  }
+  financials: {
+    total_revenue: number
+    direct_expense: number
+    company_expense_allocation: number
+    net_profit: number
+    previously_distributed: number
+    available_profit: number
+  }
+  settlement: {
+    total_shares_sold: number
+    capital_refund_total: number
+    pending_share_purchases: number
+    pending_expense_allocations: number
+  }
+  compliance: {
+    contract_type: ProjectComplianceProfile['contract_type']
+    shariah_screening_status: ProjectComplianceProfile['shariah_screening_status']
+    ops_reconciliation_status: ProjectComplianceProfile['ops_reconciliation_status']
+    loss_settlement_status: ProjectComplianceProfile['loss_settlement_status']
+  }
+}
+export type ProjectComplianceProfile = {
+  project_id: number
+  contract_type: 'musharakah' | 'mudarabah' | 'other'
+  shariah_screening_status: 'pending' | 'approved' | 'rejected' | 'needs_revision'
+  ops_reconciliation_status: 'pending' | 'completed' | 'blocked'
+  loss_settlement_status: 'not_applicable' | 'pending_review' | 'resolved' | 'blocked'
+  prohibited_activities_screened: number | boolean
+  asset_backing_confirmed: number | boolean
+  profit_ratio_disclosed: number | boolean
+  loss_sharing_clause_confirmed: number | boolean
+  principal_risk_notice_confirmed: number | boolean
+  use_of_proceeds: string | null
+  profit_loss_policy: string | null
+  principal_risk_notice: string | null
+  shariah_notes: string | null
+  ops_notes: string | null
+  loss_settlement_notes: string | null
+  external_reviewer_name: string | null
+  approved_by: number | null
+  approved_at: string | null
+  updated_by: number | null
+  updated_at: string | null
+}
+export type ProjectComplianceDisclosure = {
+  project_id: number
+  contract_type: ProjectComplianceProfile['contract_type']
+  shariah_screening_status: ProjectComplianceProfile['shariah_screening_status']
+  ops_reconciliation_status: ProjectComplianceProfile['ops_reconciliation_status']
+  loss_settlement_status: ProjectComplianceProfile['loss_settlement_status']
+  prohibited_activities_screened: boolean
+  asset_backing_confirmed: boolean
+  profit_ratio_disclosed: boolean
+  loss_sharing_clause_confirmed: boolean
+  principal_risk_notice_confirmed: boolean
+  use_of_proceeds: string
+  profit_loss_policy: string
+  principal_risk_notice: string
+  external_reviewer_name: string
+  approved_at: string | null
+}
+export type ProjectComplianceAdminResponse = {
+  project: {
+    id: number
+    title: string
+    status: 'draft' | 'active' | 'closed' | 'completed'
+  }
+  profile: ProjectComplianceProfile
+}
+export type ProjectComplianceDisclosureResponse = {
+  project: {
+    id: number
+    title: string
+    status: 'draft' | 'active' | 'closed' | 'completed'
+  }
+  disclosure: ProjectComplianceDisclosure
+}
+export type UpdateProjectComplianceBody = {
+  contract_type: ProjectComplianceProfile['contract_type']
+  shariah_screening_status: ProjectComplianceProfile['shariah_screening_status']
+  ops_reconciliation_status: ProjectComplianceProfile['ops_reconciliation_status']
+  loss_settlement_status: ProjectComplianceProfile['loss_settlement_status']
+  prohibited_activities_screened: boolean
+  asset_backing_confirmed: boolean
+  profit_ratio_disclosed: boolean
+  loss_sharing_clause_confirmed: boolean
+  principal_risk_notice_confirmed: boolean
+  use_of_proceeds?: string
+  profit_loss_policy?: string
+  principal_risk_notice?: string
+  shariah_notes?: string
+  ops_notes?: string
+  loss_settlement_notes?: string
+  external_reviewer_name?: string
+}
 export type AdminShareRequest = ShareRequest & { user_name: string; user_phone: string }
 export type ProfitRate = { id: number; project_id: number; month: string; rate: number; title: string }
 export type CreateProjectBody = {

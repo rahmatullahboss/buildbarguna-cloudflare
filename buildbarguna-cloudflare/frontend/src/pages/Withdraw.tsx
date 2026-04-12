@@ -27,11 +27,12 @@ function StatusBadge({ status }: { status: WithdrawalStatus }) {
 }
 
 /** 3-step progress timeline for a single withdrawal */
-function WithdrawalSteps({ status }: { status: WithdrawalStatus }) {
+function WithdrawalSteps({ status, method }: { status: WithdrawalStatus, method?: string }) {
+  const methodLabel = method === 'nagad' ? 'Nagad' : method === 'cash' ? 'অফিস' : 'bKash'
   const steps = [
     { key: 'pending',   label: 'অনুরোধ',      icon: CircleDot },
-    { key: 'approved',  label: 'অনুমোদন',     icon: CheckCircle },
-    { key: 'completed', label: 'bKash প্রেরণ', icon: Send },
+    { key: 'approved',  label: 'অনুমোদন (৭২ ঘণ্টা)',     icon: CheckCircle },
+    { key: 'completed', label: `${methodLabel} প্রেরণ`, icon: Send },
   ]
   const order: Record<string, number> = { pending: 0, approved: 1, completed: 2, rejected: -1 }
   const current = order[status] ?? 0
@@ -89,7 +90,7 @@ function WithdrawalCard({ w }: { w: Withdrawal }) {
         <div className="flex-1">
           <p className="font-bold text-gray-900">{formatTaka(w.amount_paisa)}</p>
           <p className="text-xs text-gray-500 mt-0.5">{formatDate(w.requested_at)}</p>
-          <WithdrawalSteps status={w.status} />
+          <WithdrawalSteps status={w.status} method={w.withdrawal_method} />
         </div>
         <div className="flex items-center gap-3 self-start mt-1">
           <StatusBadge status={w.status} />
@@ -99,12 +100,12 @@ function WithdrawalCard({ w }: { w: Withdrawal }) {
       {expanded && (
         <div className="border-t border-gray-100 bg-gray-50 p-4 space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-gray-500">bKash নম্বর</span>
+            <span className="text-gray-500">{w.withdrawal_method === 'nagad' ? 'Nagad' : 'bKash'} নম্বর</span>
             <span className="font-mono font-medium">{w.bkash_number}</span>
           </div>
           {w.bkash_txid && (
             <div className="flex justify-between">
-              <span className="text-gray-500">bKash TxID</span>
+              <span className="text-gray-500">TxID</span>
               <span className="font-mono text-green-700 font-medium">{w.bkash_txid}</span>
             </div>
           )}
@@ -167,7 +168,7 @@ function BalancePipelineCard({ balance }: { balance: BalanceData }) {
           <p className="text-3xl font-bold text-purple-700">{formatTaka(available)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-gray-400">মোট অর্জিত</p>
+          <p className="text-xs text-gray-400">মোট জমাকৃত</p>
           <p className="font-bold text-gray-700">{formatTaka(earned)}</p>
         </div>
       </div>
@@ -199,7 +200,7 @@ function BalancePipelineCard({ balance }: { balance: BalanceData }) {
           {approved > 0 && (
             <span className="flex items-center gap-1.5 text-blue-600 font-medium">
               <span className="w-2.5 h-2.5 rounded-sm bg-blue-400 shrink-0" />
-              অনুমোদিত (bKash পাঠানো হবে) — {formatTaka(approved)}
+              অনুমোদিত (শিগগিরই পাঠানো হবে) — {formatTaka(approved)}
             </span>
           )}
           {pending > 0 && (
@@ -220,7 +221,7 @@ function BalancePipelineCard({ balance }: { balance: BalanceData }) {
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-2">
           <Send size={14} className="text-blue-500 shrink-0 mt-0.5" />
           <p className="text-xs text-blue-700">
-            <strong>{formatTaka(approved)}</strong> অনুমোদিত হয়েছে এবং শীঘ্রই আপনার bKash-এ পাঠানো হবে।
+            <strong>{formatTaka(approved)}</strong> অনুমোদিত হয়েছে এবং শীঘ্রই আপনার অ্যাকাউন্টে পাঠানো হবে।
           </p>
         </div>
       )}
@@ -234,7 +235,7 @@ export default function Withdraw() {
   const qc = useQueryClient()
   const [amountTaka, setAmountTaka] = useState('')
   const [bkashNumber, setBkashNumber] = useState('')
-  const [withdrawalMethod, setWithdrawalMethod] = useState<'bkash' | 'cash'>('bkash')
+  const [withdrawalMethod, setWithdrawalMethod] = useState<'bkash' | 'nagad' | 'cash'>('bkash')
   const [msg, setMsg] = useState('')
   const [errMsg, setErrMsg] = useState('')
   const [showConfirm, setShowConfirm] = useState(false)
@@ -265,7 +266,7 @@ export default function Withdraw() {
     ),
     onSuccess: (res) => {
       if (res.success) {
-        setMsg(`✅ উত্তোলন অনুরোধ সফলভাবে জমা হয়েছে! অ্যাডমিন অনুমোদনের পরে bKash এ পাঠানো হবে।`)
+        setMsg(`✅ উত্তোলন অনুরোধ সফলভাবে জমা হয়েছে! অ্যাডমিন ৭২ ঘণ্টার মধ্যে যাচাই করে আপডেট জানাবে।`)
         setErrMsg('')
         setAmountTaka('')
         setBkashNumber('')
@@ -300,7 +301,7 @@ export default function Withdraw() {
         <div className="absolute top-0 right-0 w-36 h-36 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
         <div className="relative z-10">
           <h1 className="text-2xl font-bold">💸 মুনাফা উত্তোলন</h1>
-          <p className="text-purple-100 text-sm mt-1">আপনার অর্জিত মুনাফা bKash এ উত্তোলন করুন</p>
+          <p className="text-purple-100 text-sm mt-1">আপনার অর্জিত মুনাফা উত্তোলন করুন। সাবমিট করার ৭২ ঘণ্টার মধ্যে অ্যাডমিন আপডেট করবে।</p>
         </div>
       </div>
 
@@ -408,7 +409,7 @@ export default function Withdraw() {
         {/* Withdrawal Method Toggle */}
         <div className="mb-4">
           <label className="label">উত্তোলন পদ্ধতি</label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
               onClick={() => setWithdrawalMethod('bkash')}
@@ -419,6 +420,17 @@ export default function Withdraw() {
               }`}
             >
               <span className="inline-flex items-center gap-1.5"><img src="/bkash-logo.svg" alt="bKash" className="h-5 inline-block" /> bKash</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setWithdrawalMethod('nagad')}
+              className={`py-2.5 px-4 rounded-xl text-sm font-medium transition-all border-2 ${
+                withdrawalMethod === 'nagad'
+                  ? 'bg-orange-50 border-orange-500 text-orange-700 shadow-sm'
+                  : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
+              }`}
+            >
+              <span className="inline-flex items-center gap-1.5"><img src="/nagad-logo.svg" alt="Nagad" className="h-5 inline-block" /> Nagad</span>
             </button>
             <button
               type="button"
@@ -455,9 +467,9 @@ export default function Withdraw() {
             )}
           </div>
 
-          {withdrawalMethod === 'bkash' && (
+          {withdrawalMethod !== 'cash' && (
           <div>
-            <label className="label">bKash নম্বর</label>
+            <label className="label">{withdrawalMethod === 'nagad' ? 'Nagad' : 'bKash'} নম্বর</label>
             <input
               className="input font-mono"
               type="tel"
@@ -468,15 +480,22 @@ export default function Withdraw() {
               maxLength={11}
             />
             {bkashNumber && !(/^01[3-9]\d{8}$/.test(bkashNumber)) && (
-              <p className="text-xs text-red-500 mt-1">সঠিক bKash নম্বর দিন (01XXXXXXXXX)</p>
+              <p className="text-xs text-red-500 mt-1">সঠিক মোবাইল নম্বর দিন (01XXXXXXXXX)</p>
             )}
+            <p className="text-xs text-gray-500 mt-2">
+              <Info size={12} className="inline mr-1" />
+              রিকোয়েস্ট করার ৭২ ঘণ্টার মধ্যে অ্যাডমিন আপনার রিকোয়েস্ট যাচাই করে অ্যাকাউন্টে ব্যালেন্স আপডেট করে দিবে।
+            </p>
           </div>
           )}
 
           {withdrawalMethod === 'cash' && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700 flex items-start gap-2">
               <Info size={16} className="shrink-0 mt-0.5" />
-              <span>ক্যাশ উত্তোলন অনুমোদনের পরে অফিস থেকে সংগ্রহ করুন। bKash নম্বর প্রয়োজন নেই।</span>
+              <div>
+                <p>ক্যাশ উত্তোলন অনুমোদনের পরে অফিস থেকে সংগ্রহ করুন। মোবাইল নম্বর প্রয়োজন নেই।</p>
+                <p className="mt-1 text-xs font-semibold">রিকোয়েস্ট করার ৭২ ঘণ্টার মধ্যে অ্যাডমিন আপনার রিকোয়েস্ট যাচাই করে আপডেট করে দিবে।</p>
+              </div>
             </div>
           )}
 
@@ -496,8 +515,8 @@ export default function Withdraw() {
                   <p className="font-semibold">নিশ্চিত করুন</p>
                   <p className="text-xs mt-1">
                     <span className="font-bold">{formatTaka(amountPaisa)}</span> টাকা
-                    {withdrawalMethod === 'bkash' ? (
-                      <><span className="font-mono font-bold mx-1">{bkashNumber}</span> নম্বরে bKash এ পাঠানোর অনুরোধ করছেন?</>
+                    {withdrawalMethod !== 'cash' ? (
+                      <><span className="font-mono font-bold mx-1">{bkashNumber}</span> নম্বরে {withdrawalMethod === 'nagad' ? 'Nagad' : 'bKash'} এ পাঠানোর অনুরোধ করছেন?</>
                     ) : (
                       <> ক্যাশ হিসেবে উত্তোলনের অনুরোধ করছেন?</>
                     )}

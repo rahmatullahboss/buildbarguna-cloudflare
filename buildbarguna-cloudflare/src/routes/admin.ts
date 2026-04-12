@@ -5,9 +5,16 @@ import { authMiddleware } from '../middleware/auth'
 import { adminMiddleware } from '../middleware/admin'
 import { ok, err, getPagination, paginate } from '../lib/response'
 import { checkRateLimit } from '../lib/rate-limiter'
+import { evaluateCloseout, type CloseoutMode } from '../lib/project-closeout'
+import {
+  defaultComplianceProfile,
+  evaluateComplianceForCloseout,
+  type ProjectComplianceProfile
+} from '../lib/project-compliance'
 import type { Bindings, Variables, Project } from '../types'
 
 export const adminRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
+const schemaSupportCache = new Map<string, boolean>()
 
 // XSS Prevention: Escape HTML special characters
 // NOTE: Do NOT escape forward slashes — this is a JSON API, not HTML output.
@@ -30,6 +37,188 @@ function sanitizeObject<T extends Record<string, unknown>>(obj: T, fields: (keyo
     }
   }
   return sanitized
+}
+
+async function hasColumn(db: D1Database, table: string, column: string) {
+  const cacheKey = `${table}.${column}`
+  const cached = schemaSupportCache.get(cacheKey)
+  if (cached != null) return cached
+
+  const result = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>()
+  const supported = result.results.some((row) => row.name === column)
+  schemaSupportCache.set(cacheKey, supported)
+  return supported
+}
+
+async function getProjectCloseoutPreview(db: D1Database, projectId: number, mode: CloseoutMode) {
+  const project = await db.prepare(
+    'SELECT id, title, status, share_price, total_shares, total_capital, completed_at FROM projects WHERE id = ?'
+  ).bind(projectId).first<{
+    id: number
+    title: string
+    status: string
+    share_price: number
+    total_shares: number
+    total_capital: number
+    completed_at: string | null
+  }>()
+
+  if (!project) return null
+
+  const hasTotalDistributedAmount = await hasColumn(db, 'profit_distributions', 'total_distributed_amount')
+  const distributedColumn = hasTotalDistributedAmount ? 'total_distributed_amount' : 'distributable_amount'
+
+  const [pendingPurchases, pendingExpenseAllocations, financials, companyAllocations, distributed, soldShares, existingRefund, complianceProfile] = await Promise.all([
+    db.prepare(
+      `SELECT COUNT(*) as cnt FROM share_purchases WHERE project_id = ? AND status = 'pending'`
+    ).bind(projectId).first<{ cnt: number }>(),
+    db.prepare(
+      `SELECT COUNT(*) as cnt
+       FROM company_expenses
+       WHERE is_allocated = 0 AND allocation_method != 'company_only'`
+    ).first<{ cnt: number }>(),
+    db.prepare(
+      `SELECT
+        COALESCE(SUM(CASE WHEN transaction_type = 'revenue' THEN amount ELSE 0 END), 0) as total_revenue,
+        COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as direct_expense
+       FROM project_transactions
+       WHERE project_id = ?`
+    ).bind(projectId).first<{ total_revenue: number; direct_expense: number }>(),
+    db.prepare(
+      `SELECT COALESCE(SUM(amount), 0) as total FROM expense_allocations WHERE project_id = ?`
+    ).bind(projectId).first<{ total: number }>(),
+    db.prepare(
+      `SELECT COALESCE(SUM(${distributedColumn}), 0) as total
+       FROM profit_distributions
+       WHERE project_id = ? AND status = 'distributed'`
+    ).bind(projectId).first<{ total: number }>(),
+    db.prepare(
+      `SELECT COALESCE(SUM(quantity), 0) as total FROM user_shares WHERE project_id = ? AND quantity > 0`
+    ).bind(projectId).first<{ total: number }>(),
+    db.prepare(
+      `SELECT id FROM balance_audit_log
+       WHERE reference_type = 'capital_refund' AND reference_id = ?
+       LIMIT 1`
+    ).bind(projectId).first<{ id: number }>()
+    ,
+    db.prepare(
+      `SELECT * FROM project_compliance_profiles WHERE project_id = ?`
+    ).bind(projectId).first<ProjectComplianceProfile>()
+  ])
+
+  const totalRevenue = financials?.total_revenue ?? 0
+  const directExpense = financials?.direct_expense ?? 0
+  const companyExpenseAllocation = companyAllocations?.total ?? 0
+  const netProfit = totalRevenue - directExpense - companyExpenseAllocation
+  const previouslyDistributed = distributed?.total ?? 0
+  const availableProfit = Math.max(0, netProfit - previouslyDistributed)
+  const totalSharesSold = soldShares?.total ?? 0
+  const capitalRefundTotal = totalSharesSold * project.share_price
+  const compliance = complianceProfile ?? defaultComplianceProfile(projectId)
+
+  const evaluation = evaluateCloseout({
+    projectStatus: project.status,
+    pendingSharePurchases: pendingPurchases?.cnt ?? 0,
+    pendingExpenseAllocations: pendingExpenseAllocations?.cnt ?? 0,
+    availableProfit,
+    netProfit,
+    capitalAlreadyRefunded: !!existingRefund
+  })
+  const complianceBlockers = evaluateComplianceForCloseout({
+    profile: compliance,
+    netProfit
+  })
+
+  return {
+    project,
+    mode,
+    can_closeout: evaluation.canCloseout && complianceBlockers.length === 0,
+    blockers: [...evaluation.blockers, ...complianceBlockers],
+    financials: {
+      total_revenue: totalRevenue,
+      direct_expense: directExpense,
+      company_expense_allocation: companyExpenseAllocation,
+      net_profit: netProfit,
+      previously_distributed: previouslyDistributed,
+      available_profit: availableProfit
+    },
+    settlement: {
+      total_shares_sold: totalSharesSold,
+      capital_refund_total: capitalRefundTotal,
+      pending_share_purchases: pendingPurchases?.cnt ?? 0,
+      pending_expense_allocations: pendingExpenseAllocations?.cnt ?? 0
+    },
+    compliance: {
+      contract_type: compliance.contract_type,
+      shariah_screening_status: compliance.shariah_screening_status,
+      ops_reconciliation_status: compliance.ops_reconciliation_status,
+      loss_settlement_status: compliance.loss_settlement_status
+    }
+  }
+}
+
+async function executeCapitalRefund(c: any, projectId: number, project: { share_price: number }, status: CloseoutMode) {
+  const existingRefund = await (c.env.DB.prepare(
+    `SELECT id FROM balance_audit_log
+     WHERE reference_type = 'capital_refund' AND reference_id = ?
+     LIMIT 1`
+  ).bind(projectId).first() as Promise<{ id: number } | null>)
+
+  if (existingRefund) {
+    throw new Error('এই প্রজেক্টের মূলধন ইতিমধ্যে ফেরত দেওয়া হয়েছে')
+  }
+
+  const shareholders = await (c.env.DB.prepare(
+    'SELECT user_id, quantity FROM user_shares WHERE project_id = ? AND quantity > 0'
+  ).bind(projectId).all() as Promise<{ results: Array<{ user_id: number; quantity: number }> }>)
+
+  if (shareholders.results.length === 0) {
+    return { shareholdersCount: 0, totalRefunded: 0 }
+  }
+
+  const adminId = c.get('userId')
+  const refundMonth = 'refund-' + new Date().toISOString().slice(0, 7)
+  const statements: D1PreparedStatement[] = []
+  let totalRefunded = 0
+
+  for (const sh of shareholders.results) {
+    const refundAmount = sh.quantity * project.share_price
+    totalRefunded += refundAmount
+
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO earnings (user_id, project_id, month, shares, rate, amount)
+         VALUES (?, ?, ?, ?, 0, ?)
+         ON CONFLICT(user_id, project_id, month) DO UPDATE SET amount = amount + excluded.amount`
+      ).bind(sh.user_id, projectId, refundMonth, sh.quantity, refundAmount)
+    )
+
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO user_balances (user_id, total_earned_paisa, total_withdrawn_paisa, reserved_paisa, updated_at)
+         VALUES (?, ?, 0, 0, datetime('now'))
+         ON CONFLICT(user_id) DO UPDATE SET
+           total_earned_paisa = total_earned_paisa + excluded.total_earned_paisa,
+           updated_at = datetime('now')`
+      ).bind(sh.user_id, refundAmount)
+    )
+
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
+         VALUES (?, ?, 'earn', 'capital_refund', ?, ?, ?)`
+      ).bind(sh.user_id, refundAmount, projectId, adminId, `Capital refund for project ${projectId} ${status}`)
+    )
+  }
+
+  for (let i = 0; i < statements.length; i += 100) {
+    await c.env.DB.batch(statements.slice(i, i + 100))
+  }
+
+  return {
+    shareholdersCount: shareholders.results.length,
+    totalRefunded
+  }
 }
 
 adminRoutes.use('*', authMiddleware)
@@ -110,6 +299,25 @@ const projectSchema = z.object({
   start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'তারিখ YYYY-MM-DD ফরম্যাটে দিন').optional(),
   expected_end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'তারিখ YYYY-MM-DD ফরম্যাটে দিন').optional(),
   progress_pct: z.number().int().min(0).max(100).optional(),
+})
+
+const complianceProfileSchema = z.object({
+  contract_type: z.enum(['musharakah', 'mudarabah', 'other']),
+  shariah_screening_status: z.enum(['pending', 'approved', 'rejected', 'needs_revision']),
+  ops_reconciliation_status: z.enum(['pending', 'completed', 'blocked']),
+  loss_settlement_status: z.enum(['not_applicable', 'pending_review', 'resolved', 'blocked']),
+  prohibited_activities_screened: z.boolean(),
+  asset_backing_confirmed: z.boolean(),
+  profit_ratio_disclosed: z.boolean(),
+  loss_sharing_clause_confirmed: z.boolean(),
+  principal_risk_notice_confirmed: z.boolean(),
+  use_of_proceeds: z.string().max(3000).optional().or(z.literal('')),
+  profit_loss_policy: z.string().max(3000).optional().or(z.literal('')),
+  principal_risk_notice: z.string().max(3000).optional().or(z.literal('')),
+  shariah_notes: z.string().max(3000).optional().or(z.literal('')),
+  ops_notes: z.string().max(3000).optional().or(z.literal('')),
+  loss_settlement_notes: z.string().max(3000).optional().or(z.literal('')),
+  external_reviewer_name: z.string().max(255).optional().or(z.literal(''))
 })
 
 adminRoutes.get('/projects', async (c) => {
@@ -203,6 +411,169 @@ adminRoutes.delete('/projects/:id', async (c) => {
   return ok(c, { message: 'প্রজেক্ট মুছে ফেলা হয়েছে' })
 })
 
+adminRoutes.get('/projects/:id/closeout-preview', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+
+  const modeParam = c.req.query('mode')
+  const mode: CloseoutMode = modeParam === 'closed' ? 'closed' : 'completed'
+  const preview = await getProjectCloseoutPreview(c.env.DB, id, mode)
+
+  if (!preview) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
+  return ok(c, preview)
+})
+
+const closeoutSchema = z.object({
+  mode: z.enum(['completed', 'closed']),
+  confirm_closeout: z.literal(true),
+  checklist: z.object({
+    pending_purchases_resolved: z.boolean(),
+    pending_expenses_resolved: z.boolean(),
+    profits_resolved: z.boolean(),
+    losses_resolved: z.boolean()
+  })
+})
+
+adminRoutes.post('/projects/:id/closeout', zValidator('json', closeoutSchema), async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+
+  const body = c.req.valid('json')
+  const preview = await getProjectCloseoutPreview(c.env.DB, id, body.mode)
+  if (!preview) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
+
+  if (
+    !body.checklist.pending_purchases_resolved ||
+    !body.checklist.pending_expenses_resolved ||
+    !body.checklist.profits_resolved ||
+    !body.checklist.losses_resolved
+  ) {
+    return err(c, 'Closeout checklist সম্পূর্ণ না করে প্রজেক্ট finalize করা যাবে না', 400)
+  }
+
+  if (!preview.can_closeout) {
+    return c.json({
+      success: false,
+      error: 'Unresolved closeout blockers আছে। preview দেখে আগে settlement সম্পন্ন করুন',
+      data: preview
+    }, 409)
+  }
+
+  try {
+    const refundResult = await executeCapitalRefund(c, id, preview.project, body.mode)
+
+    if (body.mode === 'completed') {
+      await c.env.DB.prepare(
+        `UPDATE projects SET status = ?, completed_at = datetime('now'), progress_pct = 100, updated_at = datetime('now') WHERE id = ?`
+      ).bind(body.mode, id).run()
+    } else {
+      await c.env.DB.prepare(
+        `UPDATE projects SET status = ?, updated_at = datetime('now') WHERE id = ?`
+      ).bind(body.mode, id).run()
+    }
+
+    return ok(c, {
+      message: 'প্রজেক্ট closeout সম্পন্ন হয়েছে',
+      status: body.mode,
+      shareholders_count: refundResult.shareholdersCount,
+      total_refunded: refundResult.totalRefunded
+    })
+  } catch (error: any) {
+    return err(c, error?.message || 'প্রজেক্ট closeout ব্যর্থ হয়েছে', 409)
+  }
+})
+
+adminRoutes.get('/projects/:id/compliance', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+
+  const project = await c.env.DB.prepare('SELECT id, title, status FROM projects WHERE id = ?').bind(id).first<{ id: number; title: string; status: string }>()
+  if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
+
+  const profile = await c.env.DB.prepare(
+    `SELECT * FROM project_compliance_profiles WHERE project_id = ?`
+  ).bind(id).first()
+
+  return ok(c, {
+    project,
+    profile: profile ?? defaultComplianceProfile(id)
+  })
+})
+
+adminRoutes.put('/projects/:id/compliance', zValidator('json', complianceProfileSchema), async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+
+  const project = await c.env.DB.prepare('SELECT id FROM projects WHERE id = ?').bind(id).first<{ id: number }>()
+  if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
+
+  const data = sanitizeObject(c.req.valid('json') as Record<string, unknown>, [
+    'use_of_proceeds',
+    'profit_loss_policy',
+    'principal_risk_notice',
+    'shariah_notes',
+    'ops_notes',
+    'loss_settlement_notes',
+    'external_reviewer_name'
+  ]) as z.infer<typeof complianceProfileSchema>
+
+  const approvedAt = data.shariah_screening_status === 'approved' ? new Date().toISOString() : null
+  const approvedBy = data.shariah_screening_status === 'approved' ? c.get('userId') : null
+
+  await c.env.DB.prepare(
+    `INSERT INTO project_compliance_profiles (
+      project_id, contract_type, shariah_screening_status, ops_reconciliation_status, loss_settlement_status,
+      prohibited_activities_screened, asset_backing_confirmed, profit_ratio_disclosed, loss_sharing_clause_confirmed,
+      principal_risk_notice_confirmed, use_of_proceeds, profit_loss_policy, principal_risk_notice,
+      shariah_notes, ops_notes, loss_settlement_notes, external_reviewer_name, approved_by, approved_at, updated_by, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(project_id) DO UPDATE SET
+      contract_type = excluded.contract_type,
+      shariah_screening_status = excluded.shariah_screening_status,
+      ops_reconciliation_status = excluded.ops_reconciliation_status,
+      loss_settlement_status = excluded.loss_settlement_status,
+      prohibited_activities_screened = excluded.prohibited_activities_screened,
+      asset_backing_confirmed = excluded.asset_backing_confirmed,
+      profit_ratio_disclosed = excluded.profit_ratio_disclosed,
+      loss_sharing_clause_confirmed = excluded.loss_sharing_clause_confirmed,
+      principal_risk_notice_confirmed = excluded.principal_risk_notice_confirmed,
+      use_of_proceeds = excluded.use_of_proceeds,
+      profit_loss_policy = excluded.profit_loss_policy,
+      principal_risk_notice = excluded.principal_risk_notice,
+      shariah_notes = excluded.shariah_notes,
+      ops_notes = excluded.ops_notes,
+      loss_settlement_notes = excluded.loss_settlement_notes,
+      external_reviewer_name = excluded.external_reviewer_name,
+      approved_by = excluded.approved_by,
+      approved_at = excluded.approved_at,
+      updated_by = excluded.updated_by,
+      updated_at = datetime('now')`
+  ).bind(
+    id,
+    data.contract_type,
+    data.shariah_screening_status,
+    data.ops_reconciliation_status,
+    data.loss_settlement_status,
+    data.prohibited_activities_screened ? 1 : 0,
+    data.asset_backing_confirmed ? 1 : 0,
+    data.profit_ratio_disclosed ? 1 : 0,
+    data.loss_sharing_clause_confirmed ? 1 : 0,
+    data.principal_risk_notice_confirmed ? 1 : 0,
+    data.use_of_proceeds || null,
+    data.profit_loss_policy || null,
+    data.principal_risk_notice || null,
+    data.shariah_notes || null,
+    data.ops_notes || null,
+    data.loss_settlement_notes || null,
+    data.external_reviewer_name || null,
+    approvedBy,
+    approvedAt,
+    c.get('userId')
+  ).run()
+
+  return ok(c, { message: 'প্রজেক্ট compliance profile আপডেট হয়েছে' })
+})
+
 adminRoutes.patch('/projects/:id/status', zValidator('json', z.object({ status: z.enum(['draft', 'active', 'closed', 'completed']) })), async (c) => {
   const id = parseInt(c.req.param('id'))
   if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
@@ -223,62 +594,12 @@ adminRoutes.patch('/projects/:id/status', zValidator('json', z.object({ status: 
     return err(c, `'${project.status}' থেকে '${status}'-এ পরিবর্তন করা সম্ভব নয়`, 409)
   }
 
-  if (project.status !== 'closed' && status === 'closed') {
-    // Project is being closed. Refund capital to all shareholders.
-    // SECURITY FIX: Batch operations to avoid D1 timeout with large shareholder counts
-    const shareholders = await c.env.DB.prepare(
-      'SELECT user_id, quantity FROM user_shares WHERE project_id = ? AND quantity > 0'
-    ).bind(id).all<{ user_id: number, quantity: number }>()
-
-    if (shareholders.results.length > 0) {
-      const adminId = c.get('userId')
-      const refundMonth = 'refund-' + new Date().toISOString().slice(0, 7)
-
-      // Collect all statements and batch them to avoid per-shareholder await loops
-      const statements: D1PreparedStatement[] = []
-      for (const sh of shareholders.results) {
-        const refundAmount = sh.quantity * project.share_price
-
-        // Earnings record
-        statements.push(
-          c.env.DB.prepare(
-            `INSERT INTO earnings (user_id, project_id, month, shares, rate, amount)
-             VALUES (?, ?, ?, ?, 0, ?)
-             ON CONFLICT(user_id, project_id, month) DO UPDATE SET amount = amount + excluded.amount`
-          ).bind(sh.user_id, id, refundMonth, sh.quantity, refundAmount)
-        )
-
-        // Update user_balances
-        statements.push(
-          c.env.DB.prepare(
-            `UPDATE user_balances SET total_earned_paisa = total_earned_paisa + ?, updated_at = datetime('now') WHERE user_id = ?`
-          ).bind(refundAmount, sh.user_id)
-        )
-
-        // Audit log
-        statements.push(
-          c.env.DB.prepare(
-            `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
-             VALUES (?, ?, 'earn', 'capital_refund', ?, ?, ?)`
-          ).bind(sh.user_id, refundAmount, id, adminId, `Capital refund for project ${id} closure`)
-        )
-      }
-
-      // D1 batch limit is 100 statements — chunk and execute
-      for (let i = 0; i < statements.length; i += 100) {
-        await c.env.DB.batch(statements.slice(i, i + 100))
-      }
-    }
+  const isTerminalCloseout = status === 'closed' || status === 'completed'
+  if (isTerminalCloseout) {
+    return err(c, 'Terminal status update সরাসরি করা যাবে না। closeout workflow ব্যবহার করুন', 409)
   }
 
-  // For 'completed', record completion timestamp
-  if (status === 'completed') {
-    await c.env.DB.prepare(
-      `UPDATE projects SET status = ?, completed_at = datetime('now'), progress_pct = 100, updated_at = datetime('now') WHERE id = ?`
-    ).bind(status, id).run()
-  } else {
-    await c.env.DB.prepare(`UPDATE projects SET status = ?, updated_at = datetime('now') WHERE id = ?`).bind(status, id).run()
-  }
+  await c.env.DB.prepare(`UPDATE projects SET status = ?, updated_at = datetime('now') WHERE id = ?`).bind(status, id).run()
   return ok(c, { message: 'প্রজেক্ট স্ট্যাটাস আপডেট হয়েছে' })
 })
 
@@ -310,10 +631,16 @@ adminRoutes.patch('/shares/:id/approve', async (c) => {
 
   // Fetch the pending purchase request
   const purchase = await c.env.DB.prepare(
-    'SELECT * FROM share_purchases WHERE id = ? AND status = ?'
-  ).bind(id, 'pending').first<{ user_id: number; project_id: number; quantity: number }>()
+    `SELECT sp.user_id, sp.project_id, sp.quantity, p.status as project_status
+     FROM share_purchases sp
+     JOIN projects p ON p.id = sp.project_id
+     WHERE sp.id = ? AND sp.status = ?`
+  ).bind(id, 'pending').first<{ user_id: number; project_id: number; quantity: number; project_status: string }>()
 
   if (!purchase) return err(c, 'অনুরোধ পাওয়া যায়নি বা ইতিমধ্যে প্রক্রিয়া করা হয়েছে', 404)
+  if (purchase.project_status !== 'active') {
+    return err(c, 'শুধু সক্রিয় প্রজেক্টের শেয়ার ক্রয় অনুমোদন করা যাবে', 409)
+  }
 
   // Step 1: Check availability BEFORE approving (read-then-write, best effort)
   // D1 does not support multi-statement transactions, so we use a careful sequence:

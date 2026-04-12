@@ -45,6 +45,8 @@ const AdminMembers    = lazy(() => import('./pages/admin/AdminMembers'))
 const AdminReferrals  = lazy(() => import('./pages/admin/AdminReferrals'))
 const ProjectFinance  = lazy(() => import('./pages/admin/ProjectFinance'))
 const ProfitDistribution = lazy(() => import('./pages/admin/ProfitDistribution'))
+const ProjectCloseout = lazy(() => import('./pages/admin/ProjectCloseout'))
+const ProjectCompliance = lazy(() => import('./pages/admin/ProjectCompliance'))
 const CompanyExpenses = lazy(() => import('./pages/admin/CompanyExpenses'))
 const CompanyFund     = lazy(() => import('./pages/admin/CompanyFund'))
 const AuditLog        = lazy(() => import('./pages/admin/AuditLog'))
@@ -110,6 +112,8 @@ export default function App() {
         <Route path="/admin/projects"       element={<AdminRoute><Layout><AdminProjects /></Layout></AdminRoute>} />
         <Route path="/admin/projects/:projectId/finance" element={<AdminRoute><Layout><ProjectFinance /></Layout></AdminRoute>} />
         <Route path="/admin/projects/:projectId/distribute-profit" element={<AdminRoute><Layout><ProfitDistribution /></Layout></AdminRoute>} />
+        <Route path="/admin/projects/:projectId/compliance" element={<AdminRoute><Layout><ProjectCompliance /></Layout></AdminRoute>} />
+        <Route path="/admin/projects/:projectId/closeout" element={<AdminRoute><Layout><ProjectCloseout /></Layout></AdminRoute>} />
         <Route path="/admin/company-expenses" element={<AdminRoute><Layout><CompanyExpenses /></Layout></AdminRoute>} />
         <Route path="/admin/company-fund"     element={<AdminRoute><Layout><CompanyFund /></Layout></AdminRoute>} />
         <Route path="/admin/audit-log"        element={<AdminRoute><Layout><AuditLog /></Layout></AdminRoute>} />

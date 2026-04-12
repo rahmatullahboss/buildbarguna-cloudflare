@@ -202,8 +202,8 @@ export default function Register() {
 
         {/* Trust badge */}
         <div className="mt-5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-3 text-center">
-          <p className="text-xs font-semibold text-emerald-800 flex items-center justify-center gap-1"><LottieIcon name="halal" className="w-4 h-4" /> সম্পূর্ণ হালাল বিনিয়োগ</p>
-          <p className="text-xs text-emerald-600 mt-0.5">সুদমুক্ত • মুশারাকা নীতি • শরিয়াহ সম্মত</p>
+          <p className="text-xs font-semibold text-emerald-800 flex items-center justify-center gap-1"><LottieIcon name="halal" className="w-4 h-4" /> শরিয়াহ-সম্মত profit-sharing</p>
+          <p className="text-xs text-emerald-600 mt-0.5">সুদমুক্ত কাঠামো • মুশারাকা-ধাঁচ • governance review</p>
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-5">

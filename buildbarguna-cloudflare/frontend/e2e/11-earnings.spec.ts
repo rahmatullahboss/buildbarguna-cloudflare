@@ -51,8 +51,8 @@ test.describe('Earnings Page (Member)', () => {
   })
 
   test('shows halal investment badge', async ({ page }) => {
-    // Check for halal badge
-    await expect(page.getByText(/হালাল/i)).toBeVisible()
+    // Check for compliance wording
+    await expect(page.getByText(/শরিয়াহ-সম্মত profit-sharing/i)).toBeVisible()
   })
 
   test('displays earnings list grouped by month', async ({ page }) => {

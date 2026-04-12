@@ -11,11 +11,17 @@ import { z } from 'zod'
 import { authMiddleware } from '../middleware/auth'
 import { adminMiddleware } from '../middleware/admin'
 import { ok, err } from '../lib/response'
+import {
+  buildProfitDistributionSummary,
+  resolveEffectiveCompanySharePct
+} from '../lib/profit-distribution'
 import type { Bindings, Variables } from '../types'
 
 const profitRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 profitRoutes.use('*', authMiddleware)
 profitRoutes.use('*', adminMiddleware)
+
+const schemaSupportCache = new Map<string, boolean>()
 
 // ──────────────────────────────────────────────────────────────
 // Helper: write to financial_audit_log
@@ -53,6 +59,9 @@ function auditLog(
 // Helper: get financial snapshot for a project
 // ──────────────────────────────────────────────────────────────
 async function getProjectFinancials(db: D1Database, projectId: number) {
+  const hasTotalDistributedAmount = await hasColumn(db, 'profit_distributions', 'total_distributed_amount')
+  const distributedColumn = hasTotalDistributedAmount ? 'total_distributed_amount' : 'distributable_amount'
+
   const [financials, companyAlloc, distributed] = await Promise.all([
     db.prepare(
       `SELECT 
@@ -67,28 +76,41 @@ async function getProjectFinancials(db: D1Database, projectId: number) {
 
     // Use total_distributed_amount (includes company share) — prevents re-distribution bug
     db.prepare(
-      `SELECT COALESCE(SUM(total_distributed_amount), 0) as total 
+      `SELECT COALESCE(SUM(${distributedColumn}), 0) as total 
        FROM profit_distributions WHERE project_id = ? AND status = 'distributed'`
     ).bind(projectId).first<{ total: number }>()
   ])
 
-  const totalRevenue = financials?.total_revenue ?? 0
-  const directExpense = financials?.direct_expense ?? 0
-  const companyExpenseAllocation = companyAlloc?.total ?? 0
-  const totalExpense = directExpense + companyExpenseAllocation
-  const netProfit = totalRevenue - totalExpense
-  const previouslyDistributed = distributed?.total ?? 0
-  const availableProfit = netProfit - previouslyDistributed
-
   return {
-    totalRevenue,
-    directExpense,
-    companyExpenseAllocation,
-    totalExpense,
-    netProfit,
-    previouslyDistributed,
-    availableProfit
+    totalRevenue: financials?.total_revenue ?? 0,
+    directExpense: financials?.direct_expense ?? 0,
+    companyExpenseAllocation: companyAlloc?.total ?? 0,
+    previouslyDistributed: distributed?.total ?? 0
   }
+}
+
+async function hasColumn(db: D1Database, table: string, column: string) {
+  const cacheKey = `${table}.${column}`
+  const cached = schemaSupportCache.get(cacheKey)
+  if (cached != null) return cached
+
+  const result = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>()
+  const supported = result.results.some((row) => row.name === column)
+  schemaSupportCache.set(cacheKey, supported)
+  return supported
+}
+
+async function hasTable(db: D1Database, table: string) {
+  const cacheKey = `table:${table}`
+  const cached = schemaSupportCache.get(cacheKey)
+  if (cached != null) return cached
+
+  const result = await db.prepare(
+    `SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`
+  ).bind(table).first<{ name: string }>()
+  const supported = !!result
+  schemaSupportCache.set(cacheKey, supported)
+  return supported
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -98,20 +120,18 @@ profitRoutes.get('/preview/:projectId', async (c) => {
   const projectId = parseInt(c.req.param('projectId'))
   if (isNaN(projectId)) return err(c, 'অকার্যকর প্রজেক্ট আইডি')
 
-  const companyPct = parseInt(c.req.query('company_pct') || '30')
+  const companyPctParam = c.req.query('company_pct')
+  const companyPct = companyPctParam ? parseInt(companyPctParam) : undefined
 
   const project = await c.env.DB.prepare(
-    'SELECT id, title, share_price, default_company_share_pct FROM projects WHERE id = ?'
-  ).bind(projectId).first<{ id: number; title: string; share_price: number; default_company_share_pct: number }>()
+    'SELECT * FROM projects WHERE id = ?'
+  ).bind(projectId).first<{ id: number; title: string; share_price: number; default_company_share_pct?: number | null }>()
 
   if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
 
-  const fin = await getProjectFinancials(c.env.DB, projectId)
-
-  // Use query param if provided, otherwise use project's default
-  const effectivePct = c.req.query('company_pct') ? companyPct : Math.floor(project.default_company_share_pct / 100)
-  const companyShareAmount = Math.floor((fin.availableProfit * effectivePct) / 100)
-  const investorPool = fin.availableProfit - companyShareAmount
+  const snapshot = await getProjectFinancials(c.env.DB, projectId)
+  const effectivePct = resolveEffectiveCompanySharePct(companyPct, project.default_company_share_pct)
+  const fin = buildProfitDistributionSummary(snapshot, effectivePct)
 
   const shareholders = await c.env.DB.prepare(
     `SELECT us.user_id, us.quantity as shares_held, u.name as user_name, u.phone 
@@ -124,7 +144,7 @@ profitRoutes.get('/preview/:projectId', async (c) => {
 
   const shareholderData = shareholders.results.map(sh => {
     const ownershipPct = totalSharesSold > 0 ? Math.floor((sh.shares_held / totalSharesSold) * 10000) : 0
-    const profitAmount = totalSharesSold > 0 ? Math.floor((investorPool * sh.shares_held) / totalSharesSold) : 0
+    const profitAmount = totalSharesSold > 0 ? Math.floor((fin.investorPool * sh.shares_held) / totalSharesSold) : 0
     return {
       user_id: sh.user_id,
       user_name: sh.user_name,
@@ -140,7 +160,7 @@ profitRoutes.get('/preview/:projectId', async (c) => {
     project: {
       id: project.id,
       title: project.title,
-      default_company_share_pct: project.default_company_share_pct  // basis points
+      default_company_share_pct: project.default_company_share_pct ?? 3000  // basis points
     },
     summary: {
       total_revenue: fin.totalRevenue,
@@ -149,10 +169,10 @@ profitRoutes.get('/preview/:projectId', async (c) => {
       net_profit: fin.netProfit,
       previously_distributed: fin.previouslyDistributed,
       available_profit: fin.availableProfit,
-      company_share_pct: effectivePct,
-      company_share_amount: companyShareAmount,
-      investor_share_pct: 100 - effectivePct,
-      investor_pool: investorPool,
+      company_share_pct: fin.effectivePct,
+      company_share_amount: fin.companyShareAmount,
+      investor_share_pct: 100 - fin.effectivePct,
+      investor_pool: fin.investorPool,
       total_shareholders: shareholders.results.length,
       total_shares_sold: totalSharesSold
     },
@@ -179,8 +199,8 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
   const data = c.req.valid('json')
 
   const project = await c.env.DB.prepare(
-    'SELECT id, title, share_price FROM projects WHERE id = ?'
-  ).bind(projectId).first<{ id: number; title: string; share_price: number }>()
+    'SELECT * FROM projects WHERE id = ?'
+  ).bind(projectId).first<{ id: number; title: string; share_price: number; default_company_share_pct?: number | null }>()
 
   if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
 
@@ -207,11 +227,11 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
     return err(c, `এই পিরিয়ড পূর্ববর্তী ডিস্ট্রিবিউশন #${overlap.id} (${overlap.period_start} → ${overlap.period_end}) এর সাথে ওভারল্যাপ করছে`, 409)
   }
 
-  const fin = await getProjectFinancials(c.env.DB, projectId)
+  const snapshot = await getProjectFinancials(c.env.DB, projectId)
+  const fin = buildProfitDistributionSummary(snapshot, data.company_share_percentage)
   if (fin.availableProfit <= 0) return err(c, 'ডিস্ট্রিবিউট করার মতো লাভ নেই!', 400)
-
-  const companyShareAmount = Math.floor((fin.availableProfit * data.company_share_percentage) / 100)
-  const investorPool = fin.availableProfit - companyShareAmount
+  const companyShareAmount = fin.companyShareAmount
+  const investorPool = fin.investorPool
 
   const shareholders = await c.env.DB.prepare(
     `SELECT user_id, quantity as shares_held FROM user_shares WHERE project_id = ? AND quantity > 0`
@@ -222,27 +242,54 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
   const totalSharesSold = shareholders.results.reduce((s, sh) => s + sh.shares_held, 0)
 
   // 1. Create distribution batch (initially 'pending')
-  const distResult = await c.env.DB.prepare(
-    `INSERT INTO profit_distributions 
-     (project_id, total_revenue, total_expense, net_profit, distributable_amount,
-      company_share_amount, total_distributed_amount,
-      company_share_percentage, investor_share_percentage, 
-      period_start, period_end, notes,
-      shareholders_count, status, distributed_at, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NULL, ?)`
-  ).bind(
+  const supportsCompanyShareAmount = await hasColumn(c.env.DB, 'profit_distributions', 'company_share_amount')
+  const supportsTotalDistributedAmount = await hasColumn(c.env.DB, 'profit_distributions', 'total_distributed_amount')
+  const supportsNotes = await hasColumn(c.env.DB, 'profit_distributions', 'notes')
+  const supportsShareholdersCount = await hasColumn(c.env.DB, 'profit_distributions', 'shareholders_count')
+
+  const insertColumns = [
+    'project_id',
+    'total_revenue',
+    'total_expense',
+    'net_profit',
+    'distributable_amount'
+  ]
+  const insertValues: Array<string | number | null> = [
     projectId,
-    fin.totalRevenue, fin.totalExpense, fin.netProfit,
-    investorPool,
-    companyShareAmount,
-    fin.availableProfit,
-    data.company_share_percentage * 100,
-    (100 - data.company_share_percentage) * 100,
-    data.period_start, data.period_end,
-    data.notes ?? null,
-    shareholders.results.length,
-    userId
-  ).run()
+    fin.totalRevenue,
+    fin.totalExpense,
+    fin.netProfit,
+    investorPool
+  ]
+
+  if (supportsCompanyShareAmount) {
+    insertColumns.push('company_share_amount')
+    insertValues.push(companyShareAmount)
+  }
+  if (supportsTotalDistributedAmount) {
+    insertColumns.push('total_distributed_amount')
+    insertValues.push(fin.availableProfit)
+  }
+
+  insertColumns.push('company_share_percentage', 'investor_share_percentage', 'period_start', 'period_end')
+  insertValues.push(data.company_share_percentage * 100, (100 - data.company_share_percentage) * 100, data.period_start, data.period_end)
+
+  if (supportsNotes) {
+    insertColumns.push('notes')
+    insertValues.push(data.notes ?? null)
+  }
+  if (supportsShareholdersCount) {
+    insertColumns.push('shareholders_count')
+    insertValues.push(shareholders.results.length)
+  }
+
+  insertColumns.push('status', 'distributed_at', 'created_by')
+  insertValues.push('pending', null, userId)
+
+  const placeholders = insertColumns.map(() => '?').join(', ')
+  const distResult = await c.env.DB.prepare(
+    `INSERT INTO profit_distributions (${insertColumns.join(', ')}) VALUES (${placeholders})`
+  ).bind(...insertValues).run()
 
   if (!distResult.success) return err(c, 'ডিস্ট্রিবিউশন রেকর্ড তৈরিতে ব্যর্থ', 500)
   const distributionId = distResult.meta.last_row_id
@@ -333,58 +380,84 @@ profitRoutes.post('/distribute/:projectId', zValidator('json', distributeSchema)
   }
 
   // 5. Mark distributed + record company fund + audit log (atomic batch)
-  await c.env.DB.batch([
+  const finalizeStatements: D1PreparedStatement[] = [
     c.env.DB.prepare(
       `UPDATE profit_distributions 
        SET status = 'distributed', distributed_at = datetime('now') 
        WHERE id = ?`
-    ).bind(distributionId),
+    ).bind(distributionId)
+  ]
 
-    // Company fund credit (auto-completed, not requiring approval)
-    c.env.DB.prepare(
-      `INSERT INTO company_fund_transactions 
-       (project_id, distribution_id, amount_paisa, transaction_type, description, reference_type, reference_id, status, created_by)
-       VALUES (?, ?, ?, 'profit_share', ?, 'profit_distribution', ?, 'completed', ?)`
-    ).bind(
+  if (await hasTable(c.env.DB, 'company_fund_transactions')) {
+    const companyFundHasStatus = await hasColumn(c.env.DB, 'company_fund_transactions', 'status')
+    const companyFundColumns = [
+      'project_id',
+      'distribution_id',
+      'amount_paisa',
+      'transaction_type',
+      'description',
+      'reference_type',
+      'reference_id'
+    ]
+    const companyFundValues: Array<string | number> = [
       projectId,
-      distributionId,
+      distributionId as number,
       companyShareAmount,
+      'profit_share',
       `"${project.title}" প্রজেক্ট থেকে কোম্পানির প্রফিট শেয়ার (${data.company_share_percentage}%)`,
-      distributionId,
-      userId
-    ),
+      'profit_distribution',
+      distributionId as number
+    ]
+    if (companyFundHasStatus) {
+      companyFundColumns.push('status')
+      companyFundValues.push('completed')
+    }
+    companyFundColumns.push('created_by')
+    companyFundValues.push(userId)
 
-    // Financial audit log — distribution executed
-    auditLog(c.env.DB, {
-      entity_type: 'profit_distribution',
-      entity_id: distributionId as number,
-      action: 'distribute',
-      new_values: {
-        project_id: projectId,
-        investor_pool: investorPool,
-        company_share: companyShareAmount,
-        total_distributed: fin.availableProfit,
-        shareholders_count: shareholders.results.length - failedCount,
-        failed_count: failedCount,
-        period: `${data.period_start} → ${data.period_end}`,
-        company_pct: data.company_share_percentage
-      },
-      amount_paisa: fin.availableProfit,
-      description: `"${project.title}" — ৳${(fin.availableProfit / 100).toFixed(0)} বিতরণ (${shareholders.results.length - failedCount} জন)`,
-      actor_id: userId
-    }),
+    finalizeStatements.push(
+      c.env.DB.prepare(
+        `INSERT INTO company_fund_transactions (${companyFundColumns.join(', ')}) VALUES (${companyFundColumns.map(() => '?').join(', ')})`
+      ).bind(...companyFundValues)
+    )
+  }
 
-    // Audit log — company fund credit
-    auditLog(c.env.DB, {
-      entity_type: 'company_fund',
-      entity_id: distributionId as number,
-      action: 'credit',
-      new_values: { project_id: projectId, amount: companyShareAmount, pct: data.company_share_percentage },
-      amount_paisa: companyShareAmount,
-      description: `কোম্পানি ফান্ডে ৳${(companyShareAmount / 100).toFixed(0)} জমা`,
-      actor_id: userId
-    })
-  ])
+  if (await hasTable(c.env.DB, 'financial_audit_log')) {
+    finalizeStatements.push(
+      auditLog(c.env.DB, {
+        entity_type: 'profit_distribution',
+        entity_id: distributionId as number,
+        action: 'distribute',
+        new_values: {
+          project_id: projectId,
+          investor_pool: investorPool,
+          company_share: companyShareAmount,
+          total_distributed: fin.availableProfit,
+          shareholders_count: shareholders.results.length - failedCount,
+          failed_count: failedCount,
+          period: `${data.period_start} → ${data.period_end}`,
+          company_pct: data.company_share_percentage
+        },
+        amount_paisa: fin.availableProfit,
+        description: `"${project.title}" — ৳${(fin.availableProfit / 100).toFixed(0)} বিতরণ (${shareholders.results.length - failedCount} জন)`,
+        actor_id: userId
+      })
+    )
+
+    finalizeStatements.push(
+      auditLog(c.env.DB, {
+        entity_type: 'company_fund',
+        entity_id: distributionId as number,
+        action: 'credit',
+        new_values: { project_id: projectId, amount: companyShareAmount, pct: data.company_share_percentage },
+        amount_paisa: companyShareAmount,
+        description: `কোম্পানি ফান্ডে ৳${(companyShareAmount / 100).toFixed(0)} জমা`,
+        actor_id: userId
+      })
+    )
+  }
+
+  await c.env.DB.batch(finalizeStatements)
 
   return ok(c, {
     message: `${shareholders.results.length - failedCount} জন শেয়ারহোল্ডারকে সফলভাবে প্রফিট পাঠানো হয়েছে!`,

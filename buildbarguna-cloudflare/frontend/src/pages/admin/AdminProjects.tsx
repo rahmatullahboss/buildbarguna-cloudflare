@@ -341,6 +341,9 @@ export default function AdminProjects() {
                   <Link to={`/admin/projects/${p.id}/finance`} className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1 justify-center">
                     <Wallet size={14} /> ফাইনান্স
                   </Link>
+                  <Link to={`/admin/projects/${p.id}/compliance`} className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold py-1.5 px-3 rounded-xl hover:bg-emerald-100 flex items-center gap-1 justify-center">
+                    <CheckCircle size={13} /> Compliance
+                  </Link>
                   <Link to={`/admin/projects/${p.id}/distribute-profit`} className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1 justify-center">
                     <TrendingUp size={14} /> মুনাফা
                   </Link>
@@ -354,10 +357,10 @@ export default function AdminProjects() {
                   )}
                   {p.status === 'active' && (
                     <>
-                      <button onClick={() => statusMutation.mutate({ id: p.id, status: 'completed' })} className="bg-green-50 text-green-700 border border-green-200 text-xs font-semibold py-1.5 px-3 rounded-xl hover:bg-green-100 flex items-center gap-1 justify-center">
+                      <Link to={`/admin/projects/${p.id}/closeout?mode=completed`} className="bg-green-50 text-green-700 border border-green-200 text-xs font-semibold py-1.5 px-3 rounded-xl hover:bg-green-100 flex items-center gap-1 justify-center">
                         <CheckCircle size={13} /> সম্পন্ন
-                      </button>
-                      <button onClick={() => statusMutation.mutate({ id: p.id, status: 'closed' })} className="btn-secondary text-xs py-1.5 px-3">বন্ধ করুন</button>
+                      </Link>
+                      <Link to={`/admin/projects/${p.id}/closeout?mode=closed`} className="btn-secondary text-xs py-1.5 px-3 text-center">বন্ধ করুন</Link>
                     </>
                   )}
                   {p.status === 'closed' && (

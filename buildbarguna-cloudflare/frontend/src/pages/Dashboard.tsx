@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { authApi, earningsApi, sharesApi, withdrawalsApi, referralsApi, memberApi } from '../lib/api'
+import { earningsApi, sharesApi, withdrawalsApi, referralsApi, memberApi } from '../lib/api'
 import { formatTaka, getUser } from '../lib/auth'
 import { TrendingUp, PieChart, Briefcase, Copy, BarChart2, ArrowRight, ArrowDownCircle, Gift, Users, FileText, Download, CheckCircle, ListTodo, Layers } from 'lucide-react'
 import { useState } from 'react'
@@ -13,7 +13,6 @@ export default function Dashboard() {
   const { show: showOnboarding, dismiss: dismissOnboarding } = useOnboarding()
   const { downloading, error, downloadCertificate, clearError } = useCertificateDownload()
 
-  const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => authApi.me() })
   const { data: summary } = useQuery({ queryKey: ['earnings-summary'], queryFn: () => earningsApi.summary() })
   const { data: shares } = useQuery({ queryKey: ['my-shares'], queryFn: () => sharesApi.my() })
   const { data: portfolio } = useQuery({ queryKey: ['portfolio'], queryFn: () => earningsApi.portfolio(), staleTime: 60_000 })
@@ -23,7 +22,7 @@ export default function Dashboard() {
   const { data: shareRequests } = useQuery({ queryKey: ['share-requests-dashboard'], queryFn: () => sharesApi.requests(1), staleTime: 60_000 })
   const { data: incomeBreakdown } = useQuery({ queryKey: ['income-breakdown'], queryFn: () => withdrawalsApi.incomeBreakdown(), staleTime: 60_000 })
 
-  const balance = me?.success ? me.data.balance_paisa : 0
+  const totalProfit = summary?.success ? summary.data.total_paisa : 0
   const thisMonth = summary?.success ? summary.data.this_month_paisa : 0
   const totalShares = shares?.success ? shares.data.items.reduce((s, i) => s + i.quantity, 0) : 0
   const port = portfolio?.success ? portfolio.data : null
@@ -69,7 +68,7 @@ export default function Dashboard() {
             <div className="bg-white/20 p-1.5 rounded-xl"><TrendingUp size={18} className="text-white" /></div>
             <span className="text-sm text-green-100">মোট মুনাফা</span>
           </div>
-          <p className="text-2xl font-bold" style={{animation: 'countUp 0.4s ease-out 0.1s both'}}>{formatTaka(balance)}</p>
+          <p className="text-2xl font-bold" style={{animation: 'countUp 0.4s ease-out 0.1s both'}}>{formatTaka(totalProfit)}</p>
         </div>
         <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-4 text-white shadow-md slide-up stagger-2">
           <div className="flex items-center gap-2 mb-3">
@@ -238,7 +237,7 @@ export default function Dashboard() {
               <p className="text-2xl font-bold text-purple-700">{formatTaka(wbal.available_paisa)}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-400">মোট অর্জিত</p>
+              <p className="text-xs text-gray-400">মোট জমাকৃত</p>
               <p className="font-semibold text-gray-600">{formatTaka(wbal.total_earned_paisa)}</p>
             </div>
           </div>
@@ -265,6 +264,9 @@ export default function Dashboard() {
                     ? Math.max(3, (item.amount_paisa / incomeBreakdown.data.total_earned_paisa) * 100)
                     : 0
                   const isRef = item.source === 'referral_bonus'
+                  const isProject = item.source === 'project_earnings'
+                  const icon = isProject ? '📊' : isRef ? '🎁' : item.source === 'monthly_earnings' ? '📈' : item.source === 'capital_refund' ? '🏦' : '💰'
+                  const displayLabel = isProject ? item.project_title : item.label
 
                   return (
                     <div key={`${item.source}-${item.project_id ?? 'ref'}-${i}`}
@@ -273,7 +275,7 @@ export default function Dashboard() {
                         <div className="flex items-center gap-2 min-w-0">
                           <span className={`w-2 h-2 rounded-full shrink-0 ${colors[i % colors.length]}`} />
                           <span className="text-xs font-medium text-gray-700 truncate">
-                            {isRef ? '🎁 রেফারেল বোনাস' : `📊 ${item.project_title}`}
+                            {icon} {displayLabel}
                           </span>
                           {item.detail && (
                             <span className="text-[10px] text-gray-400 shrink-0">({item.detail})</span>

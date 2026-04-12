@@ -91,6 +91,24 @@ describe('Earnings API', () => {
       expect(json.data.this_month_paisa).toBe(50000)
     })
 
+    it('excludes capital refunds from profit summary totals', async () => {
+      await env.DB.prepare(
+        'INSERT INTO earnings (user_id, project_id, month, amount) VALUES (?, ?, ?, ?)'
+      ).bind(testUser.id, testProject.id, '2026-03', 7000).run()
+
+      await env.DB.prepare(
+        'INSERT INTO earnings (user_id, project_id, month, amount) VALUES (?, ?, ?, ?)'
+      ).bind(testUser.id, testProject.id, 'refund-2026-04', 10000).run()
+
+      const response = await env.app.fetch('/api/earnings/summary', {
+        headers: { 'x-user-id': String(testUser.id) }
+      })
+
+      const json = await response.json() as any
+      expect(json.success).toBe(true)
+      expect(json.data.total_paisa).toBe(7000)
+    })
+
     it('requires authentication', async () => {
       const response = await env.app.fetch('/api/earnings/summary')
       expect(response.status).toBe(401)
@@ -169,6 +187,28 @@ describe('Earnings API', () => {
       const json = await response.json() as any
       // ROI = 50,000 / 1,000,000 = 5%
       expect(json.data.roi_percent).toBeCloseTo(5, 1)
+    })
+
+    it('excludes capital refunds from portfolio earnings and ROI', async () => {
+      await env.DB.prepare(
+        'INSERT INTO earnings (user_id, project_id, month, amount, rate) VALUES (?, ?, ?, ?, ?)'
+      ).bind(testUser.id, testProject.id, '2026-03', 7000, 700).run()
+
+      await env.DB.prepare(
+        'INSERT INTO earnings (user_id, project_id, month, amount, rate) VALUES (?, ?, ?, ?, ?)'
+      ).bind(testUser.id, testProject.id, 'refund-2026-04', 10000, 0).run()
+
+      const response = await env.app.fetch('/api/earnings/portfolio', {
+        headers: { 'x-user-id': String(testUser.id) }
+      })
+
+      const json = await response.json() as any
+      expect(json.success).toBe(true)
+      expect(json.data.total_earned_paisa).toBe(7000)
+      expect(json.data.roi_percent).toBeCloseTo(0.7, 2)
+      expect(json.data.projects[0].total_earned_paisa).toBe(7000)
+      expect(json.data.projects[0].monthly_history).toHaveLength(1)
+      expect(json.data.projects[0].monthly_history[0].month).toBe('2026-03')
     })
 
     it('calculates concentration risk for single project', async () => {

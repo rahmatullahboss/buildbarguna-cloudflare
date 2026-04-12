@@ -23,7 +23,7 @@ export default function AdminWithdrawals() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [rejectId, setRejectId] = useState<number | null>(null)
   const [rejectNote, setRejectNote] = useState('')
-  const [completeId, setCompleteId] = useState<number | null>(null)
+  const [completingWithdrawal, setCompletingWithdrawal] = useState<WithdrawalWithUser | null>(null)
   const [txid, setTxid] = useState('')
   const [msg, setMsg] = useState('')
   const [errMsg, setErrMsg] = useState('')
@@ -52,7 +52,7 @@ export default function AdminWithdrawals() {
     onSuccess: (res) => {
       if (res.success) {
         setMsg('✅ উত্তোলন সম্পন্ন হয়েছে')
-        setCompleteId(null)
+        setCompletingWithdrawal(null)
         setTxid('')
         invalidate()
       } else setErrMsg((res as any).error)
@@ -122,11 +122,11 @@ export default function AdminWithdrawals() {
       </div>
 
       {/* Withdraw modal — Complete */}
-      {completeId !== null && (
+      {completingWithdrawal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl space-y-4">
-            <h3 className="font-bold text-lg">bKash TxID লিখুন</h3>
-            <p className="text-sm text-gray-500">bKash এ টাকা পাঠানোর পরে Transaction ID লিখুন</p>
+            <h3 className="font-bold text-lg">{completingWithdrawal.withdrawal_method === 'nagad' ? 'Nagad' : 'bKash'} TxID লিখুন</h3>
+            <p className="text-sm text-gray-500">{completingWithdrawal.withdrawal_method === 'nagad' ? 'Nagad' : 'bKash'} এ টাকা পাঠানোর পরে Transaction ID লিখুন</p>
             <input
               className="input font-mono"
               placeholder="TxID (যেমন: 8N5OG3X7)"
@@ -135,13 +135,13 @@ export default function AdminWithdrawals() {
             />
             <div className="flex gap-2">
               <button
-                onClick={() => completeMutation.mutate({ id: completeId, bkash_txid: txid })}
+                onClick={() => completeMutation.mutate({ id: completingWithdrawal.id, bkash_txid: txid })}
                 disabled={txid.length < 5 || completeMutation.isPending}
                 className="btn-primary flex-1"
               >
                 {completeMutation.isPending ? 'সম্পন্ন হচ্ছে...' : '✓ সম্পন্ন করুন'}
               </button>
-              <button onClick={() => { setCompleteId(null); setTxid('') }} className="btn-secondary flex-1">
+              <button onClick={() => { setCompletingWithdrawal(null); setTxid('') }} className="btn-secondary flex-1">
                 বাতিল
               </button>
             </div>
@@ -199,8 +199,8 @@ export default function AdminWithdrawals() {
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
                     <span>পরিমাণ: <span className="font-bold text-gray-900">{formatTaka(w.amount_paisa)}</span></span>
-                    <span>পদ্ধতি: <span className={`font-medium ${(w as any).withdrawal_method === 'cash' ? 'text-green-600' : 'text-pink-600'}`}>{(w as any).withdrawal_method === 'cash' ? '💵 ক্যাশ' : '📱 bKash'}</span></span>
-                    {w.bkash_number && <span>bKash: <span className="font-mono font-medium text-gray-700">{w.bkash_number}</span></span>}
+                    <span>পদ্ধতি: <span className={`font-medium ${w.withdrawal_method === 'cash' ? 'text-green-600' : w.withdrawal_method === 'nagad' ? 'text-orange-600' : 'text-pink-600'}`}>{w.withdrawal_method === 'cash' ? '💵 ক্যাশ' : w.withdrawal_method === 'nagad' ? '📱 Nagad' : '📱 bKash'}</span></span>
+                    {w.bkash_number && <span>{w.withdrawal_method === 'nagad' ? 'Nagad' : 'bKash'}: <span className="font-mono font-medium text-gray-700">{w.bkash_number}</span></span>}
                     <span>তারিখ: {formatDate(w.requested_at)}</span>
                     {w.bkash_txid && <span>TxID: <span className="font-mono text-green-700">{w.bkash_txid}</span></span>}
                   </div>
@@ -230,7 +230,7 @@ export default function AdminWithdrawals() {
                   )}
                   {w.status === 'approved' && (
                     <>
-                      {(w as any).withdrawal_method === 'cash' ? (
+                      {w.withdrawal_method === 'cash' ? (
                         <button
                           onClick={() => { setMsg(''); setErrMsg(''); completeMutation.mutate({ id: w.id }) }}
                           disabled={completeMutation.isPending || rejectMutation.isPending}
@@ -241,12 +241,12 @@ export default function AdminWithdrawals() {
                         </button>
                       ) : (
                         <button
-                          onClick={() => { setMsg(''); setErrMsg(''); setCompleteId(w.id) }}
+                          onClick={() => { setMsg(''); setErrMsg(''); setCompletingWithdrawal(w) }}
                           disabled={completeMutation.isPending || rejectMutation.isPending}
                           className="flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <DollarSign size={14} />
-                          {completeMutation.isPending ? '...' : 'bKash পাঠান'}
+                          {completeMutation.isPending ? '...' : w.withdrawal_method === 'nagad' ? 'Nagad পাঠান' : 'bKash পাঠান'}
                         </button>
                       )}
                       <button

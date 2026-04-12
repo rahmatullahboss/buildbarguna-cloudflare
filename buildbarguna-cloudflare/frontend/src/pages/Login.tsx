@@ -95,7 +95,7 @@ export default function Login() {
             <img src="/bbi logo.jpg" alt="BBI Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900">বিল্ড বরগুনা</h1>
-          <p className="text-gray-500 text-sm mt-2">হালাল গ্রুপ ইনভেস্টমেন্ট প্ল্যাটফর্ম</p>
+          <p className="text-gray-500 text-sm mt-2">শরিয়াহ-সম্মত profit-sharing প্ল্যাটফর্ম</p>
         </div>
 
         {/* Error */}
@@ -208,8 +208,8 @@ export default function Login() {
           <div className="flex items-center gap-2 justify-center">
             <LottieIcon name="halal" className="w-6 h-6" />
             <div className="text-center">
-              <p className="text-xs font-semibold text-emerald-800">সম্পূর্ণ হালাল বিনিয়োগ</p>
-              <p className="text-xs text-emerald-600">সুদমুক্ত • মুশারাকা নীতি • শরিয়াহ সম্মত</p>
+              <p className="text-xs font-semibold text-emerald-800">শরিয়াহ-সম্মত profit-sharing</p>
+              <p className="text-xs text-emerald-600">সুদমুক্ত কাঠামো • মুশারাকা-ধাঁচ • governance review</p>
             </div>
           </div>
         </div>

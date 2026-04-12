@@ -110,16 +110,27 @@ withdrawalRoutes.get('/balance', async (c) => {
 withdrawalRoutes.get('/balance/breakdown', async (c) => {
   const userId = c.get('userId')
 
-  // Parallel queries: per-project earnings + referral bonuses + legacy audit log entries + explicit balance
-  const [projectEarnings, referralBonus, legacyEntries, explicitBalance] = await Promise.all([
+  // Parallel queries: per-project earnings + capital refund + referral bonuses + legacy audit log entries + explicit balance
+  const [projectEarnings, capitalRefunds, referralBonus, legacyEntries, explicitBalance] = await Promise.all([
     c.env.DB.prepare(
       `SELECT p.title as project_title, p.id as project_id, SUM(e.amount) as total_paisa, COUNT(DISTINCT e.month) as months
        FROM earnings e
        JOIN projects p ON p.id = e.project_id
        WHERE e.user_id = ?
+         AND e.month NOT LIKE 'refund-%'
        GROUP BY e.project_id
        ORDER BY total_paisa DESC`
     ).bind(userId).all<{ project_title: string; project_id: number; total_paisa: number; months: number }>(),
+
+    c.env.DB.prepare(
+      `SELECT p.title as project_title, p.id as project_id, SUM(e.amount) as total_paisa, COUNT(*) as refund_count
+       FROM earnings e
+       JOIN projects p ON p.id = e.project_id
+       WHERE e.user_id = ?
+         AND e.month LIKE 'refund-%'
+       GROUP BY e.project_id
+       ORDER BY total_paisa DESC`
+    ).bind(userId).all<{ project_title: string; project_id: number; total_paisa: number; refund_count: number }>(),
 
     c.env.DB.prepare(
       `SELECT COALESCE(SUM(amount_paisa), 0) as total, COUNT(*) as count
@@ -156,6 +167,20 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
     sumFromSources += row.total_paisa
   }
 
+  // Capital refunds are stored in earnings as refund-YYYY-MM months.
+  // Keep them separate in the breakdown so principal is visible and not merged with profit.
+  for (const row of capitalRefunds.results) {
+    breakdown.push({
+      source: 'capital_refund',
+      label: 'মূলধন ফেরত',
+      project_title: row.project_title,
+      project_id: row.project_id,
+      amount_paisa: row.total_paisa,
+      detail: `${row.refund_count} বার`
+    })
+    sumFromSources += row.total_paisa
+  }
+
   // Legacy monthly earnings from old system (balance_audit_log)
   const legacyLabels: Record<string, string> = {
     monthly_earnings: 'পূর্বের মাসিক মুনাফা',
@@ -165,8 +190,15 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
   }
 
   for (const entry of legacyEntries.results) {
-    // Skip types already accounted for
-    if (entry.reference_type === 'profit_distribution' || entry.reference_type === 'referral_bonus') continue
+    // Skip types already accounted for elsewhere.
+    // profit_distribution is written into earnings directly,
+    // capital_refund is separated above from earnings,
+    // and referral_bonus comes from referral_bonuses directly.
+    if (
+      entry.reference_type === 'profit_distribution' ||
+      entry.reference_type === 'referral_bonus' ||
+      entry.reference_type === 'capital_refund'
+    ) continue
     if (entry.total <= 0) continue
     
     breakdown.push({
@@ -228,8 +260,8 @@ withdrawalRoutes.get('/history', async (c) => {
 // POST /api/withdrawals/request — submit withdrawal request
 const requestSchema = z.object({
   amount_paisa: z.number().int().min(100, 'সর্বনিম্ন ৳১.০০ হতে হবে').max(100000000, 'সর্বোচ্চ ৳১,০০,০০০ পর্যন্ত অনুমোদিত'),
-  bkash_number: z.string().regex(/^01[3-9]\d{8}$/, 'সঠিক bKash নম্বর দিন (01XXXXXXXXX)').optional(),
-  withdrawal_method: z.enum(['bkash', 'cash']).default('bkash')
+  bkash_number: z.string().regex(/^01[3-9]\d{8}$/, 'সঠিক মোবাইল নম্বর দিন (01XXXXXXXXX)').optional(),
+  withdrawal_method: z.enum(['bkash', 'nagad', 'cash']).default('bkash')
 })
 
 withdrawalRoutes.post('/request', zValidator('json', requestSchema), async (c) => {
@@ -260,10 +292,10 @@ withdrawalRoutes.post('/request', zValidator('json', requestSchema), async (c) =
     return err(c, `অপর্যাপ্ত ব্যালেন্স। উপলব্ধ: ৳${(balance.available_paisa / 100).toFixed(2)}`)
   }
 
-  // Validate bKash number for bkash method
-  if (withdrawal_method === 'bkash') {
+  // Validate number for bkash/nagad method
+  if (withdrawal_method === 'bkash' || withdrawal_method === 'nagad') {
     if (!bkash_number || !/^01[3-9]\d{8}$/.test(bkash_number)) {
-      return err(c, 'বৈধ bKash নম্বর দিন (01XXXXXXXXX ফরম্যাটে)')
+      return err(c, 'বৈধ মোবাইল নম্বর দিন (01XXXXXXXXX ফরম্যাটে)')
     }
   }
 
@@ -299,7 +331,7 @@ withdrawalRoutes.post('/request', zValidator('json', requestSchema), async (c) =
     result = await c.env.DB.prepare(
       `INSERT INTO withdrawals (user_id, amount_paisa, bkash_number, withdrawal_method)
        VALUES (?, ?, ?, ?)`
-    ).bind(userId, amount_paisa, withdrawal_method === 'bkash' ? bkash_number : null, withdrawal_method).run()
+    ).bind(userId, amount_paisa, (withdrawal_method === 'bkash' || withdrawal_method === 'nagad') ? bkash_number : null, withdrawal_method).run()
   } catch (e: any) {
     // D1 UNIQUE constraint error on idx_one_pending_per_user
     if (e?.message?.includes('UNIQUE') || e?.message?.includes('unique')) {
@@ -311,7 +343,7 @@ withdrawalRoutes.post('/request', zValidator('json', requestSchema), async (c) =
   if (!result.success) return err(c, 'উত্তোলন অনুরোধ জমা দিতে ব্যর্থ হয়েছে', 500)
 
   return ok(c, {
-    message: 'উত্তোলন অনুরোধ জমা হয়েছে। অ্যাডমিন অনুমোদনের পরে bKash এ পাঠানো হবে।',
+    message: 'উত্তোলন অনুরোধ জমা হয়েছে। অ্যাডমিন ৭২ ঘন্টার মধ্যে যাচাই করে পাঠাবে।',
     withdrawal_id: result.meta.last_row_id,
     amount_paisa
   }, 201)
@@ -480,7 +512,7 @@ adminWithdrawalRoutes.patch('/:id/complete', zValidator('json', completeSchema),
   const isCash = bkash_txid === 'CASH' || (withdrawal as any).withdrawal_method === 'cash'
   if (!isCash) {
     if (!/^[A-Z0-9]{8,12}$/.test(bkash_txid)) {
-      return err(c, 'বৈধ bKash TxID দিন (৮-১২ অক্ষর)')
+      return err(c, 'বৈধ TxID দিন (৮-১২ অক্ষর)')
     }
     const dupTx = await c.env.DB.prepare(
       'SELECT id FROM withdrawals WHERE bkash_txid = ?'
@@ -530,7 +562,7 @@ adminWithdrawalRoutes.patch('/:id/complete', zValidator('json', completeSchema),
 
     if (!batchResults[0].meta.changes) return err(c, 'অনুরোধ ইতিমধ্যে প্রক্রিয়া করা হয়েছে', 409)
 
-    return ok(c, { message: `bKash TxID ${bkash_txid} দিয়ে উত্তোলন সম্পন্ন হয়েছে।` })
+    return ok(c, { message: `TxID ${bkash_txid} দিয়ে উত্তোলন সম্পন্ন হয়েছে।` })
   } catch (error: any) {
     console.error('[withdrawal-complete] Error:', error)
     return err(c, 'Failed to complete withdrawal', 500)

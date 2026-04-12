@@ -34,7 +34,7 @@ test.describe('Public Pages', () => {
 
   test('login page has halal trust badge', async ({ page }) => {
     await page.goto('/login')
-    await expect(page.locator('text=সম্পূর্ণ হালাল বিনিয়োগ প্ল্যাটফর্ম')).toBeVisible()
+    await expect(page.locator('text=শরিয়াহ-সম্মত profit-sharing')).toBeVisible()
   })
 
   test('register page loads', async ({ page }) => {
@@ -86,8 +86,8 @@ test.describe('Member Pages (read-only)', () => {
   test('projects page loads with disclaimers', async ({ page }) => {
     await page.goto('/projects')
     await expect(page.locator('h1')).toContainText('লাইভ প্রজেক্টসমূহ')
-    // halal full disclaimer title
-    await expect(page.getByText('সম্পূর্ণ হালাল বিনিয়োগ', { exact: false })).toBeVisible()
+    // updated compliance wording
+    await expect(page.getByText('শরিয়াহ-সম্মত বিনিয়োগ নোট', { exact: false })).toBeVisible()
     // investment-risk compact mode — shows first point text only (no title)
     await expect(page.getByText('বিনিয়োগে সবসময় ঝুঁকি আছে', { exact: false })).toBeVisible()
   })
@@ -95,8 +95,8 @@ test.describe('Member Pages (read-only)', () => {
   test('my-investments page loads', async ({ page }) => {
     await page.goto('/my-investments')
     await expect(page.locator('h1')).toContainText('আমার বিনিয়োগ')
-    // halal compact mode — shows first point text
-    await expect(page.getByText('সকল বিনিয়োগ সম্পূর্ণ ইসলামিক শরিয়াহ নীতি', { exact: false })).toBeVisible()
+    // compact compliance note
+    await expect(page.getByText('profit-sharing model অনুসরণ করে', { exact: false })).toBeVisible()
   })
 
   test('earnings page loads with bar chart section', async ({ page }) => {

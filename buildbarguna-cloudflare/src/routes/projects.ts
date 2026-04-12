@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { ok, err, getPagination, paginate } from '../lib/response'
+import { defaultComplianceProfile, toPublicComplianceDisclosure, type ProjectComplianceProfile } from '../lib/project-compliance'
 import type { Bindings, Variables, Project } from '../types'
 
 export const projectRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
@@ -63,3 +64,23 @@ projectRoutes.get('/:id', async (c) => {
   })
 })
 
+// GET /api/projects/:id/compliance — public disclosure
+projectRoutes.get('/:id/compliance', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর প্রজেক্ট আইডি')
+
+  const project = await c.env.DB.prepare(
+    'SELECT id, title, status FROM projects WHERE id = ?'
+  ).bind(id).first<{ id: number; title: string; status: string }>()
+
+  if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
+
+  const profile = await c.env.DB.prepare(
+    `SELECT * FROM project_compliance_profiles WHERE project_id = ?`
+  ).bind(id).first<ProjectComplianceProfile>()
+
+  return ok(c, {
+    project,
+    disclosure: toPublicComplianceDisclosure(profile ?? defaultComplianceProfile(id))
+  })
+})

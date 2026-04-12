@@ -117,7 +117,7 @@ function getPasswordResetHtml(data: PasswordResetEmailData): string {
           <tr>
             <td style="background: linear-gradient(135deg, #1e3a5f 0%, #0d9488 100%); padding: 40px 30px; text-align: center;">
               <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">বিল্ড বরগুনা</h1>
-              <p style="margin: 8px 0 0 0; color: #e0f2f1; font-size: 14px;">হালাল গ্রুপ ইনভেস্টমেন্ট প্ল্যাটফর্ম</p>
+              <p style="margin: 8px 0 0 0; color: #e0f2f1; font-size: 14px;">শরিয়াহ-সম্মত profit-sharing প্ল্যাটফর্ম</p>
             </td>
           </tr>
           
@@ -180,7 +180,7 @@ function getPasswordResetHtml(data: PasswordResetEmailData): string {
           <tr>
             <td style="background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
               <p style="margin: 0 0 12px 0; color: #6b7280; font-size: 14px;">
-                বিল্ড বরগুনা - হালাল বিনিয়োগের বিশ্বস্ত সঙ্গী
+                বিল্ড বরগুনা - শরিয়াহ-সম্মত profit-sharing সঙ্গী
               </p>
               <p style="margin: 0; color: #9ca3af; font-size: 12px;">
                 এই ইমেইলটি স্বয়ংক্রিয়ভাবে পাঠানো হয়েছে। দয়া করে এটির উত্তর দেবেন না।
@@ -216,7 +216,7 @@ ${data.resetLink}
 আপনি কি পাসওয়ার্ড রিসেটের অনুরোধ করেননি? তাহলে এই ইমেইলটি উপেক্ষা করুন।
 
 বিল্ড বরগুনা
-হালাল বিনিয়োগের বিশ্বস্ত সঙ্গী
+শরিয়াহ-সম্মত profit-sharing সঙ্গী
   `
 }
 
@@ -282,7 +282,7 @@ function getPasswordResetConfirmationHtml(data: PasswordResetConfirmationData): 
           <tr>
             <td style="background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
               <p style="margin: 0 0 12px 0; color: #6b7280; font-size: 14px;">
-                বিল্ড বরগুনা - হালাল বিনিয়োগের বিশ্বস্ত সঙ্গী
+                বিল্ড বরগুনা - শরিয়াহ-সম্মত profit-sharing সঙ্গী
               </p>
               <p style="margin: 0; color: #9ca3af; font-size: 12px;">
                 এই ইমেইলটি স্বয়ংক্রিয়ভাবে পাঠানো হয়েছে।
@@ -318,7 +318,7 @@ function getPasswordResetConfirmationText(data: PasswordResetConfirmationData): 
 আপনি কি এই পরিবর্তনটি করেননি? দয়া করে দ্রুত আমাদের সাপোর্ট টিমের সাথে যোগাযোগ করুন।
 
 বিল্ড বরগুনা
-হালাল বিনিয়োগের বিশ্বস্ত সঙ্গী
+শরিয়াহ-সম্মত profit-sharing সঙ্গী
   `
 }
 
@@ -357,7 +357,7 @@ function getWelcomeHtml(data: WelcomeEmailData): string {
               </p>
               
               <p style="margin: 0 0 24px 0; color: #374151; font-size: 16px; line-height: 1.6;">
-                এখন আপনি আমাদের প্ল্যাটফর্মে হালাল বিনিয়োগ শুরু করতে পারেন এবং মুশারাকা নীতিতে লাভবান হতে পারেন।
+                এখন আপনি আমাদের প্ল্যাটফর্মে profit-sharing বিনিয়োগ শুরু করতে পারেন এবং মুশারাকা-ধাঁচের কাঠামো সম্পর্কে জানতে পারেন।
               </p>
               
               <!-- Get Started Button -->
@@ -377,7 +377,7 @@ function getWelcomeHtml(data: WelcomeEmailData): string {
           <tr>
             <td style="background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
               <p style="margin: 0 0 12px 0; color: #6b7280; font-size: 14px;">
-                বিল্ড বরগুনা - হালাল বিনিয়োগের বিশ্বস্ত সঙ্গী
+                বিল্ড বরগুনা - শরিয়াহ-সম্মত profit-sharing সঙ্গী
               </p>
               <p style="margin: 0; color: #9ca3af; font-size: 12px;">
                 কোনো প্রশ্ন থাকলে আমাদের সাপোর্ট টিমের সাথে যোগাযোগ করুন।
@@ -402,11 +402,11 @@ function getWelcomeText(data: WelcomeEmailData): string {
 
 বিল্ড বরগুনায় যোগ দেওয়ার জন্য ধন্যবাদ! আমরা আপনাকে আমাদের পরিবারের একজন হিসেবে পেয়ে গর্বিত।
 
-এখন আপনি আমাদের প্ল্যাটফর্মে হালাল বিনিয়োগ শুরু করতে পারেন এবং মুশারাকা নীতিতে লাভবান হতে পারেন।
+এখন আপনি আমাদের প্ল্যাটফর্মে profit-sharing বিনিয়োগ শুরু করতে পারেন এবং মুশারাকা-ধাঁচের কাঠামো সম্পর্কে জানতে পারেন।
 
 ড্যাশবোর্ডে যান: https://buildbargunainitiative.org/dashboard
 
 বিল্ড বরগুনা
-হালাল বিনিয়োগের বিশ্বস্ত সঙ্গী
+শরিয়াহ-সম্মত profit-sharing সঙ্গী
   `
 }

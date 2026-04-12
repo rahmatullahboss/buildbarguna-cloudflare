@@ -40,7 +40,6 @@ const steps = [
 ]
 
 const stats = [
-  { value: '৳০', label: 'মাসিক খরচ', sub: 'সম্পূর্ণ বিনামূল্যে' },
   { value: '১০০%', label: 'স্বচ্ছতা', sub: 'সব লেনদেন দৃশ্যমান' },
   { value: '২৪/৭', label: 'অ্যাক্সেস', sub: 'যেকোনো সময় দেখুন' },
 ]
@@ -104,7 +103,7 @@ export default function Home() {
           </div>
 
           {/* Stats row */}
-          <div className="grid grid-cols-3 gap-6 mt-16 max-w-lg mx-auto slide-up stagger-4">
+          <div className="grid grid-cols-2 gap-6 mt-16 max-w-md mx-auto slide-up stagger-4">
             {stats.map(s => (
               <div key={s.label} className="text-center">
                 <p className="text-2xl sm:text-3xl font-bold text-yellow-400">{s.value}</p>
@@ -147,13 +146,13 @@ export default function Home() {
           <div className="mb-4 flex justify-center">
             <LottieIcon name="halal" className="w-16 h-16" />
           </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">সম্পূর্ণ হালাল বিনিয়োগ</h2>
-          <p className="text-gray-600 mb-6 max-w-xl mx-auto">আমাদের বিনিয়োগ পদ্ধতি ইসলামিক মুশারাকা নীতি মেনে চলে। কোনো সুদ নেই, কোনো হারাম উপার্জন নেই।</p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">শরিয়াহ-সম্মত profit-sharing কাঠামো</h2>
+          <p className="text-gray-600 mb-6 max-w-xl mx-auto">আমাদের বিনিয়োগ পদ্ধতি শেয়ার-ভিত্তিক profit-sharing model অনুসরণ করে। নির্দিষ্ট মুনাফার গ্যারান্টি নেই এবং প্রজেক্ট screening ও governance review প্রযোজ্য।</p>
           <div className="flex flex-wrap justify-center gap-3">
             {[
               { icon: 'checkmark', label: 'সুদমুক্ত' },
               { icon: 'checkmark', label: 'মুশারাকা নীতি' },
-              { icon: 'checkmark', label: 'লাভ-লোকসান ভাগাভাগি' },
+              { icon: 'checkmark', label: 'profit-sharing' },
               { icon: 'checkmark', label: 'সম্পূর্ণ স্বচ্ছ' }
             ].map(item => (
               <span key={item.label} className="bg-white border border-emerald-200 text-emerald-800 text-sm font-semibold px-4 py-2 rounded-full shadow-sm flex items-center gap-1.5">
@@ -314,7 +313,7 @@ export default function Home() {
             <Link to="/projects" className="hover:text-white transition-colors">প্রজেক্টসমূহ</Link>
           </div>
           <div className="border-t border-gray-800 pt-6">
-            <p className="text-xs text-gray-600 mb-2">© ২০২৬ বিল্ড বরগুনা। সর্বস্বত্ব সংরক্ষিত। | সম্পূর্ণ হালাল বিনিয়োগ প্ল্যাটফর্ম</p>
+            <p className="text-xs text-gray-600 mb-2">© ২০২৬ বিল্ড বরগুনা। সর্বস্বত্ব সংরক্ষিত। | শরিয়াহ-সম্মত profit-sharing প্ল্যাটফর্ম</p>
             <a href="https://digitalcare.site/" target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-teal-500 hover:text-teal-400 transition-colors">
               Created by DigitalCare
             </a>

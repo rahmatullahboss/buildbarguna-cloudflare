@@ -24,7 +24,7 @@ interface Migration {
  * Migration definitions
  * SQL is loaded from KV at runtime to avoid duplication
  */
-const MIGRATIONS: Migration[] = [
+export const MIGRATIONS: Migration[] = [
   { 
     id: 1, 
     name: '001_referral_system', 
@@ -198,6 +198,125 @@ const MIGRATIONS: Migration[] = [
       DROP TRIGGER IF EXISTS update_user_points_on_transaction;
       DROP TRIGGER IF EXISTS reset_monthly_points;
     `,
+    timeout_ms: 60000
+  },
+  {
+    id: 16,
+    name: '014_membership_edit_cancel_reapply',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 60000
+  },
+  {
+    id: 17,
+    name: '016_member_updated_at',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 60000
+  },
+  {
+    id: 18,
+    name: '019_production_readiness_fixes',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 120000
+  },
+  {
+    id: 19,
+    name: '020_idempotency_support',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 60000
+  },
+  {
+    id: 20,
+    name: '021_fix_double_points_bug',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 60000
+  },
+  {
+    id: 21,
+    name: '022_email_authentication',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 120000
+  },
+  {
+    id: 22,
+    name: '023_make_phone_nullable',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 60000
+  },
+  {
+    id: 23,
+    name: '024_user_balances_system',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 120000
+  },
+  {
+    id: 24,
+    name: '025_expand_audit_action_types',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 60000
+  },
+  {
+    id: 25,
+    name: '026_finance_soft_delete',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 60000
+  },
+  {
+    id: 26,
+    name: '027_profit_distribution_redesign',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 60000
+  },
+  {
+    id: 27,
+    name: '028_profit_distribution_enhancements',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 60000
+  },
+  {
+    id: 28,
+    name: '029_cash_withdrawal',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 60000
+  },
+  {
+    id: 29,
+    name: '030_fix_duplicate_categories',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 60000
+  },
+  {
+    id: 30,
+    name: '032_project_enhancement',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 60000
+  },
+  {
+    id: 31,
+    name: '033_fix_project_status_check',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 60000
+  },
+  {
+    id: 32,
+    name: '034_project_compliance_governance',
+    sql_up: '',
+    sql_down: '',
     timeout_ms: 60000
   }
 ]
@@ -408,7 +527,9 @@ export async function runMigrations(env: Bindings): Promise<{ success: boolean; 
 
     try {
       // Create checkpoint before starting
-      await createCheckpoint(env, `pre_migration_${Date.now()}`)
+      const checkpointName = `pre_migration_${Date.now()}`
+      await createCheckpoint(env, checkpointName)
+      await env.SESSIONS.put('last_checkpoint', checkpointName)
 
       for (const migration of pending) {
         console.log(`[Migrations] Applying ${migration.name}...`)
@@ -477,8 +598,9 @@ export async function runMigrations(env: Bindings): Promise<{ success: boolean; 
     
     // Attempt rollback
     console.log('[Migrations] Attempting rollback...')
-    const rollbackSuccess = await rollbackToCheckpoint(env, 'last_checkpoint')
-    
+    const checkpointName = await env.SESSIONS.get('last_checkpoint')
+    const rollbackSuccess = checkpointName ? await rollbackToCheckpoint(env, checkpointName) : false
+
     return { 
       success: false, 
       error: error.message,

@@ -329,4 +329,3 @@ shareRoutes.get('/certificate/:purchase_id/preview', async (c) => {
     return err(c, 'Failed to fetch certificate preview', 500)
   }
 })
-
