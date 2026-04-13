@@ -390,12 +390,16 @@ export default function AdminMembers() {
                       <div className="flex gap-1">
                         <button
                           onClick={() => handlePreviewCertificate(member.form_number)}
+                          aria-label="সার্টিফিকেট দেখুন"
+                          title="সার্টিফিকেট দেখুন"
                           className="flex items-center gap-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-2 rounded-lg text-sm font-medium"
                         >
                           <Eye size={14} />
                         </button>
                         <button
                           onClick={() => handleDownloadCertificate(member.form_number)}
+                          aria-label="সার্টিফিকেট ডাউনলোড করুন"
+                          title="সার্টিফিকেট ডাউনলোড করুন"
                           className="flex items-center gap-1.5 bg-green-100 hover:bg-green-200 text-green-700 px-3 py-2 rounded-lg text-sm font-medium"
                         >
                           <Download size={14} />
@@ -404,6 +408,8 @@ export default function AdminMembers() {
                     )}
                     <button
                       onClick={() => toggleExpand(member.id)}
+                      aria-label={isExpanded ? "বিস্তারিত লুকান" : "বিস্তারিত দেখুন"}
+                      title={isExpanded ? "বিস্তারিত লুকান" : "বিস্তারিত দেখুন"}
                       className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                     >
                       {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
