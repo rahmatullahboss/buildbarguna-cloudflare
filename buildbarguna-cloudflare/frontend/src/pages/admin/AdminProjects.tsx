@@ -34,6 +34,7 @@ export default function AdminProjects() {
 
   // ── Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<AdminProject | null>(null)
+  const [forceDelete, setForceDelete] = useState(false)
 
   // ── Expanded project updates
   const [expandedUpdates, setExpandedUpdates] = useState<number | null>(null)
@@ -78,9 +79,19 @@ export default function AdminProjects() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => adminApi.deleteProject(id),
-    onSuccess: () => { flash('প্রজেক্ট মুছে ফেলা হয়েছে'); setDeleteConfirm(null); qc.invalidateQueries({ queryKey: ['admin-projects'] }) },
-    onError: (e: Error) => { flash(e.message, 'error'); setDeleteConfirm(null) }
+    mutationFn: ({ id, force }: { id: number; force: boolean }) => adminApi.deleteProject(id, force),
+    onSuccess: (res) => {
+      const message = res.success ? ((res.data as { message?: string })?.message || 'প্রজেক্ট মুছে ফেলা হয়েছে') : 'প্রজেক্ট মুছে ফেলা হয়েছে'
+      flash(message)
+      setDeleteConfirm(null)
+      setForceDelete(false)
+      qc.invalidateQueries({ queryKey: ['admin-projects'] })
+    },
+    onError: (e: Error) => {
+      flash(e.message, 'error')
+      setDeleteConfirm(null)
+      setForceDelete(false)
+    }
   })
 
   // ── Updates mutations
@@ -284,9 +295,27 @@ export default function AdminProjects() {
             <p className="text-gray-500 text-xs mb-4">
               ⚠️ শেয়ার বা লেনদেন থাকলে মুছতে দেওয়া হবে না।
             </p>
+            <label className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 mb-4 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={forceDelete}
+                onChange={(e) => setForceDelete(e.target.checked)}
+              />
+              <span className="text-xs text-amber-800">
+                এটি test/demo cleanup. প্রয়োজনে active transaction/shares/profit data clean করে project force delete করুন।
+              </span>
+            </label>
             <div className="flex gap-3">
-              <button onClick={() => deleteMutation.mutate(deleteConfirm.id)} disabled={deleteMutation.isPending} className="flex-1 bg-red-600 text-white font-bold py-2 px-4 rounded-xl hover:bg-red-700 disabled:opacity-50">
+              <button onClick={() => deleteMutation.mutate({ id: deleteConfirm.id, force: false })} disabled={deleteMutation.isPending} className="flex-1 bg-red-600 text-white font-bold py-2 px-4 rounded-xl hover:bg-red-700 disabled:opacity-50">
                 {deleteMutation.isPending ? 'মুছছে...' : 'হ্যাঁ, মুছুন'}
+              </button>
+              <button
+                onClick={() => deleteMutation.mutate({ id: deleteConfirm.id, force: true })}
+                disabled={deleteMutation.isPending || !forceDelete}
+                className="flex-1 bg-amber-600 text-white font-bold py-2 px-4 rounded-xl hover:bg-amber-700 disabled:opacity-50"
+              >
+                Force Delete
               </button>
               <button onClick={() => setDeleteConfirm(null)} className="flex-1 btn-secondary">বাতিল</button>
             </div>

@@ -397,8 +397,8 @@ export const adminApi = {
     request('/admin/projects', { method: 'POST', body: JSON.stringify(body) }),
   updateProject: (id: number, body: Partial<CreateProjectBody>) =>
     request(`/admin/projects/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-  deleteProject: (id: number) =>
-    request(`/admin/projects/${id}`, { method: 'DELETE' }),
+  deleteProject: (id: number, force = false) =>
+    request(`/admin/projects/${id}${force ? '?force=1' : ''}`, { method: 'DELETE' }),
   setProjectStatus: (id: number, status: string) =>
     request(`/admin/projects/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   getProjectCloseoutPreview: (id: number, mode: 'completed' | 'closed') =>

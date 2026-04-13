@@ -391,11 +391,13 @@ adminRoutes.put('/projects/:id', zValidator('json', projectSchema.partial()), as
 adminRoutes.delete('/projects/:id', async (c) => {
   const id = parseInt(c.req.param('id'))
   if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+  const forceDelete = c.req.query('force') === '1'
 
   const project = await c.env.DB.prepare(
     'SELECT id, title, status FROM projects WHERE id = ?'
   ).bind(id).first<{ id: number; title: string; status: string }>()
   if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
+  const allowCleanupDelete = forceDelete || isTestProjectTitle(project.title)
 
   // Safety guard: block delete if project has any approved shares
   const [sharesCheck, txCheck] = await Promise.all([
@@ -408,17 +410,17 @@ adminRoutes.delete('/projects/:id', async (c) => {
   ])
 
   if ((sharesCheck?.cnt ?? 0) > 0) {
-    if (!isTestProjectTitle(project.title)) {
+    if (!allowCleanupDelete) {
       return err(c, 'এই প্রজেক্টে শেয়ার আছে তাই মুছতে পারবেন না। প্রজেক্ট বন্ধ করুন।', 409)
     }
   }
   if ((txCheck?.cnt ?? 0) > 0) {
-    if (!isTestProjectTitle(project.title)) {
+    if (!allowCleanupDelete) {
       return err(c, 'এই প্রজেক্টে আর্থিক লেনদেন আছে তাই মুছতে পারবেন না।', 409)
     }
   }
 
-  if (isTestProjectTitle(project.title)) {
+  if (allowCleanupDelete) {
     const earningsByUser = await c.env.DB.prepare(
       `SELECT user_id, COALESCE(SUM(amount), 0) as total
        FROM earnings
@@ -432,7 +434,7 @@ adminRoutes.delete('/projects/:id', async (c) => {
       ).bind(row.user_id).first<{ total_earned_paisa: number }>()
 
       if (balance && balance.total_earned_paisa < row.total) {
-        return err(c, 'এই test project delete করলে user balance negative হয়ে যাবে। আগে সংশ্লিষ্ট withdrawal/earnings ঠিক করুন।', 409)
+        return err(c, 'Force delete করলে user balance negative হয়ে যাবে। আগে সংশ্লিষ্ট withdrawal/earnings ঠিক করুন।', 409)
       }
     }
 
@@ -474,7 +476,7 @@ adminRoutes.delete('/projects/:id', async (c) => {
   // Safe to delete (cascade will remove project_updates & project_gallery)
   const result = await c.env.DB.prepare('DELETE FROM projects WHERE id = ?').bind(id).run()
   if (!result.meta.changes) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
-  return ok(c, { message: 'প্রজেক্ট মুছে ফেলা হয়েছে' })
+  return ok(c, { message: allowCleanupDelete ? 'প্রজেক্ট test cleanup হিসেবে মুছে ফেলা হয়েছে' : 'প্রজেক্ট মুছে ফেলা হয়েছে' })
 })
 
 adminRoutes.get('/projects/:id/closeout-preview', async (c) => {
