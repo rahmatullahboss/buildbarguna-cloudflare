@@ -271,6 +271,7 @@ export default function CompanyExpenses() {
                       onClick={() => {/* TODO: Allocate */}}
                       className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
                       title="বরাদ্দ করুন"
+                      aria-label="খরচ বরাদ্দ করুন"
                     >
                       <RefreshCw size={16} />
                     </button>
@@ -279,6 +280,7 @@ export default function CompanyExpenses() {
                     onClick={() => setSelectedExpense(expense)}
                     className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition"
                     title="বিস্তারিত"
+                    aria-label="খরচের বিস্তারিত দেখুন"
                   >
                     <Eye size={16} />
                   </button>
@@ -290,6 +292,7 @@ export default function CompanyExpenses() {
                       disabled={deleteMutation.isPending}
                       className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
                       title="মুছুন"
+                      aria-label="খরচ মুছুন"
                     >
                       <Trash2 size={16} />
                     </button>
