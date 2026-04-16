@@ -448,10 +448,11 @@ export default function Withdraw() {
 
         <div className="space-y-4">
           <div>
-            <label className="label">উত্তোলনের পরিমাণ (টাকায়)</label>
+            <label className="label" htmlFor="amount">উত্তোলনের পরিমাণ (টাকায়)</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">৳</span>
               <input
+                id="amount"
                 className="input pl-7"
                 type="number"
                 step="1"
@@ -469,8 +470,9 @@ export default function Withdraw() {
 
           {withdrawalMethod !== 'cash' && (
           <div>
-            <label className="label">{withdrawalMethod === 'nagad' ? 'Nagad' : 'bKash'} নম্বর</label>
+            <label className="label" htmlFor="paymentNumber">{withdrawalMethod === 'nagad' ? 'Nagad' : 'bKash'} নম্বর</label>
             <input
+              id="paymentNumber"
               className="input font-mono"
               type="tel"
               placeholder="01XXXXXXXXX"
