@@ -62,24 +62,29 @@ async function getProjectFinancials(db: D1Database, projectId: number) {
   const hasTotalDistributedAmount = await hasColumn(db, 'profit_distributions', 'total_distributed_amount')
   const distributedColumn = hasTotalDistributedAmount ? 'total_distributed_amount' : 'distributable_amount'
 
-  const [financials, companyAlloc, distributed] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const [financialsRes, companyAllocRes, distributedRes] = await db.batch<any>([
     db.prepare(
       `SELECT 
         COALESCE(SUM(CASE WHEN transaction_type = 'revenue' THEN amount ELSE 0 END), 0) as total_revenue,
         COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as direct_expense
        FROM project_transactions WHERE project_id = ?`
-    ).bind(projectId).first<{ total_revenue: number; direct_expense: number }>(),
+    ).bind(projectId),
 
     db.prepare(
       `SELECT COALESCE(SUM(amount), 0) as total FROM expense_allocations WHERE project_id = ?`
-    ).bind(projectId).first<{ total: number }>(),
+    ).bind(projectId),
 
     // Use total_distributed_amount (includes company share) — prevents re-distribution bug
     db.prepare(
       `SELECT COALESCE(SUM(${distributedColumn}), 0) as total 
        FROM profit_distributions WHERE project_id = ? AND status = 'distributed'`
-    ).bind(projectId).first<{ total: number }>()
+    ).bind(projectId)
   ])
+
+  const financials = financialsRes.results?.[0]
+  const companyAlloc = companyAllocRes.results?.[0]
+  const distributed = distributedRes.results?.[0]
 
   return {
     totalRevenue: financials?.total_revenue ?? 0,
@@ -480,7 +485,8 @@ profitRoutes.get('/history/:projectId', async (c) => {
   const limit = Math.min(parseInt(c.req.query('limit') || '20'), 100)
   const offset = (page - 1) * limit
 
-  const [rows, countRow] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const [rowsRes, countRowRes] = await c.env.DB.batch<any>([
     c.env.DB.prepare(
       `SELECT pd.*, u.name as created_by_name
        FROM profit_distributions pd
@@ -488,14 +494,16 @@ profitRoutes.get('/history/:projectId', async (c) => {
        WHERE pd.project_id = ?
        ORDER BY pd.created_at DESC
        LIMIT ? OFFSET ?`
-    ).bind(projectId, limit, offset).all(),
+    ).bind(projectId, limit, offset),
     c.env.DB.prepare(
       'SELECT COUNT(*) as total FROM profit_distributions WHERE project_id = ?'
-    ).bind(projectId).first<{ total: number }>()
+    ).bind(projectId)
   ])
 
+  const countRow = countRowRes.results?.[0]
+
   return ok(c, {
-    items: rows.results,
+    items: rowsRes.results,
     pagination: { page, limit, total: countRow?.total ?? 0, hasMore: page * limit < (countRow?.total ?? 0) }
   })
 })
@@ -507,25 +515,28 @@ profitRoutes.get('/distribution/:id', async (c) => {
   const distId = parseInt(c.req.param('id'))
   if (isNaN(distId)) return err(c, 'অকার্যকর আইডি')
 
-  const [distribution, shareholders] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const [distributionRes, shareholdersRes] = await c.env.DB.batch<any>([
     c.env.DB.prepare(
       `SELECT pd.*, p.title as project_title, u.name as created_by_name
        FROM profit_distributions pd
        JOIN projects p ON p.id = pd.project_id
        LEFT JOIN users u ON u.id = pd.created_by
        WHERE pd.id = ?`
-    ).bind(distId).first(),
+    ).bind(distId),
     c.env.DB.prepare(
       `SELECT sp.*, u.name as user_name, u.phone
        FROM shareholder_profits sp
        JOIN users u ON u.id = sp.user_id
        WHERE sp.distribution_id = ?
        ORDER BY sp.profit_amount DESC`
-    ).bind(distId).all()
+    ).bind(distId)
   ])
 
+  const distribution = distributionRes.results?.[0]
+
   if (!distribution) return err(c, 'ডিস্ট্রিবিউশন পাওয়া যায়নি', 404)
-  return ok(c, { distribution, shareholders: shareholders.results })
+  return ok(c, { distribution, shareholders: shareholdersRes.results })
 })
 
 // ──────────────────────────────────────────────────────────────
@@ -536,14 +547,15 @@ profitRoutes.get('/company-fund', async (c) => {
   const limit = Math.min(parseInt(c.req.query('limit') || '20'), 100)
   const offset = (page - 1) * limit
 
-  const [summary, transactions, countRow, pendingCount] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const [summaryRes, transactionsRes, countRowRes, pendingCountRes] = await c.env.DB.batch<any>([
     c.env.DB.prepare(
       `SELECT
         COALESCE(SUM(CASE WHEN amount_paisa > 0 AND status IN ('completed', 'approved') THEN amount_paisa ELSE 0 END), 0) as total_credited,
         COALESCE(SUM(CASE WHEN amount_paisa < 0 AND status IN ('completed', 'approved') THEN ABS(amount_paisa) ELSE 0 END), 0) as total_debited,
         COALESCE(SUM(CASE WHEN status IN ('completed', 'approved') THEN amount_paisa ELSE 0 END), 0) as current_balance
        FROM company_fund_transactions`
-    ).first<{ total_credited: number; total_debited: number; current_balance: number }>(),
+    ),
 
     c.env.DB.prepare(
       `SELECT cft.*, p.title as project_title, u.name as created_by_name, u2.name as approved_by_name
@@ -553,16 +565,20 @@ profitRoutes.get('/company-fund', async (c) => {
        LEFT JOIN users u2 ON u2.id = cft.approved_by
        ORDER BY cft.created_at DESC
        LIMIT ? OFFSET ?`
-    ).bind(limit, offset).all(),
+    ).bind(limit, offset),
 
     c.env.DB.prepare(
       'SELECT COUNT(*) as total FROM company_fund_transactions'
-    ).first<{ total: number }>(),
+    ),
 
     c.env.DB.prepare(
       `SELECT COUNT(*) as count FROM company_fund_transactions WHERE status = 'pending_approval'`
-    ).first<{ count: number }>()
+    )
   ])
+
+  const summary = summaryRes.results?.[0]
+  const countRow = countRowRes.results?.[0]
+  const pendingCount = pendingCountRes.results?.[0]
 
   return ok(c, {
     summary: {
@@ -571,7 +587,7 @@ profitRoutes.get('/company-fund', async (c) => {
       total_debited: summary?.total_debited ?? 0,
       pending_approvals: pendingCount?.count ?? 0
     },
-    transactions: transactions.results,
+    transactions: transactionsRes.results,
     pagination: {
       page, limit,
       total: countRow?.total ?? 0,
@@ -789,13 +805,16 @@ profitRoutes.get('/audit-log', async (c) => {
   query += ` ORDER BY fal.created_at DESC LIMIT ? OFFSET ?`
   params.push(limit, offset)
 
-  const [rows, countRow] = await Promise.all([
-    c.env.DB.prepare(query).bind(...params).all(),
-    c.env.DB.prepare(countQuery).bind(...countParams).first<{ total: number }>()
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const [rowsRes, countRowRes] = await c.env.DB.batch<any>([
+    c.env.DB.prepare(query).bind(...params),
+    c.env.DB.prepare(countQuery).bind(...countParams)
   ])
 
+  const countRow = countRowRes.results?.[0]
+
   return ok(c, {
-    items: rows.results,
+    items: rowsRes.results,
     pagination: { page, limit, total: countRow?.total ?? 0, hasMore: page * limit < (countRow?.total ?? 0) }
   })
 })
@@ -809,7 +828,8 @@ userProfitRoutes.use('*', authMiddleware)
 userProfitRoutes.get('/my-profits', async (c) => {
   const userId = c.get('userId')
 
-  const [profits, summary] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const [profitsRes, summaryRes] = await c.env.DB.batch<any>([
     c.env.DB.prepare(
       `SELECT sp.*, p.title as project_title, pd.distributed_at, pd.notes as distribution_notes,
               pd.period_start, pd.period_end
@@ -818,18 +838,20 @@ userProfitRoutes.get('/my-profits', async (c) => {
        JOIN profit_distributions pd ON pd.id = sp.distribution_id
        WHERE sp.user_id = ?
        ORDER BY pd.distributed_at DESC`
-    ).bind(userId).all(),
+    ).bind(userId),
     c.env.DB.prepare(
       `SELECT 
         COUNT(*) as total_distributions,
         COALESCE(SUM(profit_amount), 0) as total_profit_earned,
         COUNT(DISTINCT project_id) as projects_count
        FROM shareholder_profits WHERE user_id = ?`
-    ).bind(userId).first<{ total_distributions: number; total_profit_earned: number; projects_count: number }>()
+    ).bind(userId)
   ])
 
+  const summary = summaryRes.results?.[0]
+
   return ok(c, {
-    profits: profits.results,
+    profits: profitsRes.results,
     summary: {
       total_distributions: summary?.total_distributions ?? 0,
       total_profit_earned: summary?.total_profit_earned ?? 0,
