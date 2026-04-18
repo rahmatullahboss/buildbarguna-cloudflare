@@ -103,6 +103,7 @@ describe('Migration System', () => {
       expect(MIGRATIONS.some((migration) => migration.name === '028_profit_distribution_enhancements')).toBe(true)
       expect(MIGRATIONS.some((migration) => migration.name === '032_project_enhancement')).toBe(true)
       expect(MIGRATIONS.some((migration) => migration.name === '033_fix_project_status_check')).toBe(true)
+      expect(MIGRATIONS.some((migration) => migration.name === '035_project_monitoring_and_settlement')).toBe(true)
     })
   })
 })

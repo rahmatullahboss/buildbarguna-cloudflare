@@ -11,6 +11,8 @@ import type {
 
 const withdrawalRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
+const schemaSupportCache = new Map<string, boolean>()
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Load withdrawal settings from DB — returns defaults if not found */
@@ -29,6 +31,71 @@ async function getSettings(db: D1Database): Promise<WithdrawalSettings> {
     max_paisa:     map['max_paisa']     ?? 500000,
     cooldown_days: map['cooldown_days'] ?? 7
   }
+}
+
+async function hasTable(db: D1Database, table: string) {
+  const cacheKey = `table:${table}`
+  const cached = schemaSupportCache.get(cacheKey)
+  if (cached != null) return cached
+
+  const result = await db.prepare(
+    `SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`
+  ).bind(table).first<{ name: string }>()
+  const supported = !!result
+  schemaSupportCache.set(cacheKey, supported)
+  return supported
+}
+
+async function reserveSettlementEntries(db: D1Database, userId: number, withdrawalId: number, amountPaisa: number) {
+  if (!(await hasTable(db, 'project_settlement_entries'))) return 0
+
+  const rows = await db.prepare(
+    `SELECT id, amount_paisa
+     FROM project_settlement_entries
+     WHERE user_id = ? AND claim_status = 'claimable'
+     ORDER BY created_at ASC, id ASC`
+  ).bind(userId).all<{ id: number; amount_paisa: number }>()
+
+  let remaining = amountPaisa
+  const statements: D1PreparedStatement[] = []
+
+  for (const row of rows.results) {
+    if (remaining <= 0) break
+    if (row.amount_paisa <= remaining) {
+      statements.push(
+        db.prepare(
+          `UPDATE project_settlement_entries
+           SET claim_status = 'reserved', withdrawal_id = ?
+           WHERE id = ? AND claim_status = 'claimable'`
+        ).bind(withdrawalId, row.id)
+      )
+      remaining -= row.amount_paisa
+    }
+  }
+
+  if (statements.length > 0) {
+    await db.batch(statements)
+  }
+
+  return amountPaisa - remaining
+}
+
+async function completeSettlementEntries(db: D1Database, withdrawalId: number) {
+  if (!(await hasTable(db, 'project_settlement_entries'))) return
+  await db.prepare(
+    `UPDATE project_settlement_entries
+     SET claim_status = 'withdrawn'
+     WHERE withdrawal_id = ? AND claim_status = 'reserved'`
+  ).bind(withdrawalId).run()
+}
+
+async function releaseSettlementEntries(db: D1Database, withdrawalId: number) {
+  if (!(await hasTable(db, 'project_settlement_entries'))) return
+  await db.prepare(
+    `UPDATE project_settlement_entries
+     SET claim_status = 'claimable', withdrawal_id = NULL
+     WHERE withdrawal_id = ? AND claim_status = 'reserved'`
+  ).bind(withdrawalId).run()
 }
 
 /**
@@ -111,7 +178,8 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
   const userId = c.get('userId')
 
   // Parallel queries: per-project earnings + capital refund + referral bonuses + legacy audit log entries + explicit balance
-  const [projectEarnings, capitalRefunds, referralBonus, legacyEntries, explicitBalance] = await Promise.all([
+  const hasSettlementTable = await hasTable(c.env.DB, 'project_settlement_entries')
+  const [projectEarnings, capitalRefunds, referralBonus, legacyEntries, explicitBalance, settlementBreakdown] = await Promise.all([
     c.env.DB.prepare(
       `SELECT p.title as project_title, p.id as project_id, SUM(e.amount) as total_paisa, COUNT(DISTINCT e.month) as months
        FROM earnings e
@@ -149,6 +217,21 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
     c.env.DB.prepare(
       `SELECT total_earned_paisa FROM user_balances WHERE user_id = ?`
     ).bind(userId).first<{ total_earned_paisa: number }>()
+    ,
+    hasSettlementTable
+      ? c.env.DB.prepare(
+          `SELECT
+             p.title as project_title,
+             pse.project_id,
+             SUM(CASE WHEN pse.entry_type = 'principal_refund' THEN pse.amount_paisa ELSE 0 END) as principal_total,
+             SUM(CASE WHEN pse.entry_type = 'final_profit_payout' THEN pse.amount_paisa ELSE 0 END) as final_profit_total
+           FROM project_settlement_entries pse
+           JOIN projects p ON p.id = pse.project_id
+           WHERE pse.user_id = ?
+           GROUP BY pse.project_id, p.title
+           ORDER BY pse.project_id ASC`
+        ).bind(userId).all<{ project_title: string; project_id: number; principal_total: number; final_profit_total: number }>()
+      : Promise.resolve({ results: [] as { project_title: string; project_id: number; principal_total: number; final_profit_total: number }[] })
   ])
 
   const breakdown: { source: string; label: string; project_title?: string; project_id?: number; amount_paisa: number; detail?: string }[] = []
@@ -169,7 +252,10 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
 
   // Capital refunds are stored in earnings as refund-YYYY-MM months.
   // Keep them separate in the breakdown so principal is visible and not merged with profit.
+  const settlementProjectIds = new Set(settlementBreakdown.results.map((row) => row.project_id))
+
   for (const row of capitalRefunds.results) {
+    if (settlementProjectIds.has(row.project_id)) continue
     breakdown.push({
       source: 'capital_refund',
       label: 'মূলধন ফেরত',
@@ -179,6 +265,32 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
       detail: `${row.refund_count} বার`
     })
     sumFromSources += row.total_paisa
+  }
+
+  for (const row of settlementBreakdown.results) {
+    if ((row.principal_total ?? 0) > 0) {
+      breakdown.push({
+        source: 'closeout_principal_refund',
+        label: 'ক্লোজআউট মূলধন ফেরত',
+        project_title: row.project_title,
+        project_id: row.project_id,
+        amount_paisa: row.principal_total,
+        detail: 'Settlement ledger'
+      })
+      sumFromSources += row.principal_total
+    }
+
+    if ((row.final_profit_total ?? 0) > 0) {
+      breakdown.push({
+        source: 'closeout_final_profit',
+        label: 'ক্লোজআউট চূড়ান্ত মুনাফা',
+        project_title: row.project_title,
+        project_id: row.project_id,
+        amount_paisa: row.final_profit_total,
+        detail: 'Settlement ledger'
+      })
+      sumFromSources += row.final_profit_total
+    }
   }
 
   // Legacy monthly earnings from old system (balance_audit_log)
@@ -342,10 +454,14 @@ withdrawalRoutes.post('/request', zValidator('json', requestSchema), async (c) =
 
   if (!result.success) return err(c, 'উত্তোলন অনুরোধ জমা দিতে ব্যর্থ হয়েছে', 500)
 
+  const withdrawalId = result.meta.last_row_id
+  const reservedSettlementAmount = await reserveSettlementEntries(c.env.DB, userId, withdrawalId, amount_paisa)
+
   return ok(c, {
     message: 'উত্তোলন অনুরোধ জমা হয়েছে। অ্যাডমিন ৭২ ঘন্টার মধ্যে যাচাই করে পাঠাবে।',
-    withdrawal_id: result.meta.last_row_id,
-    amount_paisa
+    withdrawal_id: withdrawalId,
+    amount_paisa,
+    reserved_settlement_amount: reservedSettlementAmount
   }, 201)
 })
 
@@ -562,6 +678,8 @@ adminWithdrawalRoutes.patch('/:id/complete', zValidator('json', completeSchema),
 
     if (!batchResults[0].meta.changes) return err(c, 'অনুরোধ ইতিমধ্যে প্রক্রিয়া করা হয়েছে', 409)
 
+    await completeSettlementEntries(c.env.DB, id)
+
     return ok(c, { message: `TxID ${bkash_txid} দিয়ে উত্তোলন সম্পন্ন হয়েছে।` })
   } catch (error: any) {
     console.error('[withdrawal-complete] Error:', error)
@@ -623,6 +741,8 @@ adminWithdrawalRoutes.patch('/:id/reject', zValidator('json', rejectSchema), asy
         console.warn(`[withdrawal-reject] Warning: reserved amount mismatch for user ${withdrawal.user_id}`)
       }
     }
+
+    await releaseSettlementEntries(c.env.DB, id)
 
     return ok(c, { message: 'উত্তোলন অনুরোধ প্রত্যাখ্যান করা হয়েছে।' })
   } catch (error: any) {

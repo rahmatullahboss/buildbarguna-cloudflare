@@ -36,6 +36,9 @@ describe('Withdrawals Balance + Breakdown Integration', () => {
 
   async function cleanup() {
     const tables = [
+      'project_settlement_entries',
+      'project_closeout_runs',
+      'project_members',
       'withdrawals',
       'balance_audit_log',
       'user_balances',
@@ -291,5 +294,71 @@ describe('Withdrawals Balance + Breakdown Integration', () => {
     expect(
       json.data.breakdown.reduce((sum: number, item: any) => sum + item.amount_paisa, 0)
     ).toBe(10_000)
+  })
+
+  it('uses settlement ledger for closeout breakdown and reserves entries on withdrawal request', async () => {
+    await env.DB.prepare(
+      `INSERT INTO projects (id, title, total_capital, total_shares, share_price, status)
+       VALUES (1, 'Settlement Project', 1000000, 10, 100000, 'completed')`
+    ).run()
+
+    await env.DB.prepare(
+      `INSERT INTO user_balances (user_id, total_earned_paisa, total_withdrawn_paisa, reserved_paisa)
+       VALUES (?, 150000, 0, 0)`
+    ).bind(memberUser.id).run()
+
+    await env.DB.prepare(
+      `INSERT INTO project_closeout_runs (
+         id, project_id, mode, status, net_profit_paisa, capital_refund_total_paisa,
+         final_profit_pool_paisa, shareholders_count, executed_by
+       ) VALUES (1, 1, 'completed', 'completed', 50000, 100000, 50000, 1, ?)`
+    ).bind(adminUser.id).run()
+
+    await env.DB.prepare(
+      `INSERT INTO project_settlement_entries (
+         project_id, user_id, closeout_run_id, entry_type, amount_paisa,
+         shares_held_snapshot, total_shares_snapshot, ownership_bps_snapshot, claim_status, created_by
+       ) VALUES
+         (1, ?, 1, 'principal_refund', 100000, 1, 1, 10000, 'claimable', ?),
+         (1, ?, 1, 'final_profit_payout', 50000, 1, 1, 10000, 'claimable', ?)`
+    ).bind(memberUser.id, adminUser.id, memberUser.id, adminUser.id).run()
+
+    const memberAuth = await authHeader(memberUser)
+
+    const breakdownResponse = await env.app.fetch('/api/withdrawals/balance/breakdown', {
+      headers: memberAuth
+    })
+    expect(breakdownResponse.status).toBe(200)
+    const breakdownJson = await breakdownResponse.json() as any
+    expect(breakdownJson.data.breakdown).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: 'closeout_principal_refund', amount_paisa: 100_000 }),
+        expect.objectContaining({ source: 'closeout_final_profit', amount_paisa: 50_000 })
+      ])
+    )
+
+    const requestResponse = await env.app.fetch('/api/withdrawals/request', {
+      method: 'POST',
+      headers: {
+        ...memberAuth,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        amount_paisa: 100_000,
+        bkash_number: memberUser.phone,
+        withdrawal_method: 'bkash'
+      })
+    })
+    expect(requestResponse.status).toBe(201)
+    const requestJson = await requestResponse.json() as any
+    expect(requestJson.data.reserved_settlement_amount).toBe(100_000)
+
+    const reservedEntries = await env.DB.prepare(
+      `SELECT claim_status, withdrawal_id
+       FROM project_settlement_entries
+       WHERE user_id = ? AND entry_type = 'principal_refund'`
+    ).bind(memberUser.id).first<{ claim_status: string; withdrawal_id: number }>()
+    expect(reservedEntries?.claim_status).toBe('reserved')
+    expect(reservedEntries?.withdrawal_id).toBe(requestJson.data.withdrawal_id)
   })
 })

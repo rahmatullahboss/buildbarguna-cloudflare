@@ -173,7 +173,7 @@ export const withdrawalsApi = {
   incomeBreakdown: () => request<IncomeBreakdown>('/withdrawals/balance/breakdown'),
   history: (page = 1) => request<Paginated<Withdrawal>>(`/withdrawals/history?page=${page}`),
   request: (amount_paisa: number, bkash_number?: string, withdrawal_method: 'bkash' | 'cash' | 'nagad' = 'bkash') =>
-    request<{ message: string; withdrawal_id: number; amount_paisa: number }>(
+    request<{ message: string; withdrawal_id: number; amount_paisa: number; reserved_settlement_amount?: number }>(
       '/withdrawals/request', {
         method: 'POST',
         body: JSON.stringify({ amount_paisa, ...(bkash_number ? { bkash_number } : {}), withdrawal_method })
@@ -419,6 +419,12 @@ export const adminApi = {
     `/admin/projects/${id}/closeout`,
     { method: 'POST', body: JSON.stringify(body) }
   ),
+  getProjectMembers: (id: number) => request<ProjectMember[]>(`/admin/projects/${id}/members`),
+  addProjectMember: (id: number, body: { user_id: number; role_label?: string; notes?: string }) =>
+    request<{ message: string }>(`/admin/projects/${id}/members`, { method: 'POST', body: JSON.stringify(body) }),
+  removeProjectMember: (projectId: number, memberId: number) =>
+    request<{ message: string }>(`/admin/projects/${projectId}/members/${memberId}`, { method: 'DELETE' }),
+  getProjectMonitor: (id: number) => request<ProjectMonitor>(`/admin/projects/${id}/monitor`),
   getProjectCompliance: (id: number) =>
     request<ProjectComplianceAdminResponse>(`/admin/projects/${id}/compliance`),
   updateProjectCompliance: (id: number, body: UpdateProjectComplianceBody) =>
@@ -485,7 +491,18 @@ export type ProjectItem = {
 export type ProjectDetail = ProjectItem & { available_shares: number }
 export type ProjectUpdate = { id: number; project_id?: number; title: string; content: string | null; image_url: string | null; author_name: string; created_at: string; updated_at?: string }
 export type GalleryImage = { id: number; image_url: string; caption: string | null; sort_order: number; created_at?: string }
-export type MyShare = { user_id: number; project_id: number; quantity: number; title: string; share_price: number; status: string }
+export type MyShare = {
+  user_id: number
+  project_id: number
+  quantity: number
+  title: string
+  share_price: number
+  status: string
+  principal_refund_paisa?: number
+  final_profit_paisa?: number
+  claimable_paisa?: number
+  withdrawn_paisa?: number
+}
 export type ShareRequest = { id: number; project_id: number; project_title: string; quantity: number; total_amount: number; bkash_txid: string | null; payment_method: 'bkash' | 'manual'; status: string; admin_note: string | null; created_at: string }
 export type EarningItem = { id: number; project_id: number; project_title: string; month: string; shares: number; rate: number; amount: number; created_at: string }
 
@@ -606,6 +623,48 @@ export type DataExport = {
 export type AdminUser = { id: number; name: string; phone: string; role: string; is_active: number; referral_code: string; referred_by: string | null; created_at: string }
 export type AdminUserDetail = AdminUser & { shares: MyShare[]; total_earnings_paisa: number }
 export type AdminProject = ProjectItem & { sold_shares: number }
+export type ProjectMember = {
+  id: number
+  project_id: number
+  user_id: number
+  role_label: string | null
+  status: 'active' | 'inactive' | 'removed'
+  assigned_at: string
+  user_name?: string
+  user_phone?: string | null
+}
+export type ProjectMonitorShareholder = {
+  user_id: number
+  user_name: string
+  user_phone: string | null
+  quantity: number
+  ownership_bps: number
+  principal_generated: number
+  final_profit_generated: number
+  claimable_amount: number
+  withdrawn_amount: number
+}
+export type ProjectMonitor = {
+  project: AdminProject & { completed_at?: string | null }
+  closeout_run: {
+    id: number
+    executed_at: string
+    capital_refund_total_paisa: number
+    final_profit_pool_paisa: number
+  } | null
+  members: ProjectMember[]
+  summary: {
+    shareholders_count: number
+    sold_shares: number
+    distributed_profit_total: number
+    principal_refund_total: number
+    final_profit_total: number
+    claimable_total: number
+    reserved_total: number
+    withdrawn_total: number
+  }
+  shareholders: ProjectMonitorShareholder[]
+}
 export type ProjectCloseoutBlocker = {
   code: string
   message: string
@@ -637,9 +696,24 @@ export type ProjectCloseoutPreview = {
   settlement: {
     total_shares_sold: number
     capital_refund_total: number
+    final_profit_pool: number
     pending_share_purchases: number
     pending_expense_allocations: number
   }
+  existing_closeout_run: {
+    id: number
+    status: string
+    executed_at: string
+  } | null
+  settlement_projection: {
+    user_id: number
+    user_name: string
+    user_phone: string | null
+    shares_held: number
+    ownership_bps: number
+    principal_refund_amount: number
+    final_profit_amount: number
+  }[]
   compliance: {
     contract_type: ProjectComplianceProfile['contract_type']
     shariah_screening_status: ProjectComplianceProfile['shariah_screening_status']

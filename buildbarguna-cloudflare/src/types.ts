@@ -52,7 +52,7 @@ export type Project = {
   total_capital: number  // paisa
   total_shares: number
   share_price: number    // paisa
-  status: 'draft' | 'active' | 'closed'
+  status: 'draft' | 'active' | 'closed' | 'completed'
   created_at: string
 }
 
@@ -74,6 +74,58 @@ export type UserShare = {
   user_id: number
   project_id: number
   quantity: number
+}
+
+export type ProjectMember = {
+  id: number
+  project_id: number
+  user_id: number
+  role_label: string | null
+  status: 'active' | 'inactive' | 'removed'
+  assigned_by: number | null
+  assigned_at: string
+  removed_by: number | null
+  removed_at: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  user_name?: string
+  user_phone?: string | null
+}
+
+export type ProjectCloseoutRun = {
+  id: number
+  project_id: number
+  mode: 'completed' | 'closed'
+  status: 'pending' | 'completed' | 'reversed'
+  net_profit_paisa: number
+  capital_refund_total_paisa: number
+  final_profit_pool_paisa: number
+  shareholders_count: number
+  executed_by: number
+  executed_at: string
+  notes: string | null
+  created_at: string
+}
+
+export type ProjectSettlementEntry = {
+  id: number
+  project_id: number
+  user_id: number
+  closeout_run_id: number
+  entry_type: 'principal_refund' | 'final_profit_payout' | 'closeout_adjustment'
+  amount_paisa: number
+  shares_held_snapshot: number
+  total_shares_snapshot: number
+  ownership_bps_snapshot: number
+  project_status_snapshot: string | null
+  source_reference_type: string | null
+  source_reference_id: number | null
+  claim_status: 'claimable' | 'reserved' | 'withdrawn' | 'reversed'
+  withdrawal_id: number | null
+  notes: string | null
+  created_by: number | null
+  created_at: string
 }
 
 export type ProfitRate = {

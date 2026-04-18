@@ -318,6 +318,13 @@ export const MIGRATIONS: Migration[] = [
     sql_up: '',
     sql_down: '',
     timeout_ms: 60000
+  },
+  {
+    id: 33,
+    name: '035_project_monitoring_and_settlement',
+    sql_up: '',
+    sql_down: '',
+    timeout_ms: 60000
   }
 ]
 

@@ -40,17 +40,39 @@ export default function MyInvestments() {
         ) : shares?.success && shares.data.items.length > 0 ? (
           <div className="space-y-3">
             {shares.data.items.map(s => (
-              <div key={s.project_id} className="flex items-center justify-between bg-gray-50 rounded-2xl p-3.5">
-                <div>
-                  <p className="font-semibold text-gray-900">{s.title}</p>
-                  <p className="text-sm text-gray-500 mt-0.5">{s.quantity}টি শেয়ার × {formatTaka(s.share_price)}</p>
+              <div key={s.project_id} className="bg-gray-50 rounded-2xl p-3.5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-gray-900">{s.title}</p>
+                    <p className="text-sm text-gray-500 mt-0.5">{s.quantity}টি শেয়ার × {formatTaka(s.share_price)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-primary-700">{formatTaka(s.quantity * s.share_price)}</p>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold mt-1 inline-block ${s.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>
+                      {s.status === 'active' ? '● সক্রিয়' : 'বন্ধ'}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-primary-700">{formatTaka(s.quantity * s.share_price)}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold mt-1 inline-block ${s.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>
-                    {s.status === 'active' ? '● সক্রিয়' : 'বন্ধ'}
-                  </span>
-                </div>
+                {(s.principal_refund_paisa || s.final_profit_paisa || s.claimable_paisa || s.withdrawn_paisa) ? (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="bg-emerald-50 rounded-xl p-2.5 text-center">
+                      <span className="block text-xs text-gray-500 mb-0.5">মূলধন ফেরত</span>
+                      <strong className="text-emerald-700 text-sm">{formatTaka(s.principal_refund_paisa || 0)}</strong>
+                    </div>
+                    <div className="bg-blue-50 rounded-xl p-2.5 text-center">
+                      <span className="block text-xs text-gray-500 mb-0.5">চূড়ান্ত লাভ</span>
+                      <strong className="text-blue-700 text-sm">{formatTaka(s.final_profit_paisa || 0)}</strong>
+                    </div>
+                    <div className="bg-amber-50 rounded-xl p-2.5 text-center">
+                      <span className="block text-xs text-gray-500 mb-0.5">Claimable</span>
+                      <strong className="text-amber-700 text-sm">{formatTaka(s.claimable_paisa || 0)}</strong>
+                    </div>
+                    <div className="bg-gray-100 rounded-xl p-2.5 text-center">
+                      <span className="block text-xs text-gray-500 mb-0.5">উত্তোলিত</span>
+                      <strong className="text-gray-700 text-sm">{formatTaka(s.withdrawn_paisa || 0)}</strong>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>

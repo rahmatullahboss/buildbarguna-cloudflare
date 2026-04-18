@@ -370,6 +370,9 @@ export default function AdminProjects() {
                   <Link to={`/admin/projects/${p.id}/finance`} className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1 justify-center">
                     <Wallet size={14} /> ফাইনান্স
                   </Link>
+                  <Link to={`/admin/projects/${p.id}/closeout?mode=completed`} className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-semibold py-1.5 px-3 rounded-xl hover:bg-indigo-100 flex items-center gap-1 justify-center">
+                    <CheckCircle size={13} /> মনিটর
+                  </Link>
                   <Link to={`/admin/projects/${p.id}/compliance`} className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold py-1.5 px-3 rounded-xl hover:bg-emerald-100 flex items-center gap-1 justify-center">
                     <CheckCircle size={13} /> Compliance
                   </Link>

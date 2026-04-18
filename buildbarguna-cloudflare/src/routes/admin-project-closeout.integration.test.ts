@@ -24,6 +24,9 @@ describe('Admin Project Closeout API', () => {
   }
 
   beforeEach(async () => {
+    await env.DB.prepare('DELETE FROM project_settlement_entries').bind().run()
+    await env.DB.prepare('DELETE FROM project_closeout_runs').bind().run()
+    await env.DB.prepare('DELETE FROM project_members').bind().run()
     await env.DB.prepare('DELETE FROM shareholder_profits').bind().run()
     await env.DB.prepare('DELETE FROM profit_distributions').bind().run()
     await env.DB.prepare('DELETE FROM balance_audit_log').bind().run()
@@ -59,6 +62,9 @@ describe('Admin Project Closeout API', () => {
   })
 
   afterEach(async () => {
+    await env.DB.prepare('DELETE FROM project_settlement_entries').bind().run()
+    await env.DB.prepare('DELETE FROM project_closeout_runs').bind().run()
+    await env.DB.prepare('DELETE FROM project_members').bind().run()
     await env.DB.prepare('DELETE FROM shareholder_profits').bind().run()
     await env.DB.prepare('DELETE FROM profit_distributions').bind().run()
     await env.DB.prepare('DELETE FROM balance_audit_log').bind().run()
@@ -144,5 +150,26 @@ describe('Admin Project Closeout API', () => {
       `SELECT amount FROM earnings WHERE user_id = ? AND project_id = ? AND month LIKE 'refund-%'`
     ).bind(investorUser.id, project.id).first<{ amount: number }>()
     expect(refundEntry?.amount).toBe(100_000)
+
+    const closeoutRun = await env.DB.prepare(
+      `SELECT capital_refund_total_paisa, shareholders_count
+       FROM project_closeout_runs
+       WHERE project_id = ?`
+    ).bind(project.id).first<{ capital_refund_total_paisa: number; shareholders_count: number }>()
+    expect(closeoutRun?.capital_refund_total_paisa).toBe(100_000)
+    expect(closeoutRun?.shareholders_count).toBe(1)
+
+    const settlementRows = await env.DB.prepare(
+      `SELECT entry_type, amount_paisa, claim_status
+       FROM project_settlement_entries
+       WHERE project_id = ?
+       ORDER BY id ASC`
+    ).bind(project.id).all<{ entry_type: string; amount_paisa: number; claim_status: string }>()
+    expect(settlementRows.results).toHaveLength(1)
+    expect(settlementRows.results[0]).toMatchObject({
+      entry_type: 'principal_refund',
+      amount_paisa: 100_000,
+      claim_status: 'claimable'
+    })
   })
 })

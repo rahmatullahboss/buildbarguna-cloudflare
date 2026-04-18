@@ -141,10 +141,21 @@ shareRoutes.get('/my', async (c) => {
 
   const [rows, countRow] = await Promise.all([
     c.env.DB.prepare(
-      `SELECT us.*, p.title, p.share_price, p.status
+      `SELECT
+         us.*,
+         p.title,
+         p.share_price,
+         p.status,
+         COALESCE(SUM(CASE WHEN pse.entry_type = 'principal_refund' THEN pse.amount_paisa ELSE 0 END), 0) as principal_refund_paisa,
+         COALESCE(SUM(CASE WHEN pse.entry_type = 'final_profit_payout' THEN pse.amount_paisa ELSE 0 END), 0) as final_profit_paisa,
+         COALESCE(SUM(CASE WHEN pse.claim_status = 'claimable' THEN pse.amount_paisa ELSE 0 END), 0) as claimable_paisa,
+         COALESCE(SUM(CASE WHEN pse.claim_status = 'withdrawn' THEN pse.amount_paisa ELSE 0 END), 0) as withdrawn_paisa
        FROM user_shares us
        JOIN projects p ON p.id = us.project_id
+       LEFT JOIN project_settlement_entries pse
+         ON pse.project_id = us.project_id AND pse.user_id = us.user_id
        WHERE us.user_id = ?
+       GROUP BY us.user_id, us.project_id, us.quantity, p.title, p.share_price, p.status
        ORDER BY us.quantity DESC
        LIMIT ? OFFSET ?`
     ).bind(userId, limit, offset).all(),

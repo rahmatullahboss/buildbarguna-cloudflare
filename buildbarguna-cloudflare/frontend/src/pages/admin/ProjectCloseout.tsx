@@ -57,8 +57,14 @@ export default function ProjectCloseout() {
     queryFn: () => adminApi.getProjectCloseoutPreview(Number(projectId), mode),
     enabled: !!projectId
   })
+  const monitorQuery = useQuery({
+    queryKey: ['project-monitor', projectId],
+    queryFn: () => adminApi.getProjectMonitor(Number(projectId)),
+    enabled: !!projectId
+  })
 
   const preview = previewQuery.data?.success ? previewQuery.data.data : null
+  const monitor = monitorQuery.data?.success ? monitorQuery.data.data : null
   const allChecked = Object.values(checklist).every(Boolean)
 
   const mutation = useMutation({
@@ -121,6 +127,11 @@ export default function ProjectCloseout() {
             </p>
           </div>
         </div>
+        {preview.existing_closeout_run && (
+          <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            এই প্রজেক্টের settlement আগে চালানো হয়েছে। Run #{preview.existing_closeout_run.id} • {new Date(preview.existing_closeout_run.executed_at).toLocaleString()}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -141,9 +152,88 @@ export default function ProjectCloseout() {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-gray-500">বিক্রিত শেয়ার</span><span className="font-semibold">{preview.settlement.total_shares_sold}</span></div>
             <div className="flex justify-between"><span className="text-gray-500">মোট principal refund</span><span className="font-semibold">{formatTaka(preview.settlement.capital_refund_total)}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">চূড়ান্ত profit pool</span><span className="font-semibold">{formatTaka(preview.settlement.final_profit_pool)}</span></div>
             <div className="flex justify-between"><span className="text-gray-500">pending share purchase</span><span className="font-semibold">{preview.settlement.pending_share_purchases}</span></div>
             <div className="flex justify-between"><span className="text-gray-500">pending expense allocation</span><span className="font-semibold">{preview.settlement.pending_expense_allocations}</span></div>
           </div>
+        </div>
+      </div>
+
+      {monitor && (
+        <div className="card">
+          <h2 className="font-semibold text-gray-900 mb-3">Project Monitor</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-4">
+            <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3">
+              <p className="text-gray-500 text-xs mb-1">Project members</p>
+              <p className="font-semibold">{monitor.members.length}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3">
+              <p className="text-gray-500 text-xs mb-1">Shareholders</p>
+              <p className="font-semibold">{monitor.summary.shareholders_count}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3">
+              <p className="text-gray-500 text-xs mb-1">Claimable</p>
+              <p className="font-semibold">{formatTaka(monitor.summary.claimable_total)}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3">
+              <p className="text-gray-500 text-xs mb-1">Withdrawn</p>
+              <p className="font-semibold">{formatTaka(monitor.summary.withdrawn_total)}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Assigned Members</h3>
+              <div className="space-y-2">
+                {monitor.members.length === 0 ? <p className="text-sm text-gray-500">কোনো assigned member নেই।</p> : monitor.members.map((member) => (
+                  <div key={member.id} className="rounded-xl border border-gray-200 px-3 py-2">
+                    <p className="font-medium text-sm text-gray-900">{member.user_name || `User #${member.user_id}`}</p>
+                    <p className="text-xs text-gray-500 mt-1">{member.role_label || 'No role label'}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Shareholders</h3>
+              <div className="space-y-2">
+                {monitor.shareholders.length === 0 ? <p className="text-sm text-gray-500">কোনো shareholder নেই।</p> : monitor.shareholders.map((holder) => (
+                  <div key={holder.user_id} className="rounded-xl border border-gray-200 px-3 py-2">
+                    <div className="flex justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-sm text-gray-900">{holder.user_name}</p>
+                        <p className="text-xs text-gray-500 mt-1">{holder.quantity} শেয়ার • {(holder.ownership_bps / 100).toFixed(2)}%</p>
+                      </div>
+                      <div className="text-right text-xs">
+                        <p className="text-amber-700 font-semibold">Claimable {formatTaka(holder.claimable_amount)}</p>
+                        <p className="text-gray-600 mt-1">Withdrawn {formatTaka(holder.withdrawn_amount)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="card">
+        <h2 className="font-semibold text-gray-900 mb-3">Settlement Projection</h2>
+        <div className="space-y-3">
+          {preview.settlement_projection.length === 0 ? (
+            <p className="text-sm text-gray-500">কোনো shareholder নেই।</p>
+          ) : preview.settlement_projection.map((item) => (
+            <div key={item.user_id} className="rounded-xl border border-gray-200 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-semibold text-gray-900">{item.user_name}</p>
+                  <p className="text-xs text-gray-500 mt-1">{item.shares_held} শেয়ার • {(item.ownership_bps / 100).toFixed(2)}%</p>
+                </div>
+                <div className="text-right text-sm">
+                  <p className="text-emerald-700 font-semibold">মূলধন: {formatTaka(item.principal_refund_amount)}</p>
+                  <p className="text-blue-700 font-semibold mt-1">চূড়ান্ত লাভ: {formatTaka(item.final_profit_amount)}</p>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

@@ -11,7 +11,13 @@ import {
   evaluateComplianceForCloseout,
   type ProjectComplianceProfile
 } from '../lib/project-compliance'
-import type { Bindings, Variables, Project } from '../types'
+import type {
+  Bindings,
+  Variables,
+  Project,
+  ProjectCloseoutRun,
+  ProjectMember
+} from '../types'
 
 export const adminRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 const schemaSupportCache = new Map<string, boolean>()
@@ -50,6 +56,50 @@ async function hasColumn(db: D1Database, table: string, column: string) {
   return supported
 }
 
+async function hasTable(db: D1Database, table: string) {
+  const cacheKey = `table:${table}`
+  const cached = schemaSupportCache.get(cacheKey)
+  if (cached != null) return cached
+
+  const result = await db.prepare(
+    `SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`
+  ).bind(table).first<{ name: string }>()
+  const supported = !!result
+  schemaSupportCache.set(cacheKey, supported)
+  return supported
+}
+
+async function getShareholderSnapshot(db: D1Database, projectId: number) {
+  const result = await db.prepare(
+    `SELECT us.user_id, us.quantity, u.name as user_name, u.phone as user_phone
+     FROM user_shares us
+     JOIN users u ON u.id = us.user_id
+     WHERE us.project_id = ? AND us.quantity > 0
+     ORDER BY us.quantity DESC, us.user_id ASC`
+  ).bind(projectId).all<{ user_id: number; quantity: number; user_name: string; user_phone: string | null }>()
+
+  const totalShares = result.results.reduce((sum, row) => sum + row.quantity, 0)
+
+  return {
+    totalShares,
+    shareholders: result.results.map((row) => ({
+      ...row,
+      ownership_bps: totalShares > 0 ? Math.floor((row.quantity * 10000) / totalShares) : 0
+    }))
+  }
+}
+
+async function getCompletedCloseoutRun(db: D1Database, projectId: number) {
+  if (!(await hasTable(db, 'project_closeout_runs'))) return null
+
+  return db.prepare(
+    `SELECT * FROM project_closeout_runs
+     WHERE project_id = ? AND status = 'completed'
+     ORDER BY id DESC
+     LIMIT 1`
+  ).bind(projectId).first<ProjectCloseoutRun>()
+}
+
 async function getProjectCloseoutPreview(db: D1Database, projectId: number, mode: CloseoutMode) {
   const project = await db.prepare(
     'SELECT id, title, status, share_price, total_shares, total_capital, completed_at FROM projects WHERE id = ?'
@@ -68,7 +118,7 @@ async function getProjectCloseoutPreview(db: D1Database, projectId: number, mode
   const hasTotalDistributedAmount = await hasColumn(db, 'profit_distributions', 'total_distributed_amount')
   const distributedColumn = hasTotalDistributedAmount ? 'total_distributed_amount' : 'distributable_amount'
 
-  const [pendingPurchases, pendingExpenseAllocations, financials, companyAllocations, distributed, soldShares, existingRefund, complianceProfile] = await Promise.all([
+  const [pendingPurchases, pendingExpenseAllocations, financials, companyAllocations, distributed, soldShares, existingRefund, complianceProfile, completedCloseoutRun, shareholderSnapshot] = await Promise.all([
     db.prepare(
       `SELECT COUNT(*) as cnt FROM share_purchases WHERE project_id = ? AND status = 'pending'`
     ).bind(projectId).first<{ cnt: number }>(),
@@ -104,6 +154,9 @@ async function getProjectCloseoutPreview(db: D1Database, projectId: number, mode
     db.prepare(
       `SELECT * FROM project_compliance_profiles WHERE project_id = ?`
     ).bind(projectId).first<ProjectComplianceProfile>()
+    ,
+    getCompletedCloseoutRun(db, projectId),
+    getShareholderSnapshot(db, projectId)
   ])
 
   const totalRevenue = financials?.total_revenue ?? 0
@@ -129,11 +182,30 @@ async function getProjectCloseoutPreview(db: D1Database, projectId: number, mode
     netProfit
   })
 
+  const settlementProjection = shareholderSnapshot.shareholders.map((row) => ({
+    user_id: row.user_id,
+    user_name: row.user_name,
+    user_phone: row.user_phone,
+    shares_held: row.quantity,
+    ownership_bps: row.ownership_bps,
+    principal_refund_amount: row.quantity * project.share_price,
+    final_profit_amount: shareholderSnapshot.totalShares > 0
+      ? Math.floor((availableProfit * row.quantity) / shareholderSnapshot.totalShares)
+      : 0
+  }))
+
   return {
     project,
     mode,
     can_closeout: evaluation.canCloseout && complianceBlockers.length === 0,
     blockers: [...evaluation.blockers, ...complianceBlockers],
+    existing_closeout_run: completedCloseoutRun
+      ? {
+          id: completedCloseoutRun.id,
+          status: completedCloseoutRun.status,
+          executed_at: completedCloseoutRun.executed_at
+        }
+      : null,
     financials: {
       total_revenue: totalRevenue,
       direct_expense: directExpense,
@@ -145,9 +217,11 @@ async function getProjectCloseoutPreview(db: D1Database, projectId: number, mode
     settlement: {
       total_shares_sold: totalSharesSold,
       capital_refund_total: capitalRefundTotal,
+      final_profit_pool: availableProfit,
       pending_share_purchases: pendingPurchases?.cnt ?? 0,
       pending_expense_allocations: pendingExpenseAllocations?.cnt ?? 0
     },
+    settlement_projection: settlementProjection,
     compliance: {
       contract_type: compliance.contract_type,
       shariah_screening_status: compliance.shariah_screening_status,
@@ -218,6 +292,101 @@ async function executeCapitalRefund(c: any, projectId: number, project: { share_
   return {
     shareholdersCount: shareholders.results.length,
     totalRefunded
+  }
+}
+
+async function createCloseoutSettlementEntries(
+  c: any,
+  projectId: number,
+  preview: Awaited<ReturnType<typeof getProjectCloseoutPreview>>,
+  mode: CloseoutMode
+) {
+  if (!preview) throw new Error('Closeout preview পাওয়া যায়নি')
+  if (!(await hasTable(c.env.DB, 'project_closeout_runs')) || !(await hasTable(c.env.DB, 'project_settlement_entries'))) {
+    return null
+  }
+
+  const existingRun = await getCompletedCloseoutRun(c.env.DB, projectId)
+  if (existingRun) {
+    throw new Error('এই প্রজেক্টের closeout settlement ইতিমধ্যে তৈরি হয়েছে')
+  }
+
+  const adminId = c.get('userId')
+  const runResult = await c.env.DB.prepare(
+    `INSERT INTO project_closeout_runs (
+      project_id, mode, status, net_profit_paisa, capital_refund_total_paisa,
+      final_profit_pool_paisa, shareholders_count, executed_by, executed_at
+    ) VALUES (?, ?, 'completed', ?, ?, ?, ?, ?, datetime('now'))`
+  ).bind(
+    projectId,
+    mode,
+    preview.financials.net_profit,
+    preview.settlement.capital_refund_total,
+    preview.settlement.final_profit_pool,
+    preview.settlement_projection.length,
+    adminId
+  ).run()
+
+  const closeoutRunId = runResult.meta.last_row_id
+  const statements: D1PreparedStatement[] = []
+
+  for (const shareholder of preview.settlement_projection) {
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO project_settlement_entries (
+          project_id, user_id, closeout_run_id, entry_type, amount_paisa,
+          shares_held_snapshot, total_shares_snapshot, ownership_bps_snapshot,
+          project_status_snapshot, source_reference_type, source_reference_id,
+          claim_status, notes, created_by
+        ) VALUES (?, ?, ?, 'principal_refund', ?, ?, ?, ?, ?, 'project_closeout', ?, 'claimable', ?, ?)`
+      ).bind(
+        projectId,
+        shareholder.user_id,
+        closeoutRunId,
+        shareholder.principal_refund_amount,
+        shareholder.shares_held,
+        preview.settlement.total_shares_sold,
+        shareholder.ownership_bps,
+        preview.project.status,
+        closeoutRunId,
+        `Principal refund generated during project ${mode} closeout`,
+        adminId
+      )
+    )
+
+    if (shareholder.final_profit_amount > 0) {
+      statements.push(
+        c.env.DB.prepare(
+          `INSERT INTO project_settlement_entries (
+            project_id, user_id, closeout_run_id, entry_type, amount_paisa,
+            shares_held_snapshot, total_shares_snapshot, ownership_bps_snapshot,
+            project_status_snapshot, source_reference_type, source_reference_id,
+            claim_status, notes, created_by
+          ) VALUES (?, ?, ?, 'final_profit_payout', ?, ?, ?, ?, ?, 'project_closeout', ?, 'claimable', ?, ?)`
+        ).bind(
+          projectId,
+          shareholder.user_id,
+          closeoutRunId,
+          shareholder.final_profit_amount,
+          shareholder.shares_held,
+          preview.settlement.total_shares_sold,
+          shareholder.ownership_bps,
+          preview.project.status,
+          closeoutRunId,
+          `Final profit generated during project ${mode} closeout`,
+          adminId
+        )
+      )
+    }
+  }
+
+  for (let i = 0; i < statements.length; i += 100) {
+    await c.env.DB.batch(statements.slice(i, i + 100))
+  }
+
+  return {
+    closeoutRunId,
+    entriesCount: statements.length
   }
 }
 
@@ -450,6 +619,9 @@ adminRoutes.delete('/projects/:id', async (c) => {
       ).bind(row.total, row.user_id, row.total).run()
     }
 
+    await c.env.DB.prepare('DELETE FROM project_members WHERE project_id = ?').bind(id).run()
+    await c.env.DB.prepare('DELETE FROM project_settlement_entries WHERE project_id = ?').bind(id).run()
+    await c.env.DB.prepare('DELETE FROM project_closeout_runs WHERE project_id = ?').bind(id).run()
     await c.env.DB.prepare('DELETE FROM shareholder_profits WHERE project_id = ?').bind(id).run()
     await c.env.DB.prepare('DELETE FROM profit_distributions WHERE project_id = ?').bind(id).run()
     await c.env.DB.prepare('DELETE FROM earnings WHERE project_id = ?').bind(id).run()
@@ -502,6 +674,12 @@ const closeoutSchema = z.object({
   })
 })
 
+const projectMemberSchema = z.object({
+  user_id: z.number().int().positive(),
+  role_label: z.string().max(80).optional(),
+  notes: z.string().max(500).optional()
+})
+
 adminRoutes.post('/projects/:id/closeout', zValidator('json', closeoutSchema), async (c) => {
   const id = parseInt(c.req.param('id'))
   if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
@@ -528,7 +706,12 @@ adminRoutes.post('/projects/:id/closeout', zValidator('json', closeoutSchema), a
   }
 
   try {
+    if (preview.existing_closeout_run) {
+      return err(c, 'এই প্রজেক্টের closeout settlement ইতিমধ্যে সম্পন্ন হয়েছে', 409)
+    }
+
     const refundResult = await executeCapitalRefund(c, id, preview.project, body.mode)
+    const settlementResult = await createCloseoutSettlementEntries(c, id, preview, body.mode)
 
     if (body.mode === 'completed') {
       await c.env.DB.prepare(
@@ -544,11 +727,177 @@ adminRoutes.post('/projects/:id/closeout', zValidator('json', closeoutSchema), a
       message: 'প্রজেক্ট closeout সম্পন্ন হয়েছে',
       status: body.mode,
       shareholders_count: refundResult.shareholdersCount,
-      total_refunded: refundResult.totalRefunded
+      total_refunded: refundResult.totalRefunded,
+      closeout_run_id: settlementResult?.closeoutRunId ?? null
     })
   } catch (error: any) {
     return err(c, error?.message || 'প্রজেক্ট closeout ব্যর্থ হয়েছে', 409)
   }
+})
+
+adminRoutes.get('/projects/:id/members', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+
+  if (!(await hasTable(c.env.DB, 'project_members'))) return ok(c, [])
+
+  const rows = await c.env.DB.prepare(
+    `SELECT pm.*, u.name as user_name, u.phone as user_phone
+     FROM project_members pm
+     JOIN users u ON u.id = pm.user_id
+     WHERE pm.project_id = ? AND pm.status = 'active'
+     ORDER BY pm.assigned_at DESC`
+  ).bind(id).all<ProjectMember>()
+
+  return ok(c, rows.results)
+})
+
+adminRoutes.post('/projects/:id/members', zValidator('json', projectMemberSchema), async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+  const adminId = c.get('userId')
+  const body = c.req.valid('json')
+
+  if (!(await hasTable(c.env.DB, 'project_members'))) return err(c, 'project member schema অনুপস্থিত', 500)
+
+  const [project, user] = await Promise.all([
+    c.env.DB.prepare('SELECT id FROM projects WHERE id = ?').bind(id).first<{ id: number }>(),
+    c.env.DB.prepare('SELECT id, name, phone FROM users WHERE id = ?').bind(body.user_id).first<{ id: number; name: string; phone: string | null }>()
+  ])
+
+  if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
+  if (!user) return err(c, 'ইউজার পাওয়া যায়নি', 404)
+
+  await c.env.DB.prepare(
+    `INSERT INTO project_members (project_id, user_id, role_label, status, assigned_by, notes, updated_at)
+     VALUES (?, ?, ?, 'active', ?, ?, datetime('now'))
+     ON CONFLICT(project_id, user_id) WHERE status = 'active'
+     DO UPDATE SET role_label = excluded.role_label, notes = excluded.notes, updated_at = datetime('now')`
+  ).bind(id, body.user_id, body.role_label ?? null, adminId, body.notes ?? null).run()
+
+  return ok(c, {
+    message: 'Project member যুক্ত হয়েছে',
+    user_id: body.user_id
+  }, 201)
+})
+
+adminRoutes.delete('/projects/:id/members/:memberId', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  const memberId = parseInt(c.req.param('memberId'))
+  if (isNaN(id) || isNaN(memberId)) return err(c, 'অকার্যকর আইডি')
+
+  if (!(await hasTable(c.env.DB, 'project_members'))) return err(c, 'project member schema অনুপস্থিত', 500)
+
+  const result = await c.env.DB.prepare(
+    `UPDATE project_members
+     SET status = 'removed', removed_by = ?, removed_at = datetime('now'), updated_at = datetime('now')
+     WHERE id = ? AND project_id = ? AND status = 'active'`
+  ).bind(c.get('userId'), memberId, id).run()
+
+  if (!result.meta.changes) return err(c, 'Project member পাওয়া যায়নি', 404)
+  return ok(c, { message: 'Project member সরানো হয়েছে' })
+})
+
+adminRoutes.get('/projects/:id/monitor', async (c) => {
+  const id = parseInt(c.req.param('id'))
+  if (isNaN(id)) return err(c, 'অকার্যকর আইডি')
+
+  const project = await c.env.DB.prepare(
+    `SELECT id, title, status, share_price, total_shares, total_capital, completed_at
+     FROM projects WHERE id = ?`
+  ).bind(id).first<Project & { completed_at?: string | null }>()
+
+  if (!project) return err(c, 'প্রজেক্ট পাওয়া যায়নি', 404)
+
+  const [hasProjectMembersTable, hasSettlementEntriesTable] = await Promise.all([
+    hasTable(c.env.DB, 'project_members'),
+    hasTable(c.env.DB, 'project_settlement_entries')
+  ])
+
+  const [members, shareholderSnapshot, distributedProfit, settlementRows, closeoutRun] = await Promise.all([
+    hasProjectMembersTable
+      ? c.env.DB.prepare(
+          `SELECT pm.*, u.name as user_name, u.phone as user_phone
+           FROM project_members pm
+           JOIN users u ON u.id = pm.user_id
+           WHERE pm.project_id = ? AND pm.status = 'active'
+           ORDER BY pm.assigned_at DESC`
+        ).bind(id).all<ProjectMember>()
+      : Promise.resolve({ results: [] as ProjectMember[] }),
+    getShareholderSnapshot(c.env.DB, id),
+    c.env.DB.prepare(
+      `SELECT COALESCE(SUM(profit_amount), 0) as total
+       FROM shareholder_profits
+       WHERE project_id = ? AND status IN ('credited', 'withdrawn')`
+    ).bind(id).first<{ total: number }>(),
+    hasSettlementEntriesTable
+      ? c.env.DB.prepare(
+          `SELECT
+             COALESCE(SUM(CASE WHEN entry_type = 'principal_refund' THEN amount_paisa ELSE 0 END), 0) as principal_total,
+             COALESCE(SUM(CASE WHEN entry_type = 'final_profit_payout' THEN amount_paisa ELSE 0 END), 0) as final_profit_total,
+             COALESCE(SUM(CASE WHEN claim_status = 'claimable' THEN amount_paisa ELSE 0 END), 0) as claimable_total,
+             COALESCE(SUM(CASE WHEN claim_status = 'reserved' THEN amount_paisa ELSE 0 END), 0) as reserved_total,
+             COALESCE(SUM(CASE WHEN claim_status = 'withdrawn' THEN amount_paisa ELSE 0 END), 0) as withdrawn_total
+           FROM project_settlement_entries
+           WHERE project_id = ?`
+        ).bind(id).first<{
+          principal_total: number
+          final_profit_total: number
+          claimable_total: number
+          reserved_total: number
+          withdrawn_total: number
+        }>()
+      : Promise.resolve(null),
+    getCompletedCloseoutRun(c.env.DB, id)
+  ])
+
+  const shareholderRows = await c.env.DB.prepare(
+    `SELECT
+       us.user_id,
+       u.name as user_name,
+       u.phone as user_phone,
+       us.quantity,
+       COALESCE(SUM(CASE WHEN pse.entry_type = 'principal_refund' THEN pse.amount_paisa ELSE 0 END), 0) as principal_generated,
+       COALESCE(SUM(CASE WHEN pse.entry_type = 'final_profit_payout' THEN pse.amount_paisa ELSE 0 END), 0) as final_profit_generated,
+       COALESCE(SUM(CASE WHEN pse.claim_status = 'claimable' THEN pse.amount_paisa ELSE 0 END), 0) as claimable_amount,
+       COALESCE(SUM(CASE WHEN pse.claim_status = 'withdrawn' THEN pse.amount_paisa ELSE 0 END), 0) as withdrawn_amount
+     FROM user_shares us
+     JOIN users u ON u.id = us.user_id
+     LEFT JOIN project_settlement_entries pse
+       ON pse.project_id = us.project_id AND pse.user_id = us.user_id
+     WHERE us.project_id = ? AND us.quantity > 0
+     GROUP BY us.user_id, u.name, u.phone, us.quantity
+     ORDER BY us.quantity DESC, us.user_id ASC`
+  ).bind(id).all<{
+    user_id: number
+    user_name: string
+    user_phone: string | null
+    quantity: number
+    principal_generated: number
+    final_profit_generated: number
+    claimable_amount: number
+    withdrawn_amount: number
+  }>()
+
+  return ok(c, {
+    project,
+    closeout_run: closeoutRun,
+    members: members.results,
+    summary: {
+      shareholders_count: shareholderSnapshot.shareholders.length,
+      sold_shares: shareholderSnapshot.totalShares,
+      distributed_profit_total: distributedProfit?.total ?? 0,
+      principal_refund_total: settlementRows?.principal_total ?? 0,
+      final_profit_total: settlementRows?.final_profit_total ?? 0,
+      claimable_total: settlementRows?.claimable_total ?? 0,
+      reserved_total: settlementRows?.reserved_total ?? 0,
+      withdrawn_total: settlementRows?.withdrawn_total ?? 0
+    },
+    shareholders: shareholderRows.results.map((row) => ({
+      ...row,
+      ownership_bps: shareholderSnapshot.totalShares > 0 ? Math.floor((row.quantity * 10000) / shareholderSnapshot.totalShares) : 0
+    }))
+  })
 })
 
 adminRoutes.get('/projects/:id/compliance', async (c) => {
