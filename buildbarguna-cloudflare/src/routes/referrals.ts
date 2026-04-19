@@ -87,20 +87,21 @@ referralRoutes.get('/stats', async (c) => {
 
   const origin = new URL(c.req.url).origin
 
-  const [referredUsers, bonusSummary, recentReferrals, pendingReferrals, bonusSetting] = await Promise.all([
-    // Total referred user count — use referrer_user_id FK (not string code)
+  // ⚡ Bolt: Use db.batch() instead of Promise.all for D1 to reduce network roundtrips from O(N) to O(1)
+  const batchResults = await c.env.DB.batch([
+    // 0: Total referred user count
     c.env.DB.prepare(
       `SELECT COUNT(*) as total FROM users WHERE referrer_user_id = ?`
-    ).bind(userId).first<{ total: number }>(),
+    ).bind(userId),
 
-    // Total bonus earned from referrals
+    // 1: Total bonus earned from referrals
     c.env.DB.prepare(
       `SELECT COALESCE(SUM(amount_paisa), 0) as total_bonus_paisa,
               COUNT(*) as bonuses_earned
        FROM referral_bonuses WHERE referrer_user_id = ?`
-    ).bind(userId).first<{ total_bonus_paisa: number; bonuses_earned: number }>(),
+    ).bind(userId),
 
-    // Recent referred users — use referrer_user_id FK (not string code)
+    // 2: Recent referred users
     c.env.DB.prepare(
       `SELECT
          u.name,
@@ -116,9 +117,9 @@ referralRoutes.get('/stats', async (c) => {
        WHERE u.referrer_user_id = ?
        ORDER BY u.created_at DESC
        LIMIT 20`
-    ).bind(userId, userId).all(),
+    ).bind(userId, userId),
 
-    // Count referred users who haven't invested yet (potential bonuses)
+    // 3: Count referred users who haven't invested yet (potential bonuses)
     c.env.DB.prepare(
       `SELECT COUNT(*) as cnt FROM users u
        WHERE u.referrer_user_id = ?
@@ -130,19 +131,25 @@ referralRoutes.get('/stats', async (c) => {
            SELECT 1 FROM referral_bonuses rb
            WHERE rb.referred_user_id = u.id AND rb.referrer_user_id = ?
          )`
-    ).bind(userId, userId).first<{ cnt: number }>(),
+    ).bind(userId, userId),
 
-    // Current bonus amount setting
+    // 4: Current bonus amount setting
     c.env.DB.prepare(
       `SELECT value FROM withdrawal_settings WHERE key = 'referral_bonus_paisa'`
-    ).first<{ value: string }>()
+    )
   ])
+
+  const referredUsers = batchResults[0].results?.[0] as { total: number } | undefined
+  const bonusSummary = batchResults[1].results?.[0] as { total_bonus_paisa: number; bonuses_earned: number } | undefined
+  const recentReferrals = batchResults[2].results
+  const pendingReferrals = batchResults[3].results?.[0] as { cnt: number } | undefined
+  const bonusSetting = batchResults[4].results?.[0] as { value: string } | undefined
 
   const bonusPerReferral = parseInt(bonusSetting?.value ?? '5000', 10)
   const pendingCount = pendingReferrals?.cnt ?? 0
 
   // Mask names for privacy — show first char + ***
-  const maskedReferrals = (recentReferrals.results as Array<{
+  const maskedReferrals = (recentReferrals as Array<{
     name: string
     created_at: string
     has_invested: number
