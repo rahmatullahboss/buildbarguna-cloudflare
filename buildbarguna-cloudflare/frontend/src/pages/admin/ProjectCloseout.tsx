@@ -66,6 +66,10 @@ export default function ProjectCloseout() {
   const preview = previewQuery.data?.success ? previewQuery.data.data : null
   const monitor = monitorQuery.data?.success ? monitorQuery.data.data : null
   const allChecked = Object.values(checklist).every(Boolean)
+  const totalListedShareholderShares = useMemo(
+    () => monitor?.shareholders.reduce((sum, holder) => sum + holder.quantity, 0) ?? 0,
+    [monitor]
+  )
 
   const mutation = useMutation({
     mutationFn: () => adminApi.executeProjectCloseout(Number(projectId), {
@@ -210,6 +214,11 @@ export default function ProjectCloseout() {
                   </div>
                 ))}
               </div>
+              {monitor.shareholders.length > 0 && (
+                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  মোট shareholder {monitor.summary.shareholders_count} জন • মোট বিক্রি {totalListedShareholderShares} শেয়ার
+                </div>
+              )}
             </div>
           </div>
         </div>

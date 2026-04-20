@@ -361,4 +361,42 @@ describe('Withdrawals Balance + Breakdown Integration', () => {
     expect(reservedEntries?.claim_status).toBe('reserved')
     expect(reservedEntries?.withdrawal_id).toBe(requestJson.data.withdrawal_id)
   })
+
+  it('counts closeout final profit as withdrawable when it exists only in settlement ledger', async () => {
+    await env.DB.prepare(
+      `INSERT INTO projects (id, title, total_capital, total_shares, share_price, status)
+       VALUES (1, 'Settlement Profit Project', 1000000, 10, 100000, 'completed')`
+    ).run()
+
+    await env.DB.prepare(
+      `INSERT INTO user_balances (user_id, total_earned_paisa, total_withdrawn_paisa, reserved_paisa)
+       VALUES (?, 100000, 0, 0)`
+    ).bind(memberUser.id).run()
+
+    await env.DB.prepare(
+      `INSERT INTO project_closeout_runs (
+         id, project_id, mode, status, net_profit_paisa, capital_refund_total_paisa,
+         final_profit_pool_paisa, shareholders_count, executed_by
+       ) VALUES (1, 1, 'completed', 'completed', 40000, 100000, 40000, 1, ?)`
+    ).bind(adminUser.id).run()
+
+    await env.DB.prepare(
+      `INSERT INTO project_settlement_entries (
+         project_id, user_id, closeout_run_id, entry_type, amount_paisa,
+         shares_held_snapshot, total_shares_snapshot, ownership_bps_snapshot, claim_status, created_by
+       ) VALUES
+         (1, ?, 1, 'principal_refund', 100000, 1, 1, 10000, 'claimable', ?),
+         (1, ?, 1, 'final_profit_payout', 40000, 1, 1, 10000, 'claimable', ?)`
+    ).bind(memberUser.id, adminUser.id, memberUser.id, adminUser.id).run()
+
+    const memberAuth = await authHeader(memberUser)
+    const response = await env.app.fetch('/api/withdrawals/balance', {
+      headers: memberAuth
+    })
+
+    expect(response.status).toBe(200)
+    const json = await response.json() as any
+    expect(json.data.total_earned_paisa).toBe(140_000)
+    expect(json.data.available_paisa).toBe(140_000)
+  })
 })

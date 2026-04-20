@@ -46,6 +46,20 @@ async function hasTable(db: D1Database, table: string) {
   return supported
 }
 
+async function getSupplementalSettlementEarned(db: D1Database, userId: number) {
+  if (!(await hasTable(db, 'project_settlement_entries'))) return 0
+
+  const row = await db.prepare(
+    `SELECT COALESCE(SUM(amount_paisa), 0) as total
+     FROM project_settlement_entries
+     WHERE user_id = ?
+       AND entry_type IN ('final_profit_payout', 'closeout_adjustment')
+       AND claim_status != 'reversed'`
+  ).bind(userId).first<{ total: number }>()
+
+  return row?.total ?? 0
+}
+
 async function reserveSettlementEntries(db: D1Database, userId: number, withdrawalId: number, amountPaisa: number) {
   if (!(await hasTable(db, 'project_settlement_entries'))) return 0
 
@@ -118,21 +132,25 @@ async function getAvailableBalance(db: D1Database, userId: number): Promise<Avai
   const reservedPaisa = pendingPaisa + approvedPaisa
 
   // First try to get balance from user_balances table (explicit tracking)
-  const explicitBalance = await db.prepare(
-    `SELECT total_earned_paisa, total_withdrawn_paisa, reserved_paisa
-     FROM user_balances WHERE user_id = ?`
-  ).bind(userId).first<UserBalance>()
+  const [explicitBalance, supplementalSettlementEarned] = await Promise.all([
+    db.prepare(
+      `SELECT total_earned_paisa, total_withdrawn_paisa, reserved_paisa
+       FROM user_balances WHERE user_id = ?`
+    ).bind(userId).first<UserBalance>(),
+    getSupplementalSettlementEarned(db, userId)
+  ])
 
   // If user_balances exists, use it for earned/withdrawn totals
   if (explicitBalance) {
+    const totalEarned = explicitBalance.total_earned_paisa + supplementalSettlementEarned
     return {
-      total_earned_paisa:    explicitBalance.total_earned_paisa,
+      total_earned_paisa:    totalEarned,
       total_withdrawn_paisa: explicitBalance.total_withdrawn_paisa,
       pending_paisa:         pendingPaisa,
       approved_paisa:        approvedPaisa,
       reserved_paisa:        reservedPaisa,
       available_paisa:
-        explicitBalance.total_earned_paisa -
+        totalEarned -
         explicitBalance.total_withdrawn_paisa -
         reservedPaisa
     }
@@ -146,7 +164,7 @@ async function getAvailableBalance(db: D1Database, userId: number): Promise<Avai
       (SELECT COALESCE(SUM(amount_paisa), 0) FROM withdrawals WHERE user_id = ? AND status = 'completed') as total_withdrawn
   `).bind(userId, userId, userId).first<{ total_earned: number; total_withdrawn: number }>()
 
-  const totalEarned    = result?.total_earned    ?? 0
+  const totalEarned    = (result?.total_earned ?? 0) + supplementalSettlementEarned
   const totalWithdrawn = result?.total_withdrawn ?? 0
 
   return {
@@ -179,7 +197,7 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
 
   // Parallel queries: per-project earnings + capital refund + referral bonuses + legacy audit log entries + explicit balance
   const hasSettlementTable = await hasTable(c.env.DB, 'project_settlement_entries')
-  const [projectEarnings, capitalRefunds, referralBonus, legacyEntries, explicitBalance, settlementBreakdown] = await Promise.all([
+  const [projectEarnings, capitalRefunds, referralBonus, legacyEntries, explicitBalance, settlementBreakdown, supplementalSettlementEarned] = await Promise.all([
     c.env.DB.prepare(
       `SELECT p.title as project_title, p.id as project_id, SUM(e.amount) as total_paisa, COUNT(DISTINCT e.month) as months
        FROM earnings e
@@ -232,6 +250,8 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
            ORDER BY pse.project_id ASC`
         ).bind(userId).all<{ project_title: string; project_id: number; principal_total: number; final_profit_total: number }>()
       : Promise.resolve({ results: [] as { project_title: string; project_id: number; principal_total: number; final_profit_total: number }[] })
+    ,
+    getSupplementalSettlementEarned(c.env.DB, userId)
   ])
 
   const breakdown: { source: string; label: string; project_title?: string; project_id?: number; amount_paisa: number; detail?: string }[] = []
@@ -336,7 +356,9 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
   }
 
   // Final discrepancy check — if user_balances still doesn't match, show as misc
-  const actualTotal = explicitBalance?.total_earned_paisa ?? sumFromSources
+  const actualTotal = explicitBalance
+    ? explicitBalance.total_earned_paisa + supplementalSettlementEarned
+    : sumFromSources
   const miscAmount = actualTotal - sumFromSources
 
   if (miscAmount > 0) {
