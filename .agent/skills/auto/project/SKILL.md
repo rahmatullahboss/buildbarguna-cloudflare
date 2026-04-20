@@ -1,6 +1,6 @@
 ---
 name: project
-description: "Project for buildbarguna-cloudflare. 35 gotchas, 185 conventions, 1 fixes."
+description: "Project for buildbarguna-cloudflare. 52 gotchas, 195 conventions, 5 fixes."
 domain: project
 triggers:
   - glob: "**/*"
@@ -10,7 +10,7 @@ enabled: true
 
 # Project
 
-Auto-compiled from **265 real patterns** in **buildbarguna-cloudflare**. This skill is auto-routed to agents when working on project files.
+Auto-compiled from **312 real patterns** in **buildbarguna-cloudflare**. This skill is auto-routed to agents when working on project files.
 
 ## ⚠️ Anti-Patterns & Gotchas
 
@@ -18,6 +18,23 @@ Auto-compiled from **265 real patterns** in **buildbarguna-cloudflare**. This sk
 
 | ❌ Don't | Details |
 |----------|----------|
+| gotcha in agent-rules.md | File updated (external): .brainsync/agent-rules.md  Content summary (82 lines): # Project Intelligen |
+| ⚠️ GOTCHA: Optimized Score | - > 286 notes - Score threshold: >40 + > 289 notes - Score threshold: >40 - - what-changed in shared |
+| ⚠️ GOTCHA: Optimized Score | - > 280 notes - Score threshold: >40 + > 282 notes - Score threshold: >40 - - what-changed in shared |
+| ⚠️ GOTCHA: Optimized Optimized | - - Optimized GOTCHA + - Optimized Score — parallelizes async operations for speed - - problem-fix i |
+| ⚠️ GOTCHA: problem-fix in agent-rules.md | - - Fixed null crash in Error — prevents null/undefined runtime crashes + - problem-fix in agent-rul |
+| ⚠️ GOTCHA: Patched security issue Patched | - - Patched security issue Fixed + - Patched security issue Patched - - Fixed null crash in SELECT — |
+| ⚠️ GOTCHA: Optimized Score — parallelizes async op | - > 240 notes - Score threshold: >40 + > 246 notes - Score threshold: >40 - - **⚠️ GOTCHA: Strengthe |
+| ⚠️ GOTCHA: Strengthened types Patched | - - Patched security issue UfTH — hardens HTTP security headers + - problem-fix in shared-context.js |
+| ⚠️ GOTCHA: Strengthened types Optimized | -  + - Optimized GOTCHA - ## Recent fixes +  -  + ## Recent fixes - - Patched security issue UfTH —  |
+| ⚠️ GOTCHA: Optimized GOTCHA | - - ⚠️ GOTCHA: Optimized GOTCHA + - ⚠️ GOTCHA: Optimized Score — parallelizes async operations for s |
+| ⚠️ GOTCHA: Optimized Score — parallelizes async op | - > 228 notes - Score threshold: >40 + > 232 notes - Score threshold: >40 - - **⚠️ GOTCHA: Optimized |
+| ⚠️ GOTCHA: Optimized Score — parallelizes async op | - > 217 notes - Score threshold: >40 + > 228 notes - Score threshold: >40 - - **⚠️ GOTCHA: Optimized |
+| ⚠️ GOTCHA: Optimized GOTCHA | - - ⚠️ GOTCHA: Optimized Score — parallelizes async operations for speed + - ⚠️ GOTCHA: Strengthened |
+| ⚠️ GOTCHA: Strengthened types Optimized | -  + - Optimized GOTCHA - ## Recent fixes +  -  + ## Recent fixes - - Patched security issue FJgPZ + |
+| ⚠️ GOTCHA: Optimized Score — parallelizes async op | - > 212 notes - Score threshold: >40 + > 217 notes - Score threshold: >40 - - **⚠️ GOTCHA: Optimized |
+| ⚠️ GOTCHA: Optimized Optimized | - - Optimized Score + - Optimized Score — parallelizes async operations for speed - - Optimized Scor |
+| ⚠️ GOTCHA: Optimized Optimized | - - Optimized Score — parallelizes async operations for speed + - Optimized Score - - Optimized Scor |
 | ⚠️ GOTCHA: Optimized Score | - > 177 notes - Score threshold: >40 + > 179 notes - Score threshold: >40 - - Added API key auth aut |
 | ⚠️ GOTCHA: Strengthened types Optimized | -  + - Optimized Score - ## Recent fixes +  -  + ## Recent fixes - - Fixed null crash in Validate —  |
 | ⚠️ GOTCHA: Strengthened types Fixed | - - Fixed null crash in Validate — reduces initial bundle size with code splitting + - problem-fix i |
@@ -51,10 +68,69 @@ Auto-compiled from **265 real patterns** in **buildbarguna-cloudflare**. This sk
 | Never use eval(), exec(), or Function() with user  | Never use eval(), exec(), or Function() with user input |
 | Don't hardcode API keys, passwords, database URLs, | Don't hardcode API keys, passwords, database URLs, or secrets anywhere |
 | Don't leave console.log, print(), debugger, or TOD | Don't leave console.log, print(), debugger, or TODO in production code |
-| Don't commit .env, secrets, API keys, or credentia | Don't commit .env, secrets, API keys, or credentials — add to .gitignore |
-| Never force push to main, master, or production br | Never force push to main, master, or production branches |
 
 ## 🔧 Problem Playbooks
+
+### problem-fix in agent-rules.md
+- - Fixed null crash in Error — prevents null/undefined runtime crashes
++ - problem-fix in agent-rules.md
+- - Fixed null crash in Expanded — prevents null/undefined runtime crashes
++ - Fixed null crash in Error — prevents null/undefined runtime crashes
+- - Patched security issue Patched
++ - Fixed null crash in Expanded — prevents null/undefined runtime crashes
+- - Patched security issue Fixed
++ - 
+
+**Actionable Steps:**
+1. Modified 1 files
+
+### problem-fix in agent-rules.md
+- - Fixed null crash in Expanded — prevents null/undefined runtime crashes
++ - Fixed null crash in Error — prevents null/undefined runtime crashes
+- - Patched security issue Patched
++ - Fixed null crash in Expanded — prevents null/undefined runtime crashes
+- - Patched security issue Fixed
++ - Patched security issue Patched
+- - Fixed null crash in SELECT — prevents XSS injection attacks
++ - Patched
+
+**Actionable Steps:**
+1. Modified 1 files
+
+### Patched security issue Patched
+- - Fixed null crash in SELECT — prevents XSS injection attacks
++ - Patched security issue Fixed
+- - problem-fix in shared-context.json
++ - Fixed null crash in SELECT — prevents XSS injection attacks
+- - Patched security issue UfTH — hardens HTTP security headers
++ - problem-fix in shared-context.json
+- - Patched security issue FJgPZ
++ - Patched security issue UfTH — hardens HTTP security headers
+
+
+**Actionable Steps:**
+1. Modified 1 files
+2. identifier: Patched
+3. identifier: Fixed
+4. identifier: SELECT
+5. identifier: XSS
+
+### Patched security issue Fixed
+- - problem-fix in shared-context.json
++ - Fixed null crash in SELECT — prevents XSS injection attacks
+- - Patched security issue UfTH — hardens HTTP security headers
++ - problem-fix in shared-context.json
+- - Patched security issue FJgPZ
++ - Patched security issue UfTH — hardens HTTP security headers
+- - Fixed null crash in Validate — reduces initial bundle size with code splitting
++ - Patched se
+
+**Actionable Steps:**
+1. Modified 1 files
+2. identifier: Fixed
+3. identifier: SELECT
+4. identifier: XSS
+5. identifier: Patched
 
 ### Patched security issue Fixed
 - - Fixed null crash in Validate — reduces initial bundle size with code splitting
@@ -76,6 +152,35 @@ Auto-compiled from **265 real patterns** in **buildbarguna-cloudflare**. This sk
 ## 📐 Conventions & Best Practices
 
 ### Project Conventions
+- 📐 **what-changed in brainsync_auto.md — confirmed 3x** — - > 284 notes | Score threshold: >40
++ > 286 notes | Score threshold: >40
+
+📌 IDE AST Context: Modif
+- 📐 **Optimized Score — parallelizes async operations for speed — confirmed 3x** — - > 282 notes | Score threshold: >40
++ > 284 notes | Score threshold: >40
+- - **⚠️ GOTCHA: Optimized
+- 📐 **Optimized GOTCHA — confirmed 4x** — - - ⚠️ GOTCHA: Patched security issue Patched
++ - ⚠️ GOTCHA: problem-fix in agent-rules.md
+- - ⚠️ GO
+- 📐 **problem-fix in agent-rules.md — confirmed 3x** — - - Fixed null crash in Error — prevents null/undefined runtime crashes
++ - problem-fix in agent-rul
+- 📐 **Patched security issue Patched — confirmed 5x** — - - Patched security issue Fixed
++ - Patched security issue Patched
+- - Fixed null crash in SELECT —
+- 📐 **Optimized GOTCHA — confirmed 3x** — - - ⚠️ GOTCHA: Optimized GOTCHA
++ - ⚠️ GOTCHA: Optimized Score — parallelizes async operations for s
+- 📐 **Added API key auth authentication — confirmed 3x** — - - ⚠️ GOTCHA: Optimized Score
++ - ⚠️ GOTCHA: Optimized Optimized
+- - ⚠️ GOTCHA: Strengthened types 
+- 📐 **Optimized Score — confirmed 3x** — - > 208 notes | Score threshold: >40
++ > 210 notes | Score threshold: >40
+- - what-changed in shared
+- 📐 **Optimized Score — parallelizes async operations for speed — confirmed 3x** — - > 204 notes | Score threshold: >40
++ > 206 notes | Score threshold: >40
+- - Optimized Score — para
+- 📐 **Optimized Score — parallelizes async operations for speed — confirmed 3x** — - > 193 notes | Score threshold: >40
++ > 196 notes | Score threshold: >40
+- - Strengthened types Rec
 - 📐 **Strengthened types Recent** — - 
 + - decision in agent-rules.md
 - ## Recent fixes
@@ -90,83 +195,6 @@ Auto-compiled from **265 real patterns** in **buildbarguna-cloudflare**. This sk
 - 
 + ## Recen
 - 📐 **Strengthened types Optimized** — - 
-+ - Optimized Project — hardens HTTP security headers
-- ## Recent fixes
-+ 
-- 
-+ ## Recent fixes
--
-- 📐 **Strengthened types Architectural** — - ## 📚 Comprehensive Expert Skills (READ THESE)
-+ ## Architectural decisions
-- > **CRITICAL:** Brai
-- 📐 **Strengthened types Comprehensive** — + ## 📚 Comprehensive Expert Skills (READ THESE)
-+ > **CRITICAL:** BrainSync has pre-compiled full e
-- 📐 **convention in .gitignore** — File updated (external): .gitignore
-
-Content summary (16 lines):
-
-AGENT.md
-CLAUDE.md
-.agent-mem/
-
-# 
-- 📐 **Version your API from day 1 (/api/v1/)** — Version your API from day 1 (/api/v1/)
-- 📐 **Use consistent response format across all endpoints** — Use consistent response format across all endpoints
-- 📐 **Implement soft delete for important data — don't hard delete without confirmation** — Implement soft delete for important data — don't hard delete without confirmation
-- 📐 **Handle timezone correctly — store UTC, display in user's timezone** — Handle timezone correctly — store UTC, display in user's timezone
-- 📐 **Make layouts responsive from the start — mobile-first approach** — Make layouts responsive from the start — mobile-first approach
-- 📐 **Disable submit button during form submission — prevent double-submit** — Disable submit button during form submission — prevent double-submit
-- 📐 **Always add empty states ("No items yet" with call-to-action)** — Always add empty states ("No items yet" with call-to-action)
-- 📐 **Always add error states with retry button — not just blank screen** — Always add error states with retry button — not just blank screen
-- 📐 **Always add loading states for async operations (skeleton, spinner)** — Always add loading states for async operations (skeleton, spinner)
-- 📐 **Test edge cases: empty input, null, boundary values, error scenarios** — Test edge cases: empty input, null, boundary values, error scenarios
-- 📐 **Each test should be independent — no shared mutable state between tests** — Each test should be independent — no shared mutable state between tests
-- 📐 **Write tests for business logic — test behavior/output, not implementation details** — Write tests for business logic — test behavior/output, not implementation details
-- 📐 **Close resources (streams, connections, handles) when done** — Close resources (streams, connections, handles) when done
-- 📐 **Debounce user input handlers (search, resize, scroll)** — Debounce user input handlers (search, resize, scroll)
-- 📐 **Use pagination for lists over 100 items** — Use pagination for lists over 100 items
-- 📐 **Implement retry logic for transient failures with exponential backoff** — Implement retry logic for transient failures with exponential backoff
-- 📐 **Return proper HTTP status codes — not 500 for everything** — Return proper HTTP status codes — not 500 for everything
-- 📐 **Always wrap async/await in try/catch** — Always wrap async/await in try/catch
-- 📐 **Hash passwords with cost factor ≥12 (bcrypt) or memory ≥64MB (argon2)** — Hash passwords with cost factor ≥12 (bcrypt) or memory ≥64MB (argon2)
-- 📐 **Implement rate limiting on login endpoints to prevent brute force** — Implement rate limiting on login endpoints to prevent brute force
-- 📐 **Use constants for magic numbers and strings** — Use constants for magic numbers and strings
-- 📐 **Handle edge cases: empty arrays, empty strings, null, undefined, 0, NaN** — Handle edge cases: empty arrays, empty strings, null, undefined, 0, NaN
-- 📐 **Keep functions under 50 lines and single-responsibility** — Keep functions under 50 lines and single-responsibility
-- 📐 **Remove unused imports, variables, and dead code** — Remove unused imports, variables, and dead code
-- 📐 **Always pull before push to avoid conflicts** — Always pull before push to avoid conflicts
-- 📐 **Use meaningful commit messages in imperative mood: "Add feature" not "Added feature"** — Use meaningful commit messages in imperative mood: "Add feature" not "Added feature"
-- 📐 **Don't commit node_modules, __pycache__, build/, dist/ — add to .gitignore** — Don't commit node_modules, __pycache__, build/, dist/ — add to .gitignore
-- 📐 **Strengthened types WhatsApp — prevents null/undefined runtime crashes** — -       'myhealth.after.title': 'My Health অ্যাকাউন্ট সহ',
-+       'myhealth.before.p1': 'প্রেসক্রিপ
-- 📐 **Strengthened types Health — prevents null/undefined runtime crashes** — -       // ── Global Ecosystem Hub ────────────────────────────────────────────────
-+       // ── My
-- 📐 **Strengthened types GOTCHA — ensures atomic multi-step database operations** — - - ⚠️ GOTCHA: Updated multiple database schema
-+ - gotcha in agent.md
-- - ⚠️ GOTCHA: Updated multip
-- 📐 **Strengthened types GOTCHA — ensures atomic multi-step database operations** — - - gotcha in agent.md
-+ - ⚠️ GOTCHA: Updated multiple database schema — evolves the database schema
-- 📐 **Strengthened types Astro — prevents null/undefined runtime crashes** — - 
-+ import { getCategoryContent } from '../../../../../lib/categoryContent';
-- export const prerend
-- 📐 **Strengthened types Astro** — - Astro.response.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=300');
-
-- 📐 **Strengthened types Astro** — - 
-+ import { getBrandContent } from '../../../../../lib/brandContent';
-- export const prerender = f
-- 📐 **convention in agent-rules.md** — - - gotcha in agent.md
-+ - gotcha in agent-rules.md
-- - gotcha in agent-rules.md
-+ - gotcha in agent
-- 📐 **convention in brainsync_auto.md** — - > 451 notes | Score threshold: >40
-+ > 452 notes | Score threshold: >40
-- - what-changed in shared
-- 📐 **convention in brainsync_auto.md** — - > 447 notes | Score threshold: >40
-+ > 451 notes | Score threshold: >40
-- - convention in brainsyn
-- 📐 **convention in brainsync_auto.md** — - > 446 notes | Score threshold: >40
-+ > 447 notes | Score threshold: >40
-- - what-changed in shared
-- 📐 **convention in brainsync_auto.md** — - > 
++ - Optimized Project — hardens HTTP
 
 ... [Truncated — see individual observations for full content]

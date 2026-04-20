@@ -1,7 +1,7 @@
 
 
 # Project Memory — buildbarguna-cloudflare
-> 193 notes | Score threshold: >40
+> 289 notes | Score threshold: >40
 
 ## Safety — Never Run Destructive Commands
 
@@ -18,26 +18,50 @@
 
 **Stack:** JavaScript/TypeScript · React + Tailwind
 
-## 📝 NOTE: 1 uncommitted file(s) in working tree.\n\n## Project Standards
+## 📝 NOTE: 1 uncommitted file(s) in working tree.\n\n## Important Warnings
 
-- Strengthened types Recent
-- Strengthened types Optimized
-- Strengthened types Optimized
-- Strengthened types Architectural
-- Strengthened types Comprehensive
-- convention in .gitignore
-- convention in shared-context.json
-- convention in shared-context.json
+- **⚠️ GOTCHA: Optimized Score** — - > 280 notes | Score threshold: >40
++ > 282 notes | Score threshold: 
+- **⚠️ GOTCHA: Optimized Optimized** — - - Optimized GOTCHA
++ - Optimized Score — parallelizes async operatio
+- **⚠️ GOTCHA: problem-fix in agent-rules.md** — - - Fixed null crash in Error — prevents null/undefined runtime crashe
+- **⚠️ GOTCHA: Patched security issue Patched** — - - Patched security issue Fixed
++ - Patched security issue Patched
+- 
+- **⚠️ GOTCHA: Optimized Score — parallelizes async operations for speed** — - > 240 notes | Score threshold: >40
++ > 246 notes | Score threshold: 
+- **⚠️ GOTCHA: Strengthened types Patched** — - - Patched security issue UfTH — hardens HTTP security headers
++ - pr
+
+## Project Standards
+
+- what-changed in shared-context.json — confirmed 3x
+- Optimized Score — parallelizes async operations for speed — confirmed 3x
+- what-changed in shared-context.json — confirmed 3x
+- what-changed in shared-context.json — confirmed 12x
+- Optimized GOTCHA — confirmed 4x
+- problem-fix in agent-rules.md — confirmed 3x
+- Fixed null crash in Error — prevents null/undefined runtime crashes — confirmed 4x
+- Patched security issue Patched — confirmed 5x
 
 ## Known Fixes
 
 - ❌ - - Fixed null crash in Validate — reduces initial bundle size with code splitting → ✅ Patched security issue Fixed
+- ❌ - - Fixed null crash in Error — prevents null/undefined runtime crashes → ✅ problem-fix in agent-rules.md
+- ❌ - - Fixed null crash in SELECT — prevents XSS injection attacks → ✅ Patched security issue Patched
+
+## Recent Decisions
+
+- Optimized Score — parallelizes async operations for speed
+- Optimized Score — parallelizes async operations for speed
+- Optimized Score — parallelizes async operations for speed
+- Optimized Score — parallelizes async operations for speed
 
 ## Learned Patterns
 
-- Decision: Optimized Score — parallelizes async operations for speed (seen 2x)
 - Always: what-changed in brainsync_auto.md — confirmed 3x (seen 2x)
-- Always: what-changed in brainsync_auto.md — confirmed 3x (seen 3x)
+- Always: Optimized Score — confirmed 3x (seen 2x)
+- Decision: Optimized Score (seen 2x)
 - Agent generates new migration for every change (squash related changes)
 - Agent installs packages without checking if already installed
 
