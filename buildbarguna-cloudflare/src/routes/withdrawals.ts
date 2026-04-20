@@ -587,6 +587,31 @@ adminWithdrawalRoutes.patch('/:id/approve', async (c) => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
+    } else {
+      const canonicalEarnedTotal = await getCanonicalEarnedTotal(c.env.DB, withdrawal.user_id)
+      if (canonicalEarnedTotal > balanceRecord.total_earned_paisa) {
+        await c.env.DB.prepare(
+          `UPDATE user_balances
+           SET total_earned_paisa = ?, updated_at = datetime('now')
+           WHERE user_id = ?`
+        ).bind(canonicalEarnedTotal, withdrawal.user_id).run()
+
+        await c.env.DB.prepare(
+          `INSERT INTO balance_audit_log (user_id, amount_paisa, change_type, reference_type, reference_id, admin_id, note)
+           VALUES (?, ?, 'adjustment', 'reconciliation', ?, ?, ?)`
+        ).bind(
+          withdrawal.user_id,
+          canonicalEarnedTotal - balanceRecord.total_earned_paisa,
+          id,
+          adminId,
+          'Reconciled explicit balance before withdrawal approval'
+        ).run()
+
+        balanceRecord = {
+          ...balanceRecord,
+          total_earned_paisa: canonicalEarnedTotal
+        }
+      }
     }
 
     // Step 2: Check available balance

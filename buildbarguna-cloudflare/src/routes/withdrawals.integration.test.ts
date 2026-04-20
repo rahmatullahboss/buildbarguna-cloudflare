@@ -466,4 +466,46 @@ describe('Withdrawals Balance + Breakdown Integration', () => {
       withdrawal_method: 'cash'
     })
   })
+
+  it('approves withdrawal using canonical earned total when explicit balance is stale', async () => {
+    await env.DB.prepare(
+      `INSERT INTO projects (id, title, total_capital, total_shares, share_price, status)
+       VALUES (1, 'Approval Reconcile Project', 1000000, 10, 100000, 'completed')`
+    ).run()
+
+    await env.DB.prepare(
+      `INSERT INTO earnings (user_id, project_id, month, shares, rate, amount)
+       VALUES (?, 1, 'refund-2026-04', 1, 0, 80_000),
+              (?, 1, '2026-04', 1, 0, 9_929)`
+    ).bind(memberUser.id, memberUser.id).run()
+
+    await env.DB.prepare(
+      `INSERT INTO user_balances (user_id, total_earned_paisa, total_withdrawn_paisa, reserved_paisa)
+       VALUES (?, 80_000, 0, 0)`
+    ).bind(memberUser.id).run()
+
+    const insertWithdrawal = await env.DB.prepare(
+      `INSERT INTO withdrawals (user_id, amount_paisa, bkash_number, status, withdrawal_method)
+       VALUES (?, 89_929, '01700000001', 'pending', 'bkash')`
+    ).bind(memberUser.id).run()
+
+    const adminAuth = await authHeader(adminUser)
+    const response = await env.app.fetch(`/api/admin/withdrawals/${insertWithdrawal.meta.last_row_id}/approve`, {
+      method: 'PATCH',
+      headers: adminAuth
+    })
+
+    expect(response.status).toBe(200)
+
+    const balanceRow = await env.DB.prepare(
+      `SELECT total_earned_paisa, reserved_paisa
+       FROM user_balances
+       WHERE user_id = ?`
+    ).bind(memberUser.id).first<{ total_earned_paisa: number; reserved_paisa: number }>()
+
+    expect(balanceRow).toMatchObject({
+      total_earned_paisa: 89_929,
+      reserved_paisa: 89_929
+    })
+  })
 })
