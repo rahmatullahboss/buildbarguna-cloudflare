@@ -431,4 +431,39 @@ describe('Withdrawals Balance + Breakdown Integration', () => {
     expect(json.data.total_earned_paisa).toBe(140_000)
     expect(json.data.available_paisa).toBe(140_000)
   })
+
+  it('accepts cash withdrawal requests without a mobile number', async () => {
+    await env.DB.prepare(
+      `INSERT INTO user_balances (user_id, total_earned_paisa, total_withdrawn_paisa, reserved_paisa)
+       VALUES (?, 80_000, 0, 0)`
+    ).bind(memberUser.id).run()
+
+    const memberAuth = await authHeader(memberUser)
+    const response = await env.app.fetch('/api/withdrawals/request', {
+      method: 'POST',
+      headers: {
+        ...memberAuth,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        amount_paisa: 80_000,
+        withdrawal_method: 'cash'
+      })
+    })
+
+    expect(response.status).toBe(201)
+
+    const saved = await env.DB.prepare(
+      `SELECT bkash_number, withdrawal_method
+       FROM withdrawals
+       WHERE user_id = ?
+       ORDER BY id DESC
+       LIMIT 1`
+    ).bind(memberUser.id).first<{ bkash_number: string; withdrawal_method: string }>()
+
+    expect(saved).toMatchObject({
+      bkash_number: 'CASH',
+      withdrawal_method: 'cash'
+    })
+  })
 })

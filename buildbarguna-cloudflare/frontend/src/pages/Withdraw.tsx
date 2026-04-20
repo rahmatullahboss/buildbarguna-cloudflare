@@ -99,10 +99,12 @@ function WithdrawalCard({ w }: { w: Withdrawal }) {
       </div>
       {expanded && (
         <div className="border-t border-gray-100 bg-gray-50 p-4 space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-500">{w.withdrawal_method === 'nagad' ? 'Nagad' : 'bKash'} নম্বর</span>
-            <span className="font-mono font-medium">{w.bkash_number}</span>
-          </div>
+          {w.withdrawal_method !== 'cash' && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">{w.withdrawal_method === 'nagad' ? 'Nagad' : 'bKash'} নম্বর</span>
+              <span className="font-mono font-medium">{w.bkash_number}</span>
+            </div>
+          )}
           {w.bkash_txid && (
             <div className="flex justify-between">
               <span className="text-gray-500">TxID</span>

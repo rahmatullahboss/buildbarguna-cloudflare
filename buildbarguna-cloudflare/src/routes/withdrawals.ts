@@ -412,6 +412,7 @@ const requestSchema = z.object({
 withdrawalRoutes.post('/request', zValidator('json', requestSchema), async (c) => {
   const { amount_paisa, bkash_number, withdrawal_method } = c.req.valid('json')
   const userId = c.get('userId')
+  const recipientNumber = withdrawal_method === 'cash' ? 'CASH' : bkash_number
 
   // Additional validation: Check for suspicious round numbers (potential fraud)
   // Amounts like 100000, 200000, 500000 paisa (exact 1000, 2000, 5000 BDT) might indicate testing
@@ -476,7 +477,7 @@ withdrawalRoutes.post('/request', zValidator('json', requestSchema), async (c) =
     result = await c.env.DB.prepare(
       `INSERT INTO withdrawals (user_id, amount_paisa, bkash_number, withdrawal_method)
        VALUES (?, ?, ?, ?)`
-    ).bind(userId, amount_paisa, (withdrawal_method === 'bkash' || withdrawal_method === 'nagad') ? bkash_number : null, withdrawal_method).run()
+    ).bind(userId, amount_paisa, recipientNumber, withdrawal_method).run()
   } catch (e: any) {
     // D1 UNIQUE constraint error on idx_one_pending_per_user
     if (e?.message?.includes('UNIQUE') || e?.message?.includes('unique')) {
