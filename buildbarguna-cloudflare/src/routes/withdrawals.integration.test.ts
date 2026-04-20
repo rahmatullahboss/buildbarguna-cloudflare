@@ -259,6 +259,38 @@ describe('Withdrawals Balance + Breakdown Integration', () => {
     )
   })
 
+  it('uses the higher earned total when user_balances is stale below actual earned sources', async () => {
+    await env.DB.prepare(
+      `INSERT INTO projects (id, title, total_capital, total_shares, share_price, status)
+       VALUES (1, 'Stale Balance Project', 1000000, 10, 100000, 'active')`
+    ).run()
+
+    await env.DB.prepare(
+      `INSERT INTO earnings (user_id, project_id, month, shares, rate, amount)
+       VALUES (?, 1, '2026-04', 1, 0, 99_29)`
+    ).bind(memberUser.id).run()
+
+    await env.DB.prepare(
+      `INSERT INTO earnings (user_id, project_id, month, shares, rate, amount)
+       VALUES (?, 1, 'refund-2026-04', 1, 0, 80_000)`
+    ).bind(memberUser.id).run()
+
+    await env.DB.prepare(
+      `INSERT INTO user_balances (user_id, total_earned_paisa, total_withdrawn_paisa, reserved_paisa)
+       VALUES (?, 80_000, 0, 0)`
+    ).bind(memberUser.id).run()
+
+    const memberAuth = await authHeader(memberUser)
+    const response = await env.app.fetch('/api/withdrawals/balance', {
+      headers: memberAuth
+    })
+
+    expect(response.status).toBe(200)
+    const json = await response.json() as any
+    expect(json.data.total_earned_paisa).toBe(89_929)
+    expect(json.data.available_paisa).toBe(89_929)
+  })
+
   it('does not double count capital refunds in the breakdown', async () => {
     await env.DB.prepare(
       `INSERT INTO projects (id, title, total_capital, total_shares, share_price, status)

@@ -60,6 +60,19 @@ async function getSupplementalSettlementEarned(db: D1Database, userId: number) {
   return row?.total ?? 0
 }
 
+async function getCanonicalEarnedTotal(db: D1Database, userId: number) {
+  const [baseEarned, supplementalSettlementEarned] = await Promise.all([
+    db.prepare(`
+      SELECT
+        (SELECT COALESCE(SUM(amount), 0) FROM earnings WHERE user_id = ?) +
+        (SELECT COALESCE(SUM(amount_paisa), 0) FROM referral_bonuses WHERE referrer_user_id = ?) as total_earned
+    `).bind(userId, userId).first<{ total_earned: number }>(),
+    getSupplementalSettlementEarned(db, userId)
+  ])
+
+  return (baseEarned?.total_earned ?? 0) + supplementalSettlementEarned
+}
+
 async function reserveSettlementEntries(db: D1Database, userId: number, withdrawalId: number, amountPaisa: number) {
   if (!(await hasTable(db, 'project_settlement_entries'))) return 0
 
@@ -132,17 +145,17 @@ async function getAvailableBalance(db: D1Database, userId: number): Promise<Avai
   const reservedPaisa = pendingPaisa + approvedPaisa
 
   // First try to get balance from user_balances table (explicit tracking)
-  const [explicitBalance, supplementalSettlementEarned] = await Promise.all([
+  const [explicitBalance, canonicalEarnedTotal] = await Promise.all([
     db.prepare(
       `SELECT total_earned_paisa, total_withdrawn_paisa, reserved_paisa
        FROM user_balances WHERE user_id = ?`
     ).bind(userId).first<UserBalance>(),
-    getSupplementalSettlementEarned(db, userId)
+    getCanonicalEarnedTotal(db, userId)
   ])
 
   // If user_balances exists, use it for earned/withdrawn totals
   if (explicitBalance) {
-    const totalEarned = explicitBalance.total_earned_paisa + supplementalSettlementEarned
+    const totalEarned = Math.max(explicitBalance.total_earned_paisa, canonicalEarnedTotal)
     return {
       total_earned_paisa:    totalEarned,
       total_withdrawn_paisa: explicitBalance.total_withdrawn_paisa,
@@ -159,12 +172,10 @@ async function getAvailableBalance(db: D1Database, userId: number): Promise<Avai
   // Fall back to dynamic calculation from earnings and withdrawals
   const result = await db.prepare(`
     SELECT
-      (SELECT COALESCE(SUM(amount), 0) FROM earnings WHERE user_id = ?) +
-      (SELECT COALESCE(SUM(amount_paisa), 0) FROM referral_bonuses WHERE referrer_user_id = ?) as total_earned,
       (SELECT COALESCE(SUM(amount_paisa), 0) FROM withdrawals WHERE user_id = ? AND status = 'completed') as total_withdrawn
-  `).bind(userId, userId, userId).first<{ total_earned: number; total_withdrawn: number }>()
+  `).bind(userId).first<{ total_withdrawn: number }>()
 
-  const totalEarned    = (result?.total_earned ?? 0) + supplementalSettlementEarned
+  const totalEarned    = canonicalEarnedTotal
   const totalWithdrawn = result?.total_withdrawn ?? 0
 
   return {
@@ -357,7 +368,7 @@ withdrawalRoutes.get('/balance/breakdown', async (c) => {
 
   // Final discrepancy check — if user_balances still doesn't match, show as misc
   const actualTotal = explicitBalance
-    ? explicitBalance.total_earned_paisa + supplementalSettlementEarned
+    ? Math.max(explicitBalance.total_earned_paisa, sumFromSources)
     : sumFromSources
   const miscAmount = actualTotal - sumFromSources
 
