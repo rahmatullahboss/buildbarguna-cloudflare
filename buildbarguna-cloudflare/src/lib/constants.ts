@@ -55,6 +55,10 @@ export const RATE_LIMITS = {
   REFERRAL_CHECK: {
     MAX_PER_MINUTE: 10,
   },
+  RESET_PASSWORD: {
+    MAX_ATTEMPTS: 5,
+    WINDOW_MINUTES: 15,
+  },
 } as const
 
 // Rate limit endpoint names (for consistent database storage)
@@ -66,6 +70,7 @@ export const RATE_LIMIT_ENDPOINTS = {
   POINTS_WITHDRAW: 'points_withdraw',
   POINTS_HISTORY: 'points_history',
   NOTIFICATIONS: 'notifications',
+  RESET_PASSWORD: 'reset_password',
 } as const
 
 // Fraud Detection

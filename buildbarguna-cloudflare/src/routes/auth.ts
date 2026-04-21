@@ -5,7 +5,7 @@ import { hashPassword, verifyPassword, generateReferralCode } from '../lib/crypt
 import { createToken, generateJti, verifyToken } from '../lib/jwt'
 import { authMiddleware } from '../middleware/auth'
 import { ok, err } from '../lib/response'
-import { RATE_LIMITS } from '../lib/constants'
+import { RATE_LIMITS, RATE_LIMIT_ENDPOINTS } from '../lib/constants'
 import { sendPasswordResetEmail } from '../lib/email'
 import { checkRateLimit } from '../lib/rate-limiter'
 import {
@@ -301,6 +301,15 @@ authRoutes.post('/forgot-password', zValidator('json', forgotPasswordSchema), as
 // POST /api/auth/reset-password
 authRoutes.post('/reset-password', zValidator('json', resetPasswordSchema), async (c) => {
   const { token, password } = c.req.valid('json')
+
+  // Apply rate limit on IP address to prevent token scanning/brute forcing
+  const clientIP = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? 'unknown'
+  const rateLimitKey = `${RATE_LIMIT_ENDPOINTS.RESET_PASSWORD}:${clientIP}`
+  const rateLimit = await checkRateLimit(c.env, rateLimitKey, RATE_LIMITS.RESET_PASSWORD.MAX_ATTEMPTS, RATE_LIMITS.RESET_PASSWORD.WINDOW_MINUTES * 60)
+
+  if (!rateLimit.allowed) {
+    return err(c, `অনেকবার চেষ্টা করা হয়েছে। ${Math.ceil((rateLimit.resetAt - Date.now()) / 60000)} মিনিট পরে আবার চেষ্টা করুন।`, 429)
+  }
 
   // Find and validate token
   const resetToken = await c.env.DB.prepare(
