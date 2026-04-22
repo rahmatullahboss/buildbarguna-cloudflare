@@ -195,7 +195,7 @@ export default function AdminProjects() {
         <div className="card border-primary-200 bg-primary-50">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-lg">{editId ? 'প্রজেক্ট সম্পাদনা' : 'নতুন প্রজেক্ট তৈরি'}</h2>
-            <button onClick={closeForm} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            <button onClick={closeForm} className="text-gray-400 hover:text-gray-600" aria-label="ফর্ম বন্ধ করুন" title="ফর্ম বন্ধ করুন"><X size={20} /></button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -442,7 +442,7 @@ export default function AdminProjects() {
                             {u.content && <p className="text-gray-500 text-xs mt-0.5">{u.content}</p>}
                             <p className="text-gray-300 text-xs mt-1">{u.author_name} • {new Date(u.created_at).toLocaleDateString('bn-BD')}</p>
                           </div>
-                          <button onClick={() => deleteUpdateMutation.mutate(u.id)} className="text-red-400 hover:text-red-600 shrink-0">
+                          <button onClick={() => deleteUpdateMutation.mutate(u.id)} className="text-red-400 hover:text-red-600 shrink-0" aria-label="আপডেট মুছুন" title="আপডেট মুছুন">
                             <Trash2 size={14} />
                           </button>
                         </div>
