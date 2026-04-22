@@ -117,6 +117,7 @@ export default function CompanyFund() {
           </div>
           <button
             onClick={() => setShowForm(!showForm)}
+            aria-label={showForm ? 'ফর্ম লুকান' : 'নতুন ট্রানজ্যাকশন যোগ করুন'}
             className="bg-white/15 hover:bg-white/25 p-2.5 rounded-xl transition"
           >
             <Plus size={20} />
@@ -128,13 +129,13 @@ export default function CompanyFund() {
       {msg && (
         <div className="flex items-start gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">
           <CheckCircle size={16} className="mt-0.5 shrink-0" /> {msg}
-          <button onClick={() => setMsg('')} className="ml-auto text-green-400">✕</button>
+          <button onClick={() => setMsg('')} aria-label="বার্তা বন্ধ করুন" className="ml-auto text-green-400">✕</button>
         </div>
       )}
       {errMsg && (
         <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" /> {errMsg}
-          <button onClick={() => setErrMsg('')} className="ml-auto text-red-400">✕</button>
+          <button onClick={() => setErrMsg('')} aria-label="ত্রুটি বার্তা বন্ধ করুন" className="ml-auto text-red-400">✕</button>
         </div>
       )}
 
