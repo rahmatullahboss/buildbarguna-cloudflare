@@ -129,6 +129,7 @@ export default function MyInvestments() {
                   <button
                     onClick={() => downloadCertificate(r.id)}
                     disabled={downloading}
+                    aria-label="সার্টিফিকেট ডাউনলোড করুন"
                     className={`mt-3 w-full flex items-center justify-center gap-2 text-sm py-2.5 rounded-xl font-semibold transition-colors ${
                       downloading
                         ? 'bg-gray-400 cursor-not-allowed text-gray-200'

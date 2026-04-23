@@ -200,6 +200,7 @@ export default function Dashboard() {
                 <button
                   onClick={() => downloadCertificate(purchase.id)}
                   disabled={downloading}
+                  aria-label="সার্টিফিকেট ডাউনলোড করুন"
                   className={`flex items-center gap-1.5 text-xs py-2 px-3 rounded-xl font-medium transition-colors shrink-0 ml-3 ${
                     downloading
                       ? 'bg-gray-400 cursor-not-allowed text-gray-200'
@@ -341,7 +342,7 @@ export default function Dashboard() {
         {/* Code + copy */}
         <div className="flex items-center gap-3 mb-4">
           <span className="text-2xl font-mono font-bold text-primary-700 tracking-widest">{user?.referral_code}</span>
-          <button onClick={copyReferral} className="flex items-center gap-1 text-sm btn-secondary py-1.5 px-3">
+          <button onClick={copyReferral} aria-label={copied ? 'রেফারেল কোড কপি হয়েছে!' : 'রেফারেল কোড কপি করুন'} className="flex items-center gap-1 text-sm btn-secondary py-1.5 px-3">
             <Copy size={14} />
             {copied ? 'কপি হয়েছে!' : 'কপি করুন'}
           </button>

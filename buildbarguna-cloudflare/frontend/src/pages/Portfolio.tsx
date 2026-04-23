@@ -208,6 +208,7 @@ function ProjectCard({ item, purchases }: { item: ProjectPortfolioItem; purchase
                     <button
                       onClick={() => handleDownload(purchase.id)}
                       disabled={downloading === purchase.id}
+                      aria-label="সার্টিফিকেট ডাউনলোড করুন"
                       className="flex items-center gap-1 text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
                     >
                       <Download size={14} />
