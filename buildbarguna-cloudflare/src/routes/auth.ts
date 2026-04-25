@@ -300,6 +300,14 @@ authRoutes.post('/forgot-password', zValidator('json', forgotPasswordSchema), as
 
 // POST /api/auth/reset-password
 authRoutes.post('/reset-password', zValidator('json', resetPasswordSchema), async (c) => {
+  const ip = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? 'unknown'
+  const rateLimitKey = `reset_password:${ip}`
+  const rateLimit = await checkRateLimit(c.env, rateLimitKey, RATE_LIMITS.RESET_PASSWORD.MAX_ATTEMPTS, RATE_LIMITS.RESET_PASSWORD.WINDOW_MINUTES * 60)
+
+  if (!rateLimit.allowed) {
+    return err(c, `অনেকবার চেষ্টা করা হয়েছে। ${Math.ceil((rateLimit.resetAt - Date.now()) / 60000)} মিনিট পরে আবার চেষ্টা করুন।`, 429)
+  }
+
   const { token, password } = c.req.valid('json')
 
   // Find and validate token
