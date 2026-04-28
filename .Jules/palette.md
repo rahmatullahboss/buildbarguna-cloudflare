@@ -5,3 +5,7 @@
 ## 2024-03-22 - Password Visibility Toggles & Icon Button Accessibility
 **Learning:** Icon-only buttons positioned absolutely inside inputs (like password visibility toggles) often lose their native focus outlines due to their container constraints. These elements require explicit focus states (e.g., `focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-md p-1`) so keyboard users know when they are focused. Furthermore, mouse users heavily rely on tooltips to decipher icons; the `title` attribute must always be added to match the `aria-label`.
 **Action:** When adding icon-only controls inside input fields, strictly implement explicit `focus-visible` ring classes, and always pair `aria-label` with a native `title` attribute for cross-device accessibility.
+
+## 2024-04-28 - Task Action Button Accessibility
+**Learning:** Icon-only action buttons within table rows (like Toggle, Edit, and Delete tasks in `AdminTasks.tsx`) lack inherent meaning for screen reader users and keyboard focus indicators for sighted keyboard users. To make these accessible, we must explicitly add localized `aria-label`s that match the native `title` tooltips and enforce `focus-visible` styling with distinctive outline colors (e.g., `ring-green-500` for toggle, `ring-blue-500` for edit, `ring-red-500` for delete).
+**Action:** When creating or maintaining lists with icon-based actions, strictly implement corresponding Bengali `aria-label` attributes and explicit keyboard focus rings to ensure universal operability.
