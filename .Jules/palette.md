@@ -5,3 +5,7 @@
 ## 2024-03-22 - Password Visibility Toggles & Icon Button Accessibility
 **Learning:** Icon-only buttons positioned absolutely inside inputs (like password visibility toggles) often lose their native focus outlines due to their container constraints. These elements require explicit focus states (e.g., `focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-md p-1`) so keyboard users know when they are focused. Furthermore, mouse users heavily rely on tooltips to decipher icons; the `title` attribute must always be added to match the `aria-label`.
 **Action:** When adding icon-only controls inside input fields, strictly implement explicit `focus-visible` ring classes, and always pair `aria-label` with a native `title` attribute for cross-device accessibility.
+
+## 2024-03-23 - Screen Reader Accessibility for Management Tables
+**Learning:** In highly interactive management tables (like Admin Company Expenses), small icon-only buttons (Allocate, Details, Delete) embedded within table rows must have explicit keyboard focus states and standard `aria-label`s. Using only a `title` attribute is insufficient for visually impaired users. Furthermore, applying focus states to interactive row items prevents keyboard users from getting "lost" when navigating through repetitive table actions.
+**Action:** Always ensure that icon-only action buttons within table rows have both `aria-label` (localized to the application language) and visual focus styling (`focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-[color]-500`).
