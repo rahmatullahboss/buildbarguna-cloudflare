@@ -235,6 +235,7 @@ export default function AdminTasks() {
                         onClick={() => handleToggle(task.id)}
                         className={`p-1.5 rounded-lg ${task.is_active ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                         title={task.is_active ? 'নিষ্ক্রিয় করুন' : 'সক্রিয় করুন'}
+                        aria-label={task.is_active ? 'নিষ্ক্রিয় করুন' : 'সক্রিয় করুন'}
                       >
                         {task.is_active ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
                       </button>
@@ -242,6 +243,7 @@ export default function AdminTasks() {
                         onClick={() => handleEdit(task)}
                         className="p-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200"
                         title="সম্পাদনা"
+                        aria-label="সম্পাদনা"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
@@ -249,6 +251,7 @@ export default function AdminTasks() {
                         onClick={() => handleDelete(task.id)}
                         className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
                         title="মুছুন"
+                        aria-label="মুছুন"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
