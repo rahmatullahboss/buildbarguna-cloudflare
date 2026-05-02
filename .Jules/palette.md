@@ -5,3 +5,7 @@
 ## 2024-03-22 - Password Visibility Toggles & Icon Button Accessibility
 **Learning:** Icon-only buttons positioned absolutely inside inputs (like password visibility toggles) often lose their native focus outlines due to their container constraints. These elements require explicit focus states (e.g., `focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-md p-1`) so keyboard users know when they are focused. Furthermore, mouse users heavily rely on tooltips to decipher icons; the `title` attribute must always be added to match the `aria-label`.
 **Action:** When adding icon-only controls inside input fields, strictly implement explicit `focus-visible` ring classes, and always pair `aria-label` with a native `title` attribute for cross-device accessibility.
+
+## 2024-05-02 - Alert Close Buttons ARIA Labels
+**Learning:** Found multiple instances of dismissible alert banners (success and error messages) in the admin pages (`CompanyFund.tsx`, `ProfitDistribution.tsx`, `AdminReferrals.tsx`, etc.) using icon-only close buttons (`✕`) without any accessible name. Without an `aria-label`, screen readers may just read "times" or "button", which is unhelpful. Since the application is in Bengali, ARIA labels for these must be in Bengali (e.g., `aria-label="বার্তা বন্ধ করুন"` and `aria-label="ত্রুটি বার্তা বন্ধ করুন"`).
+**Action:** Consistently add Bengali `aria-label` attributes to all icon-only or symbol-only close buttons across alert banners and modals to ensure screen reader users understand the button's action.
