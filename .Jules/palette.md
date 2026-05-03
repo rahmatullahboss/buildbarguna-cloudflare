@@ -5,3 +5,6 @@
 ## 2024-03-22 - Password Visibility Toggles & Icon Button Accessibility
 **Learning:** Icon-only buttons positioned absolutely inside inputs (like password visibility toggles) often lose their native focus outlines due to their container constraints. These elements require explicit focus states (e.g., `focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-md p-1`) so keyboard users know when they are focused. Furthermore, mouse users heavily rely on tooltips to decipher icons; the `title` attribute must always be added to match the `aria-label`.
 **Action:** When adding icon-only controls inside input fields, strictly implement explicit `focus-visible` ring classes, and always pair `aria-label` with a native `title` attribute for cross-device accessibility.
+## 2026-05-03 - Add ARIA labels to icon-only buttons
+**Learning:** Found a pattern where several icon-only buttons (like mobile menu toggles, close buttons, accordion toggles) across multiple components lacked `aria-label` attributes, making them opaque to screen readers. For example, toggle buttons in `Tutorial.tsx` also lacked `aria-expanded`.
+**Action:** Added `aria-label` and `aria-expanded` where appropriate. Always look out for icon-only buttons when reviewing new or existing UI code.

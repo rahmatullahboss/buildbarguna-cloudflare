@@ -479,6 +479,8 @@ export default function Tutorial() {
           <div key={section.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
             <button
               onClick={() => toggleSection(section.id)}
+              aria-expanded={openSections.includes(section.id)}
+              aria-label={`${section.title} সেকশন টগল করুন`}
               className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
             >
               <div className="flex items-center gap-3">
