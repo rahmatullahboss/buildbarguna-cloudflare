@@ -175,13 +175,17 @@ export default function ProjectFinance() {
                       <div className="hidden group-hover:flex gap-1">
                         <button
                           onClick={() => setEditData(tx)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-blue-500"
+                          aria-label="সম্পাদনা করুন"
+                          title="সম্পাদনা করুন"
                         >
                           <Edit2 size={14} />
                         </button>
                         <button
                           onClick={() => handleDelete(tx.id)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-red-500"
+                          aria-label="মুছুন"
+                          title="মুছুন"
                         >
                           <Trash2 size={14} />
                         </button>
