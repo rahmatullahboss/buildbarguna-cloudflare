@@ -105,6 +105,12 @@ app.use('/api/*', async (c, next) => {
   await next()
   // Prevent Cloudflare CDN from caching API responses
   c.res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
+
+  // Security headers enhancement
+  c.res.headers.set('X-Content-Type-Options', 'nosniff')
+  c.res.headers.set('X-Frame-Options', 'DENY')
+  c.res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  c.res.headers.set('X-XSS-Protection', '1; mode=block')
 })
 app.use('/api/*', cors({
   // Restrict to known origins — never use '*' with Authorization header
