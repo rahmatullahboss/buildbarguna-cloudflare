@@ -590,34 +590,39 @@ adminRoutes.delete('/projects/:id', async (c) => {
   }
 
   if (allowCleanupDelete) {
-    const earningsByUser = await c.env.DB.prepare(
-      `SELECT user_id, COALESCE(SUM(amount), 0) as total
-       FROM earnings
-       WHERE project_id = ?
-       GROUP BY user_id`
-    ).bind(id).all<{ user_id: number; total: number }>()
+    // Validate that user balances won't go negative, optimizing N+1 with a single JOIN query
+    const negativeBalanceCheck = await c.env.DB.prepare(
+      `SELECT COUNT(*) as count FROM user_balances
+       JOIN (
+         SELECT user_id, COALESCE(SUM(amount), 0) as total
+         FROM earnings
+         WHERE project_id = ?
+         GROUP BY user_id
+       ) e ON user_balances.user_id = e.user_id
+       WHERE user_balances.total_earned_paisa < e.total`
+    ).bind(id).first<{ count: number }>()
 
-    for (const row of earningsByUser.results) {
-      const balance = await c.env.DB.prepare(
-        `SELECT total_earned_paisa FROM user_balances WHERE user_id = ?`
-      ).bind(row.user_id).first<{ total_earned_paisa: number }>()
-
-      if (balance && balance.total_earned_paisa < row.total) {
-        return err(c, 'Force delete করলে user balance negative হয়ে যাবে। আগে সংশ্লিষ্ট withdrawal/earnings ঠিক করুন।', 409)
-      }
+    if (negativeBalanceCheck && negativeBalanceCheck.count > 0) {
+      return err(c, 'Force delete করলে user balance negative হয়ে যাবে। আগে সংশ্লিষ্ট withdrawal/earnings ঠিক করুন।', 409)
     }
 
     const distributions = await c.env.DB.prepare(
       `SELECT id FROM profit_distributions WHERE project_id = ?`
     ).bind(id).all<{ id: number }>()
 
-    for (const row of earningsByUser.results) {
-      await c.env.DB.prepare(
-        `UPDATE user_balances
-         SET total_earned_paisa = total_earned_paisa - ?, updated_at = datetime('now')
-         WHERE user_id = ? AND total_earned_paisa >= ?`
-      ).bind(row.total, row.user_id, row.total).run()
-    }
+    // Update balances optimizing N+1 with a single UPDATE FROM query
+    await c.env.DB.prepare(
+      `UPDATE user_balances
+       SET total_earned_paisa = total_earned_paisa - e.total,
+           updated_at = datetime('now')
+       FROM (
+         SELECT user_id, COALESCE(SUM(amount), 0) as total
+         FROM earnings
+         WHERE project_id = ?
+         GROUP BY user_id
+       ) e
+       WHERE user_balances.user_id = e.user_id AND user_balances.total_earned_paisa >= e.total`
+    ).bind(id).run()
 
     await c.env.DB.prepare('DELETE FROM project_members WHERE project_id = ?').bind(id).run()
     await c.env.DB.prepare('DELETE FROM project_settlement_entries WHERE project_id = ?').bind(id).run()

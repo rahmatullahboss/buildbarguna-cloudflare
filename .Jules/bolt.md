@@ -1,0 +1,3 @@
+## 2026-05-07 - Optimize N+1 queries in validation logic
+**Learning:** To optimize N+1 query patterns in validation logic (e.g., ensuring user balances do not go negative during project deletion), we should replace loops of individual `SELECT` or `UPDATE` queries with a single SQL query that joins the target table (e.g., `user_balances`) with an aggregated subquery of the related data being processed.
+**Action:** When performing multi-row validation and updates in Cloudflare D1/SQLite, use JOIN queries and `UPDATE ... FROM` to consolidate multiple queries into a single database call, avoiding costly loop-based queries.
