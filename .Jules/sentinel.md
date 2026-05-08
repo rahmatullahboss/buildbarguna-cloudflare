@@ -1,0 +1,4 @@
+## 2024-11-20 - HTML Injection in External PDF Generation
+**Vulnerability:** Server-Side XSS and SSRF risks during HTML-to-PDF generation. Unsanitized user inputs (e.g., `reg.name_english`, `cert.project_name`) were directly interpolated into HTML templates sent to external headless browsers (PDFShift, Adobe, etc.).
+**Learning:** External PDF generation APIs execute the provided HTML in their own headless browsers. Failing to strictly escape user-provided data allows attackers to inject `<script>`, `<link>`, or `<iframe>` tags, potentially leading to Server-Side XSS, reading local files on the PDF provider's infrastructure, or performing SSRF attacks from the provider's IP.
+**Prevention:** All user-provided data interpolated into HTML strings intended for PDF conversion (or any HTML rendering) must be strictly escaped using an `escapeHTML` utility before interpolation.
