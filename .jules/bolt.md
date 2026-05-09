@@ -1,3 +1,3 @@
-## 2025-03-05 - D1 query parallelism
-**Learning:** In Cloudflare D1, using `Promise.all` for parallel database queries results in per-query HTTP network overhead.
-**Action:** Always replace `Promise.all` read queries with `db.batch()` for independent read statements to mitigate network latency in D1. Ensure single-row responses are safely extracted using `.results?.[0]` as `db.batch()` returns an array. Check for empty arrays before calling `db.batch()` to prevent `D1_BATCH_MUTATION_ERROR`.
+## 2024-05-09 - Batching Promise.all Database Queries in Cloudflare D1
+**Learning:** In Cloudflare D1 architectures, executing concurrent database queries using `Promise.all` adds severe performance overhead. Each `prepare().run()`, `prepare().first()`, or `prepare().all()` executed inside a `Promise.all` creates a separate HTTP REST request to the D1 API, leading to extreme network latency and connection pool exhaustion when iterating over arrays.
+**Action:** Always replace `Promise.all` mapping over `c.env.DB.prepare()` statements with a single `c.env.DB.batch()` array execution. This groups multiple queries (e.g., SELECTs in a loop, multiple INSERTs, or pagination data + count queries) into a single HTTP request to the D1 API, significantly reducing backend-to-database network overhead.
