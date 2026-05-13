@@ -195,7 +195,7 @@ export default function AdminProjects() {
         <div className="card border-primary-200 bg-primary-50">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-lg">{editId ? 'প্রজেক্ট সম্পাদনা' : 'নতুন প্রজেক্ট তৈরি'}</h2>
-            <button onClick={closeForm} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            <button onClick={closeForm} className="text-gray-400 hover:text-gray-600" aria-label="বন্ধ করুন"><X size={20} /></button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
