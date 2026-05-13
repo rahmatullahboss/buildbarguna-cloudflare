@@ -5,3 +5,7 @@
 ## 2024-03-22 - Password Visibility Toggles & Icon Button Accessibility
 **Learning:** Icon-only buttons positioned absolutely inside inputs (like password visibility toggles) often lose their native focus outlines due to their container constraints. These elements require explicit focus states (e.g., `focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-md p-1`) so keyboard users know when they are focused. Furthermore, mouse users heavily rely on tooltips to decipher icons; the `title` attribute must always be added to match the `aria-label`.
 **Action:** When adding icon-only controls inside input fields, strictly implement explicit `focus-visible` ring classes, and always pair `aria-label` with a native `title` attribute for cross-device accessibility.
+
+## 2024-03-22 - Accessibility of Text-Based Pseudo-Icons
+**Learning:** Common text characters used as pseudo-icons (such as `✕` for "close" or "cancel") pose a major accessibility issue. Screen readers often read these as literal text (e.g., "multiplication X" or they ignore it entirely), and without hover tooltips, visual users might be slightly confused. Adding explicit `aria-label` and `title` attributes in the localized application language (Bengali) ensures both assistive technologies and mouse users understand the button's intent clearly.
+**Action:** Always provide appropriate `aria-label` and `title` attributes (e.g., `aria-label="বার্তা বন্ধ করুন"`) to all buttons relying on text symbols as icons.
