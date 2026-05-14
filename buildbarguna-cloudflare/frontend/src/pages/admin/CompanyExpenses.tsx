@@ -131,6 +131,7 @@ export default function CompanyExpenses() {
               <button
                 onClick={() => recalculateMutation.mutate()}
                 disabled={recalculateMutation.isPending}
+                aria-label="পুনর্গণনা"
                 className="bg-white/15 hover:bg-white/25 text-white font-semibold text-sm px-4 py-2 rounded-xl transition flex items-center gap-2"
               >
                 <RefreshCw size={16} className={recalculateMutation.isPending ? 'animate-spin' : ''} />
@@ -271,6 +272,7 @@ export default function CompanyExpenses() {
                       onClick={() => {/* TODO: Allocate */}}
                       className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
                       title="বরাদ্দ করুন"
+                      aria-label="বরাদ্দ করুন"
                     >
                       <RefreshCw size={16} />
                     </button>
@@ -279,6 +281,7 @@ export default function CompanyExpenses() {
                     onClick={() => setSelectedExpense(expense)}
                     className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition"
                     title="বিস্তারিত"
+                    aria-label="বিস্তারিত"
                   >
                     <Eye size={16} />
                   </button>
