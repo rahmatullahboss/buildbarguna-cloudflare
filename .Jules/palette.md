@@ -5,3 +5,7 @@
 ## 2024-03-22 - Password Visibility Toggles & Icon Button Accessibility
 **Learning:** Icon-only buttons positioned absolutely inside inputs (like password visibility toggles) often lose their native focus outlines due to their container constraints. These elements require explicit focus states (e.g., `focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-md p-1`) so keyboard users know when they are focused. Furthermore, mouse users heavily rely on tooltips to decipher icons; the `title` attribute must always be added to match the `aria-label`.
 **Action:** When adding icon-only controls inside input fields, strictly implement explicit `focus-visible` ring classes, and always pair `aria-label` with a native `title` attribute for cross-device accessibility.
+
+## 2024-05-15 - Modal Icon Button Accessibility
+**Learning:** Icon-only close buttons in modal components frequently miss explicit ARIA labels and focus rings, causing accessibility issues for screen readers and keyboard users navigating focus traps.
+**Action:** When creating or modifying modal dialogs, ensure the close icon button always receives both `aria-label` and `title` attributes (localized in Bengali, e.g., "বন্ধ করুন"), as well as explicit `focus-visible` utility classes (`focus-visible:ring-2 focus-visible:outline-none`) to maintain clear focus visibility.
