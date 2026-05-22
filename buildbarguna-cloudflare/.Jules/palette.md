@@ -1,0 +1,3 @@
+## 2024-05-22 - Icon-only close buttons lacking accessibility
+**Learning:** Many icon-only close buttons (like X from lucide-react or text-based ✕) lack basic accessibility labels and focus indicators, leading to poor keyboard navigation and screen reader experience.
+**Action:** Always provide both an `aria-label` and `title` attribute (e.g., 'বন্ধ করুন') to icon-only buttons, and include explicit keyboard focus styles like `focus-visible:ring-2 focus-visible:outline-none` for standard accessibility.
