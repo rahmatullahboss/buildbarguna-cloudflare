@@ -405,6 +405,9 @@ export default function AdminMembers() {
                     <button
                       onClick={() => toggleExpand(member.id)}
                       className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                      aria-expanded={isExpanded}
+                      aria-label={isExpanded ? 'বিস্তারিত লুকান' : 'বিস্তারিত দেখুন'}
+                      title={isExpanded ? 'বিস্তারিত লুকান' : 'বিস্তারিত দেখুন'}
                     >
                       {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                     </button>
