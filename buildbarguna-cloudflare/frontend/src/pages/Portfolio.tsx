@@ -110,9 +110,11 @@ function ProjectCard({ item, purchases }: { item: ProjectPortfolioItem; purchase
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
       {/* Header row */}
-      <div
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+      <button
+        type="button"
+        className="w-full text-left flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
         onClick={() => setExpanded(v => !v)}
+        aria-expanded={expanded}
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -130,7 +132,7 @@ function ProjectCard({ item, purchases }: { item: ProjectPortfolioItem; purchase
         <div className="ml-3 text-gray-400">
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </div>
-      </div>
+      </button>
 
       {/* Expanded detail */}
       {expanded && (
