@@ -139,7 +139,8 @@ shareRoutes.get('/my', async (c) => {
   const { page, limit, offset } = getPagination(c.req.query())
   const userId = c.get('userId')
 
-  const [rows, countRow] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const results = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT
          us.*,
@@ -158,13 +159,16 @@ shareRoutes.get('/my', async (c) => {
        GROUP BY us.user_id, us.project_id, us.quantity, p.title, p.share_price, p.status
        ORDER BY us.quantity DESC
        LIMIT ? OFFSET ?`
-    ).bind(userId, limit, offset).all(),
+    ).bind(userId, limit, offset),
     c.env.DB.prepare(
       'SELECT COUNT(*) as total FROM user_shares WHERE user_id = ?'
-    ).bind(userId).first<{ total: number }>()
+    ).bind(userId)
   ])
 
-  return ok(c, paginate(rows.results, countRow?.total ?? 0, page, limit))
+  const rowsResult = results[0].results
+  const countRow = results[1].results?.[0] as unknown as { total: number } | undefined
+
+  return ok(c, paginate(rowsResult, countRow?.total ?? 0, page, limit))
 })
 
 // GET /api/shares/requests — my purchase requests
@@ -172,7 +176,8 @@ shareRoutes.get('/requests', async (c) => {
   const { page, limit, offset } = getPagination(c.req.query())
   const userId = c.get('userId')
 
-  const [rows, countRow] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const results = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT sp.*, p.title as project_title
        FROM share_purchases sp
@@ -180,13 +185,16 @@ shareRoutes.get('/requests', async (c) => {
        WHERE sp.user_id = ?
        ORDER BY sp.created_at DESC
        LIMIT ? OFFSET ?`
-    ).bind(userId, limit, offset).all(),
+    ).bind(userId, limit, offset),
     c.env.DB.prepare(
       'SELECT COUNT(*) as total FROM share_purchases WHERE user_id = ?'
-    ).bind(userId).first<{ total: number }>()
+    ).bind(userId)
   ])
 
-  return ok(c, paginate(rows.results, countRow?.total ?? 0, page, limit))
+  const rowsResult = results[0].results
+  const countRow = results[1].results?.[0] as unknown as { total: number } | undefined
+
+  return ok(c, paginate(rowsResult, countRow?.total ?? 0, page, limit))
 })
 
 // GET /api/shares/certificate/:purchase_id - Download share certificate
