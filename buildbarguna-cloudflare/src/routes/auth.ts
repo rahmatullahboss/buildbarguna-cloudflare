@@ -228,14 +228,18 @@ authRoutes.get('/me', authMiddleware, async (c) => {
   if (!user) return err(c, 'ব্যবহারকারী পাওয়া যায়নি', 404)
 
   // Compute balance: project earnings + referral bonuses
-  const [balanceRow, referralBonusRow] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const batchResults = await c.env.DB.batch([
     c.env.DB.prepare(
       'SELECT COALESCE(SUM(amount), 0) as total FROM earnings WHERE user_id = ?'
-    ).bind(userId).first<{ total: number }>(),
+    ).bind(userId),
     c.env.DB.prepare(
       'SELECT COALESCE(SUM(amount_paisa), 0) as total FROM referral_bonuses WHERE referrer_user_id = ?'
-    ).bind(userId).first<{ total: number }>()
+    ).bind(userId)
   ])
+
+  const balanceRow = batchResults[0].results?.[0] as { total: number } | undefined
+  const referralBonusRow = batchResults[1].results?.[0] as { total: number } | undefined
 
   const balance_paisa = (balanceRow?.total ?? 0) + (referralBonusRow?.total ?? 0)
   return ok(c, { ...user, balance_paisa })
