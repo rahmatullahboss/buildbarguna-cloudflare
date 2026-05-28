@@ -77,8 +77,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="hidden sm:block text-sm opacity-90 bg-white/10 px-3 py-1 rounded-full">{user?.name}</span>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="p-1.5 rounded-xl hover:bg-white/20 transition-colors"
+              className="p-1.5 rounded-xl hover:bg-white/20 transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-white/50"
               aria-label={menuOpen ? 'মেনু বন্ধ করুন' : 'মেনু খুলুন'}
+              title={menuOpen ? 'মেনু বন্ধ করুন' : 'মেনু খুলুন'}
               aria-expanded={menuOpen}
             >
               {menuOpen ? <X size={22} /> : <Menu size={22} />}
@@ -154,7 +155,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <button
               onClick={handleLogout}
               aria-label="লগআউট করুন"
-              className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-600 transition-colors w-full px-3 py-1.5 rounded-md hover:bg-red-50 mb-2"
+              title="লগআউট করুন"
+              className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-600 transition-colors w-full px-3 py-1.5 rounded-md hover:bg-red-50 mb-2 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-red-500/50"
             >
               <LogOut size={16} />
               লগআউট
