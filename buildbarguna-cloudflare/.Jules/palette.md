@@ -1,0 +1,3 @@
+## 2024-05-18 - Improve icon-only buttons accessibility and focus states
+**Learning:** In Bengali localized UIs, icon-only buttons (like `X` for close) must include both `aria-label` and `title` in Bengali (e.g., "বন্ধ করুন") to ensure full accessibility for screen readers and visual tooltips. Also, providing visible focus rings (`focus-visible:ring-2 focus-visible:outline-none`) is essential for keyboard navigation.
+**Action:** Always add `aria-label`, `title`, and `focus-visible` styles to icon-only interactive elements and primary buttons to ensure both screen reader and keyboard accessibility.
