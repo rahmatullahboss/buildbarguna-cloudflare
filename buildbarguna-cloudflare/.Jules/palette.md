@@ -1,0 +1,3 @@
+## 2025-02-24 - Icon-only Action Button Accessibility
+**Learning:** Found a recurring pattern in admin tables where inline action buttons (like Toggle, Edit, Delete) rely solely on icons (`lucide-react`) without `aria-label`s, making them invisible to screen readers. They also lacked visual focus indicators for keyboard navigation.
+**Action:** Always verify icon-only buttons include descriptive `aria-label`s (matching their visual `title` tooltips) and explicit focus styles (`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500`) to ensure both screen reader and keyboard accessibility.
