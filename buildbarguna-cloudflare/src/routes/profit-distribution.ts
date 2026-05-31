@@ -688,24 +688,26 @@ profitRoutes.post('/company-fund/approve/:id', async (c) => {
     return err(c, `অপর্যাপ্ত ফান্ড। বর্তমান ব্যালেন্স: ৳${(balance / 100).toFixed(2)}`, 400)
   }
 
-  await c.env.DB.batch([
-    c.env.DB.prepare(
-      `UPDATE company_fund_transactions 
-       SET status = 'approved', approved_by = ?, approved_at = datetime('now')
-       WHERE id = ?`
-    ).bind(approverId, txnId),
+  const updateResult = await c.env.DB.prepare(
+    `UPDATE company_fund_transactions
+     SET status = 'approved', approved_by = ?, approved_at = datetime('now')
+     WHERE id = ? AND status = 'pending_approval'`
+  ).bind(approverId, txnId).run()
 
-    auditLog(c.env.DB, {
-      entity_type: 'company_fund',
-      entity_id: txnId,
-      action: 'approve',
-      old_values: { status: 'pending_approval' },
-      new_values: { status: 'approved', approved_by: approverId },
-      amount_paisa: withdrawAmount,
-      description: `উত্তোলন অনুমোদিত: ৳${(withdrawAmount / 100).toFixed(0)}`,
-      actor_id: approverId
-    })
-  ])
+  if (updateResult.meta.changes === 0) {
+    return err(c, 'এই ট্রানজেকশন ইতিমধ্যে প্রক্রিয়া করা হয়েছে', 409)
+  }
+
+  await auditLog(c.env.DB, {
+    entity_type: 'company_fund',
+    entity_id: txnId,
+    action: 'approve',
+    old_values: { status: 'pending_approval' },
+    new_values: { status: 'approved', approved_by: approverId },
+    amount_paisa: withdrawAmount,
+    description: `উত্তোলন অনুমোদিত: ৳${(withdrawAmount / 100).toFixed(0)}`,
+    actor_id: approverId
+  }).run()
 
   return ok(c, {
     message: 'উত্তোলন অনুমোদিত হয়েছে',
@@ -733,24 +735,26 @@ profitRoutes.post('/company-fund/reject/:id', zValidator('json', rejectSchema), 
 
   if (!txn) return err(c, 'এই ট্রানজেকশন পাওয়া যায়নি বা ইতিমধ্যে প্রক্রিয়া হয়ে গেছে', 404)
 
-  await c.env.DB.batch([
-    c.env.DB.prepare(
-      `UPDATE company_fund_transactions 
-       SET status = 'rejected', approved_by = ?, approved_at = datetime('now'), rejection_reason = ?
-       WHERE id = ?`
-    ).bind(rejecterId, reason, txnId),
+  const updateResult = await c.env.DB.prepare(
+    `UPDATE company_fund_transactions
+     SET status = 'rejected', approved_by = ?, approved_at = datetime('now'), rejection_reason = ?
+     WHERE id = ? AND status = 'pending_approval'`
+  ).bind(rejecterId, reason, txnId).run()
 
-    auditLog(c.env.DB, {
-      entity_type: 'company_fund',
-      entity_id: txnId,
-      action: 'reject',
-      old_values: { status: 'pending_approval' },
-      new_values: { status: 'rejected', rejected_by: rejecterId, reason },
-      amount_paisa: Math.abs(txn.amount_paisa),
-      description: `উত্তোলন বাতিল: ${reason}`,
-      actor_id: rejecterId
-    })
-  ])
+  if (updateResult.meta.changes === 0) {
+    return err(c, 'এই ট্রানজেকশন ইতিমধ্যে প্রক্রিয়া করা হয়েছে', 409)
+  }
+
+  await auditLog(c.env.DB, {
+    entity_type: 'company_fund',
+    entity_id: txnId,
+    action: 'reject',
+    old_values: { status: 'pending_approval' },
+    new_values: { status: 'rejected', rejected_by: rejecterId, reason },
+    amount_paisa: Math.abs(txn.amount_paisa),
+    description: `উত্তোলন বাতিল: ${reason}`,
+    actor_id: rejecterId
+  }).run()
 
   return ok(c, { message: 'উত্তোলন অনুরোধ বাতিল করা হয়েছে' })
 })
