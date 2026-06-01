@@ -74,7 +74,12 @@ export default function ProjectFinance() {
         <div className="relative z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <button onClick={() => navigate('/admin/projects')} aria-label="ফিরে যান" className="bg-white/15 p-2 rounded-xl hover:bg-white/25 transition">
+              <button
+                onClick={() => navigate('/admin/projects')}
+                aria-label="ফিরে যান"
+                title="ফিরে যান"
+                className="bg-white/15 p-2 rounded-xl hover:bg-white/25 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              >
                 <ArrowLeft size={20} />
               </button>
               <div>
@@ -175,13 +180,17 @@ export default function ProjectFinance() {
                       <div className="hidden group-hover:flex gap-1">
                         <button
                           onClick={() => setEditData(tx)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
+                          aria-label="সম্পাদনা করুন"
+                          title="সম্পাদনা করুন"
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                         >
                           <Edit2 size={14} />
                         </button>
                         <button
                           onClick={() => handleDelete(tx.id)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
+                          aria-label="মুছে ফেলুন"
+                          title="মুছে ফেলুন"
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                         >
                           <Trash2 size={14} />
                         </button>
