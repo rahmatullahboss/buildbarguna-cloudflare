@@ -14,10 +14,10 @@ taskRoutes.get('/history', async (c) => {
   const userId = c.get('userId')
   const { page, limit, offset } = getPagination(c.req.query())
   
-  const [countResult, historyResult] = await Promise.all([
+  const statements = [
     c.env.DB.prepare(
       `SELECT COUNT(*) as total FROM task_completions WHERE user_id = ?`
-    ).bind(userId).first() as Promise<{ total: number }>,
+    ).bind(userId),
     c.env.DB.prepare(
       `SELECT tc.*, dt.title as task_title, dt.platform, dt.points as points_awarded
        FROM task_completions tc
@@ -25,10 +25,28 @@ taskRoutes.get('/history', async (c) => {
        WHERE tc.user_id = ?
        ORDER BY tc.completed_at DESC
        LIMIT ? OFFSET ?`
-    ).bind(userId, limit, offset).all()
-  ])
+    ).bind(userId, limit, offset)
+  ]
+
+  let countResult = { total: 0 }
+  let historyResults: any[] = []
+
+  if (statements.length > 0) {
+    const batchResults = await c.env.DB.batch(statements)
+
+    // First query is the count
+    const countRow = batchResults[0]?.results?.[0] as { total?: number } | undefined
+    if (countRow?.total !== undefined) {
+      countResult.total = countRow.total
+    }
+
+    // Second query is the history
+    if (batchResults[1]?.results) {
+      historyResults = batchResults[1].results
+    }
+  }
   
-  return ok(c, paginate(historyResult.results, countResult.total, page, limit))
+  return ok(c, paginate(historyResults, countResult.total, page, limit))
 })
 
 // GET /api/tasks - List available tasks for the logged-in member
