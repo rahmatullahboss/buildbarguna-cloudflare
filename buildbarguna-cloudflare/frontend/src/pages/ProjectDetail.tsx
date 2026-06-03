@@ -554,17 +554,23 @@ export default function ProjectDetail() {
 
               {/* Confirmation Modal */}
               {showConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="confirm-modal-title"
+                  className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+                >
                   <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                      <h3 id="confirm-modal-title" className="font-bold text-gray-900 flex items-center gap-2">
                         <AlertTriangle size={18} className="text-amber-500" /> নিশ্চিত করুন
                       </h3>
                       <button
                         type="button"
                         aria-label="বাতিল করুন"
+                        title="বাতিল করুন"
                         onClick={() => setShowConfirm(false)}
-                        className="text-gray-400 hover:text-gray-600"
+                        className="text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-md p-1"
                       >
                         <X size={20} />
                       </button>
@@ -656,7 +662,12 @@ export default function ProjectDetail() {
 
       {/* Success Screen */}
       {purchaseSuccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="success-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+        >
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 space-y-5 text-center">
             {/* Success Animation */}
             <div className="relative">
@@ -669,7 +680,7 @@ export default function ProjectDetail() {
             </div>
 
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">🎉 অভিনন্দন!</h2>
+              <h2 id="success-modal-title" className="text-2xl font-bold text-gray-900 mb-2">🎉 অভিনন্দন!</h2>
               <p className="text-gray-500">আপনার শেয়ার কেনার অনুরোধ সফলভাবে জমা হয়েছে</p>
             </div>
 
