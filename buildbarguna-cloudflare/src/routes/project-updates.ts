@@ -34,7 +34,7 @@ projectUpdatesRoutes.get('/:projectId/updates', async (c) => {
 const updateSchema = z.object({
   title: z.string().min(1).max(200),
   content: z.string().optional(),
-  image_url: z.string().url().optional().or(z.literal(''))
+  image_url: z.string().url().refine(val => val.toLowerCase().startsWith('http://') || val.toLowerCase().startsWith('https://')).optional().or(z.literal(''))
 })
 
 // GET /api/admin/project-updates/:projectId — list all updates for a project
@@ -108,7 +108,7 @@ projectUpdatesRoutes.delete('/admin/entry/:id', authMiddleware, adminMiddleware,
 // ─── ADMIN: Project Gallery ────────────────────────────────────────────────────
 
 const gallerySchema = z.object({
-  image_url: z.string().url(),
+  image_url: z.string().url().refine(val => val.toLowerCase().startsWith('http://') || val.toLowerCase().startsWith('https://')),
   caption: z.string().max(200).optional(),
   sort_order: z.number().int().min(0).optional()
 })
