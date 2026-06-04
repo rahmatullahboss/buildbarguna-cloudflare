@@ -111,7 +111,8 @@ export default function Onboarding({ onDismiss }: OnboardingProps) {
             <button
               onClick={finish}
               aria-label="গাইড বন্ধ করুন"
-              className="text-gray-300 hover:text-gray-500 transition-colors p-1 hover:bg-gray-100 rounded-xl"
+              title="গাইড বন্ধ করুন"
+              className="text-gray-300 hover:text-gray-500 transition-colors p-1 hover:bg-gray-100 rounded-xl focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500"
             >
               <X size={20} />
             </button>
