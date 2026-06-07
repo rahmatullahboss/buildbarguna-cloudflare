@@ -1,0 +1,3 @@
+## 2024-05-30 - Optimize Database Roundtrips with D1 Batching
+**Learning:** Cloudflare D1's latency can be heavily impacted by multiple sequential or parallel network roundtrips. Even parallel queries using `Promise.all()` can be further optimized by combining them into a single `c.env.DB.batch()` call, eliminating multiple network roundtrips between the Worker and the database.
+**Action:** When performing multiple independent reads or writes in the same endpoint, combine them into a single `c.env.DB.batch()` call rather than running them sequentially or using `Promise.all()`. Remember that `batch()` returns an array of results where data must be accessed safely via optional chaining on the `.results` array (e.g., `batchResults[index].results?.[0]`).
