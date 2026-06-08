@@ -5,10 +5,10 @@ export default function TermsModal({ isOpen, onClose }: { isOpen: boolean, onClo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative">
+      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative" role="dialog" aria-modal="true" aria-labelledby="terms-modal-title">
         <div className="p-5 border-b flex justify-between items-center bg-gray-50">
-          <h2 className="text-xl font-bold text-gray-800">সাধারণ সদস্যপদ - শর্তাবলী (Terms & Conditions)</h2>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-full transition-colors">
+          <h2 id="terms-modal-title" className="text-xl font-bold text-gray-800">সাধারণ সদস্যপদ - শর্তাবলী (Terms & Conditions)</h2>
+          <button onClick={onClose} aria-label="বন্ধ করুন" title="বন্ধ করুন" className="p-1.5 hover:bg-gray-200 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
             <X size={24} className="text-gray-500" />
           </button>
         </div>
