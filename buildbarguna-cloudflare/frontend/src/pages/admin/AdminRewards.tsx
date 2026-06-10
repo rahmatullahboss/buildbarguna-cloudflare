@@ -198,7 +198,9 @@ export default function AdminRewards() {
                 </div>
                 <button 
                   onClick={() => adminApi.toggleReward(reward.id).then(() => qc.invalidateQueries({ queryKey: ['admin-rewards'] }))}
-                  className="shrink-0 text-gray-400 hover:text-purple-600 transition-colors"
+                  className="shrink-0 text-gray-400 hover:text-purple-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-lg"
+                  title={reward.is_active ? 'নিষ্ক্রিয় করুন' : 'সক্রিয় করুন'}
+                  aria-label={reward.is_active ? 'নিষ্ক্রিয় করুন' : 'সক্রিয় করুন'}
                 >
                   {reward.is_active ? <ToggleRight size={32} className="text-green-500" /> : <ToggleLeft size={32} />}
                 </button>
