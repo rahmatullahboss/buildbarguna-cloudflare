@@ -8,7 +8,7 @@ export default function TermsModal({ isOpen, onClose }: { isOpen: boolean, onClo
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative">
         <div className="p-5 border-b flex justify-between items-center bg-gray-50">
           <h2 className="text-xl font-bold text-gray-800">সাধারণ সদস্যপদ - শর্তাবলী (Terms & Conditions)</h2>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-full transition-colors">
+          <button onClick={onClose} aria-label="শর্তাবলী বন্ধ করুন" className="p-1.5 hover:bg-gray-200 rounded-full transition-colors">
             <X size={24} className="text-gray-500" />
           </button>
         </div>

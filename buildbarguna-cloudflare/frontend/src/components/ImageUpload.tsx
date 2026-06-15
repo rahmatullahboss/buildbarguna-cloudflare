@@ -112,7 +112,7 @@ export default function ImageUpload({ value, onChange, label = 'ছবি আপ
                 type="button"
                 aria-label="ছবি মুছে ফেলুন"
                 onClick={e => { e.stopPropagation(); handleClear() }}
-                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-lg transition-colors"
+                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500"
               >
                 <X size={16} />
               </button>
