@@ -1482,9 +1482,24 @@ adminRoutes.patch('/redemptions/:id/status', async (c) => {
   
   params.push(id)
   
-  await c.env.DB.prepare(
-    `UPDATE reward_redemptions SET ${updateFields.join(', ')} WHERE id = ?`
-  ).bind(...params).run()
+  // Enforce correct state transitions to prevent TOCTOU logic flaws
+  let expectedStatus = ''
+  if (status === 'approved') {
+    expectedStatus = 'pending'
+  } else if (status === 'fulfilled') {
+    expectedStatus = 'approved'
+  }
+
+  let updateQuery = `UPDATE reward_redemptions SET ${updateFields.join(', ')} WHERE id = ?`
+  if (expectedStatus) {
+    updateQuery += ` AND status = '${expectedStatus}'`
+  }
+
+  const statusUpdate = await c.env.DB.prepare(updateQuery).bind(...params).run()
+
+  if (expectedStatus && (!statusUpdate.meta.changes || statusUpdate.meta.changes === 0)) {
+    return err(c, 'রিডিম ইতিমধ্যে প্রসেস করা হয়েছে অথবা বর্তমান স্ট্যাটাস থেকে এই পরিবর্তন সম্ভব নয়', 409)
+  }
   
   return ok(c, { message: `রিওয়ার্ড রিডিম স্ট্যাটাস আপডেট হয়েছে: ${status}` })
 })
@@ -1669,14 +1684,18 @@ adminRoutes.patch('/point-withdrawals/:id/approve', zValidator('json', approveSc
   }
 
   // Update withdrawal status
-  await c.env.DB.prepare(
+  const statusUpdate = await c.env.DB.prepare(
     `UPDATE point_withdrawals SET
        status = 'approved',
        approved_by = ?,
        admin_note = ?,
        processed_at = datetime('now')
-     WHERE id = ?`
+     WHERE id = ? AND status = 'pending'`
   ).bind(adminUserId, admin_note || null, withdrawalId).run()
+
+  if (!statusUpdate.meta.changes || statusUpdate.meta.changes === 0) {
+    return err(c, 'উত্তোলন ইতিমধ্যে প্রসেস করা হয়েছে', 409)
+  }
 
   // Create audit log
   await c.env.DB.prepare(
