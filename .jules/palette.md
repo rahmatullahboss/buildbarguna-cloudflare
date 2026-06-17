@@ -1,0 +1,3 @@
+## 2024-04-12 - Accessible Alert Dismiss Buttons
+**Learning:** Dismissable generic alert messages containing buttons with just a '✕' character cause screen readers to read "multiply" or "X" instead of conveying their purpose to visually impaired users, particularly in specialized dashboard layouts (like the Admin views here). Since the app's interface is in Bengali, generic ARIA labels like "Close" are jarring and inconsistent with the surrounding context.
+**Action:** Always add contextual `aria-label` attributes to generic icon-only buttons. Match the primary language of the application by using established Bengali phrases, such as `aria-label="বার্তা বন্ধ করুন"` for generic/success messages and `aria-label="ত্রুটি বার্তা বন্ধ করুন"` for error messages.
