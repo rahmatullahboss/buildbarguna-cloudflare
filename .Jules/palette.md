@@ -5,3 +5,7 @@
 ## 2024-03-22 - Password Visibility Toggles & Icon Button Accessibility
 **Learning:** Icon-only buttons positioned absolutely inside inputs (like password visibility toggles) often lose their native focus outlines due to their container constraints. These elements require explicit focus states (e.g., `focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-md p-1`) so keyboard users know when they are focused. Furthermore, mouse users heavily rely on tooltips to decipher icons; the `title` attribute must always be added to match the `aria-label`.
 **Action:** When adding icon-only controls inside input fields, strictly implement explicit `focus-visible` ring classes, and always pair `aria-label` with a native `title` attribute for cross-device accessibility.
+
+## 2024-06-18 - Bengali Translations for Standard Actions
+**Learning:** In heavily localized applications, even standard UI actions like closing a modal must strictly use the established localized terminology. The application specifically uses "বন্ধ করুন" for "Close" actions. This must be applied across all standard interactive elements (like `X` icon buttons) in `aria-label`s to guarantee consistency for screen reader users consuming the UI in Bengali.
+**Action:** When adding accessibility attributes to modals or ad-hoc dismiss buttons in localized components, strictly adhere to the project's translation conventions (e.g., "বন্ধ করুন") rather than defaulting to English placeholders or literal translations.
