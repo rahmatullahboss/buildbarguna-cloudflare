@@ -5,3 +5,7 @@
 ## 2024-03-22 - Password Visibility Toggles & Icon Button Accessibility
 **Learning:** Icon-only buttons positioned absolutely inside inputs (like password visibility toggles) often lose their native focus outlines due to their container constraints. These elements require explicit focus states (e.g., `focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-md p-1`) so keyboard users know when they are focused. Furthermore, mouse users heavily rely on tooltips to decipher icons; the `title` attribute must always be added to match the `aria-label`.
 **Action:** When adding icon-only controls inside input fields, strictly implement explicit `focus-visible` ring classes, and always pair `aria-label` with a native `title` attribute for cross-device accessibility.
+
+## 2024-06-20 - Global Keyboard Accessibility
+**Learning:** The application's core global button utilities (`.btn-primary`, `.btn-secondary`, `.btn-danger`, `.btn-ghost`) did not have explicit keyboard focus states (`focus-visible`). Because these classes are used pervasively across the application, keyboard navigation was severely compromised.
+**Action:** Ensure that all foundational/global component definitions (especially interactive elements in `index.css`) include `focus-visible` styles (`outline-none`, `ring-2`, `ring-offset-2`) so that accessibility cascades automatically to all instances.
