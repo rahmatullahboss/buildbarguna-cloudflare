@@ -1669,14 +1669,18 @@ adminRoutes.patch('/point-withdrawals/:id/approve', zValidator('json', approveSc
   }
 
   // Update withdrawal status
-  await c.env.DB.prepare(
+  const statusUpdate = await c.env.DB.prepare(
     `UPDATE point_withdrawals SET
        status = 'approved',
        approved_by = ?,
        admin_note = ?,
        processed_at = datetime('now')
-     WHERE id = ?`
+     WHERE id = ? AND status = 'pending'`
   ).bind(adminUserId, admin_note || null, withdrawalId).run()
+
+  if (!statusUpdate.meta.changes || statusUpdate.meta.changes === 0) {
+    return err(c, 'উত্তোলন ইতিমধ্যে প্রসেস করা হয়েছে', 409)
+  }
 
   // Create audit log
   await c.env.DB.prepare(
@@ -1810,7 +1814,7 @@ adminRoutes.patch('/point-withdrawals/:id/complete', zValidator('json', complete
   }
 
   // Update withdrawal status
-  await c.env.DB.prepare(
+  const statusUpdate = await c.env.DB.prepare(
     `UPDATE point_withdrawals SET
        status = 'completed',
        completed_at = datetime('now'),
@@ -1818,8 +1822,12 @@ adminRoutes.patch('/point-withdrawals/:id/complete', zValidator('json', complete
        payment_txid = ?,
        admin_note = COALESCE(admin_note, '') || ' | Paid: ' || ?,
        processed_at = datetime('now')
-     WHERE id = ?`
+     WHERE id = ? AND status = 'approved'`
   ).bind(adminUserId, bkash_txid, bkash_txid, withdrawalId).run()
+
+  if (!statusUpdate.meta.changes || statusUpdate.meta.changes === 0) {
+    return err(c, 'উত্তোলন ইতিমধ্যে প্রসেস করা হয়েছে', 409)
+  }
 
   // Create audit log
   await c.env.DB.prepare(
