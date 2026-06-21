@@ -563,8 +563,9 @@ export default function ProjectDetail() {
                       <button
                         type="button"
                         aria-label="বাতিল করুন"
+                        title="বাতিল করুন"
                         onClick={() => setShowConfirm(false)}
-                        className="text-gray-400 hover:text-gray-600"
+                        className="text-gray-400 hover:text-gray-600 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-lg p-1"
                       >
                         <X size={20} />
                       </button>
