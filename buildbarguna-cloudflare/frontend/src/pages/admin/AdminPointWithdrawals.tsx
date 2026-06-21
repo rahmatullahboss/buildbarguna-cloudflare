@@ -202,15 +202,17 @@ export default function AdminPointWithdrawals() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => { setSelectedWithdrawal(withdrawal); setActionModal('approve') }}
-                          className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200"
+                          className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500"
                           title="অনুমোদন"
+                          aria-label="অনুমোদন"
                         >
                           <CheckCircle className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => { setSelectedWithdrawal(withdrawal); setActionModal('reject') }}
-                          className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
+                          className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500"
                           title="বাতিল"
+                          aria-label="বাতিল"
                         >
                           <XCircle className="w-4 h-4" />
                         </button>
