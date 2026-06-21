@@ -633,7 +633,7 @@ export default function Membership() {
             <div className="p-6 border-b">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold">তথ্য সম্পাদনা</h2>
-                <button onClick={() => setShowEditModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowEditModal(false)} className="p-2 hover:bg-gray-100 rounded-lg focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500" aria-label="বন্ধ করুন" title="বন্ধ করুন">
                   <X size={20} />
                 </button>
               </div>
@@ -785,7 +785,7 @@ export default function Membership() {
             <div className="p-6 border-b">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-red-600">মেম্বারশিপ বাতিল</h2>
-                <button onClick={() => setShowCancelModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={() => setShowCancelModal(false)} className="p-2 hover:bg-gray-100 rounded-lg focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500" aria-label="বন্ধ করুন" title="বন্ধ করুন">
                   <X size={20} />
                 </button>
               </div>
