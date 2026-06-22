@@ -277,7 +277,8 @@ export default function CompanyExpenses() {
                   )}
                   <button
                     onClick={() => setSelectedExpense(expense)}
-                    className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition"
+                    aria-label="বিস্তারিত"
+                    className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition focus-visible:ring-2 focus-visible:outline-none"
                     title="বিস্তারিত"
                   >
                     <Eye size={16} />
@@ -288,7 +289,8 @@ export default function CompanyExpenses() {
                         if (confirm('আপনি কি নিশ্চিত?')) deleteMutation.mutate(expense.id)
                       }}
                       disabled={deleteMutation.isPending}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+                      aria-label="মুছুন"
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition focus-visible:ring-2 focus-visible:outline-none"
                       title="মুছুন"
                     >
                       <Trash2 size={16} />
