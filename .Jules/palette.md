@@ -5,3 +5,7 @@
 ## 2024-03-22 - Password Visibility Toggles & Icon Button Accessibility
 **Learning:** Icon-only buttons positioned absolutely inside inputs (like password visibility toggles) often lose their native focus outlines due to their container constraints. These elements require explicit focus states (e.g., `focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-md p-1`) so keyboard users know when they are focused. Furthermore, mouse users heavily rely on tooltips to decipher icons; the `title` attribute must always be added to match the `aria-label`.
 **Action:** When adding icon-only controls inside input fields, strictly implement explicit `focus-visible` ring classes, and always pair `aria-label` with a native `title` attribute for cross-device accessibility.
+
+## 2024-06-23 - Standardizing Toast Close Buttons
+**Learning:** Hardcoded text/unicode characters (like '✕') for close buttons in toast notifications create poor hover targets, lack clear keyboard focus indicators, and are less semantically consistent than using an SVG icon system. They often result in tiny click areas that are difficult to tap on mobile.
+**Action:** When implementing close buttons for alerts or modals, use consistent SVG icons (e.g., `<X />` from `lucide-react`), add explicit padded hover targets (`p-1 hover:bg-black/10 rounded-full`), provide clear focus rings (`focus-visible:ring-2`), and always include an `aria-label` in the appropriate language (e.g., `aria-label="বার্তা বন্ধ করুন"`).
