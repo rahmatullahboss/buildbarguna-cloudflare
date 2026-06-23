@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminReferralsApi } from '../../lib/api'
 import { formatTaka } from '../../lib/auth'
-import { Gift, Users, TrendingUp, CheckCircle, AlertTriangle, Settings, Save } from 'lucide-react'
+import { Gift, Users, TrendingUp, CheckCircle, AlertTriangle, Settings, Save, X } from 'lucide-react'
 import Disclaimer from '../../components/Disclaimer'
 
 export default function AdminReferrals() {
@@ -81,13 +81,13 @@ export default function AdminReferrals() {
       {msg && (
         <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">
           <CheckCircle size={16} /> {msg}
-          <button onClick={() => setMsg('')} className="ml-auto text-green-500 hover:text-green-700">✕</button>
+          <button onClick={() => setMsg('')} className="ml-auto p-1 hover:bg-green-100/50 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 transition-colors" aria-label="বার্তা বন্ধ করুন"><X size={16} /></button>
         </div>
       )}
       {errMsg && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
           <AlertTriangle size={16} /> {errMsg}
-          <button onClick={() => setErrMsg('')} className="ml-auto text-red-400 hover:text-red-600">✕</button>
+          <button onClick={() => setErrMsg('')} className="ml-auto p-1 hover:bg-red-100/50 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 transition-colors" aria-label="ত্রুটি বার্তা বন্ধ করুন"><X size={16} /></button>
         </div>
       )}
 
