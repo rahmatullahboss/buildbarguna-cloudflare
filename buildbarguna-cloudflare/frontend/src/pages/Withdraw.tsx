@@ -83,9 +83,11 @@ function WithdrawalCard({ w }: { w: Withdrawal }) {
   const [expanded, setExpanded] = useState(false)
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
-      <div
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+      <button
+        className="w-full text-left flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors focus-visible:outline-none focus-visible:bg-gray-50"
         onClick={() => setExpanded(v => !v)}
+        aria-expanded={expanded}
+        title={expanded ? 'বিস্তারিত লুকান' : 'বিস্তারিত দেখুন'}
       >
         <div className="flex-1">
           <p className="font-bold text-gray-900">{formatTaka(w.amount_paisa)}</p>
@@ -96,7 +98,7 @@ function WithdrawalCard({ w }: { w: Withdrawal }) {
           <StatusBadge status={w.status} />
           {expanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
         </div>
-      </div>
+      </button>
       {expanded && (
         <div className="border-t border-gray-100 bg-gray-50 p-4 space-y-2 text-sm">
           {w.withdrawal_method !== 'cash' && (
