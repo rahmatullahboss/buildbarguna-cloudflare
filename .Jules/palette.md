@@ -5,3 +5,7 @@
 ## 2024-03-22 - Password Visibility Toggles & Icon Button Accessibility
 **Learning:** Icon-only buttons positioned absolutely inside inputs (like password visibility toggles) often lose their native focus outlines due to their container constraints. These elements require explicit focus states (e.g., `focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-md p-1`) so keyboard users know when they are focused. Furthermore, mouse users heavily rely on tooltips to decipher icons; the `title` attribute must always be added to match the `aria-label`.
 **Action:** When adding icon-only controls inside input fields, strictly implement explicit `focus-visible` ring classes, and always pair `aria-label` with a native `title` attribute for cross-device accessibility.
+
+## 2024-03-24 - Accessibility for Ad-Hoc Flash Message Close Buttons
+**Learning:** Dismissible flash messages (like success or error alerts) often use ad-hoc close buttons with raw text icons like `✕` without native accessibility attributes. Since these elements handle interactions, they must include clear `aria-label` and `title` attributes in the local language, alongside a `focus-visible` ring so keyboard users and screen readers can locate and identify them.
+**Action:** When implementing or modifying inline alert dismiss buttons, always attach `aria-label`, `title`, and explicit `focus-visible` ring utility classes that match the alert's visual theme (e.g., `ring-green-500` for success, `ring-red-500` for errors).
