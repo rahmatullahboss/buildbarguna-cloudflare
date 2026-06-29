@@ -5,7 +5,7 @@ import { formatTaka, formatDate } from '../lib/auth'
 import type { Withdrawal, WithdrawalStatus, IncomeBreakdownItem } from '../lib/api'
 import {
   Clock, CheckCircle, XCircle, AlertTriangle,
-  ArrowDownCircle, ChevronDown, ChevronUp, Info, Send, CircleDot, Layers
+  ArrowDownCircle, ChevronDown, ChevronUp, Info, Send, CircleDot, Layers, X
 } from 'lucide-react'
 import Disclaimer from '../components/Disclaimer'
 
@@ -312,13 +312,13 @@ export default function Withdraw() {
       {msg && (
         <div className="flex items-start gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">
           <CheckCircle size={16} className="mt-0.5 shrink-0" /> {msg}
-          <button onClick={() => setMsg('')} className="ml-auto" aria-label="বার্তা বন্ধ করুন">✕</button>
+          <button onClick={() => setMsg('')} className="ml-auto text-green-600 p-1 hover:bg-green-100/50 rounded-full transition-colors" aria-label="বার্তা বন্ধ করুন"><X size={16} /></button>
         </div>
       )}
       {errMsg && (
         <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" /> {errMsg}
-          <button onClick={() => setErrMsg('')} className="ml-auto" aria-label="ত্রুটি বার্তা বন্ধ করুন">✕</button>
+          <button onClick={() => setErrMsg('')} className="ml-auto text-red-600 p-1 hover:bg-red-100/50 rounded-full transition-colors" aria-label="ত্রুটি বার্তা বন্ধ করুন"><X size={16} /></button>
         </div>
       )}
 
