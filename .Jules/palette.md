@@ -5,3 +5,7 @@
 ## 2024-03-22 - Password Visibility Toggles & Icon Button Accessibility
 **Learning:** Icon-only buttons positioned absolutely inside inputs (like password visibility toggles) often lose their native focus outlines due to their container constraints. These elements require explicit focus states (e.g., `focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-primary-500 rounded-md p-1`) so keyboard users know when they are focused. Furthermore, mouse users heavily rely on tooltips to decipher icons; the `title` attribute must always be added to match the `aria-label`.
 **Action:** When adding icon-only controls inside input fields, strictly implement explicit `focus-visible` ring classes, and always pair `aria-label` with a native `title` attribute for cross-device accessibility.
+
+## 2024-03-22 - Bypassing Client-side In-memory Token Auth for Playwright Verification
+**Learning:** When using Playwright to visually verify admin routes (which require auth), setting just `bb_logged_in` in `localStorage` and `bb_user` in `sessionStorage` might not prevent redirection to `/login` if the actual auth token is stored purely in memory (e.g., in a JS module variable) and validated on mount.
+**Action:** To test specific UI components effectively when dealing with strict in-memory token states, temporarily render the component in a public route like `Home.tsx` during testing, rather than trying to perfectly mock the full auth lifecycle via client storage alone.
