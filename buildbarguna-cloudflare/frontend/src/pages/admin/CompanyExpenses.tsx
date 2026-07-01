@@ -269,6 +269,7 @@ export default function CompanyExpenses() {
                   {!expense.is_allocated && expense.allocation_method !== 'company_only' && (
                     <button
                       onClick={() => {/* TODO: Allocate */}}
+                      aria-label="বরাদ্দ করুন"
                       className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
                       title="বরাদ্দ করুন"
                     >
@@ -277,6 +278,7 @@ export default function CompanyExpenses() {
                   )}
                   <button
                     onClick={() => setSelectedExpense(expense)}
+                    aria-label="বিস্তারিত"
                     className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition"
                     title="বিস্তারিত"
                   >
@@ -288,6 +290,7 @@ export default function CompanyExpenses() {
                         if (confirm('আপনি কি নিশ্চিত?')) deleteMutation.mutate(expense.id)
                       }}
                       disabled={deleteMutation.isPending}
+                      aria-label="মুছুন"
                       className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
                       title="মুছুন"
                     >
