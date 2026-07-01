@@ -2,3 +2,8 @@
 **Vulnerability:** Timing attack in the `login` and `forgot-password` endpoints allowing user enumeration.
 **Learning:** If an account was not found, the response was immediately returned. If found, a slow PBKDF2 hash verification was performed, or an email was sent synchronously. This time difference allowed attackers to identify registered accounts.
 **Prevention:** Always verify a dummy hash to maintain constant-time execution if a user is not found. Use background execution (like `c.executionCtx.waitUntil()`) for slow asynchronous side-effects (e.g., sending emails) so the response isn't blocked.
+
+## 2024-05-24 - Rate Limit Vulnerability on Authentication Endpoints
+**Vulnerability**: The authentication endpoints (`/api/auth/register`, `/api/auth/login`, and `/api/auth/forgot-password`) were previously only using the provided `email` or `identifier` as the key for rate limiting. This failed to protect against credential stuffing, brute-forcing, or enumeration attacks where an attacker cycled through many different emails or identifiers from a single IP.
+**Learning**: For sensitive unauthenticated endpoints, relying solely on user-provided identifiers for rate limiting is insufficient as attackers can rotate identifiers. Conversely, relying solely on IP-based rate limiting allows an attacker to rotate IPs to attack a single account. A secure implementation must enforce *both* IP-based and identifier-based rate limits simultaneously to provide defense-in-depth against both targeted attacks and credential stuffing from rotating IPs.
+**Prevention**: When implementing rate limits for authentication endpoints, always combine IP-based tracking (using `CF-Connecting-IP` or `X-Forwarded-For`) with identifier-based tracking (e.g., email or username).

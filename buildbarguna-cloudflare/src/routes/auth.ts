@@ -59,12 +59,19 @@ const resetPasswordSchema = z.object({
 authRoutes.post('/register', zValidator('json', registerSchema), async (c) => {
   const { name, email, phone, password, referral_code } = c.req.valid('json')
 
-  // Rate limiting: max 3 registrations per email per hour (prevent spam)
-  const rateLimitKey = `reg:${email.toLowerCase()}`
-  const rateLimit = await checkRateLimit(c.env, rateLimitKey, RATE_LIMITS.REGISTRATION.MAX_ATTEMPTS, 3600)
+  // Rate limiting: prevent spam/brute force on both IP and Email
+  const ip = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? 'unknown'
+  const ipRateLimitKey = `reg_ip:${ip}`
+  const emailRateLimitKey = `reg:${email.toLowerCase()}`
   
-  if (!rateLimit.allowed) {
-    return err(c, `অনেকবার চেষ্টা করা হয়েছে। ${Math.ceil((rateLimit.resetAt - Date.now()) / 3600000)} ঘণ্টা পরে আবার চেষ্টা করুন।`, 429)
+  const ipRateLimit = await checkRateLimit(c.env, ipRateLimitKey, RATE_LIMITS.REGISTRATION.MAX_ATTEMPTS * 2, 3600) // Allow slightly more per IP for shared networks
+  const emailRateLimit = await checkRateLimit(c.env, emailRateLimitKey, RATE_LIMITS.REGISTRATION.MAX_ATTEMPTS, 3600)
+
+  if (!ipRateLimit.allowed || !emailRateLimit.allowed) {
+    const blockTime = !emailRateLimit.allowed
+      ? Math.ceil((emailRateLimit.resetAt - Date.now()) / 3600000)
+      : Math.ceil((ipRateLimit.resetAt - Date.now()) / 3600000)
+    return err(c, `অনেকবার চেষ্টা করা হয়েছে। ${blockTime} ঘণ্টা পরে আবার চেষ্টা করুন।`, 429)
   }
 
   // Check existing user by email
@@ -132,13 +139,20 @@ authRoutes.post('/login', zValidator('json', loginSchema), async (c) => {
 
   // Determine if identifier is email or phone
   const isEmail = emailRegex.test(identifier)
-  const rateLimitKey = `login:${identifier.toLowerCase()}`
 
-  // Rate limiting: max 5 failed attempts per 15 minutes
-  const rateLimit = await checkRateLimit(c.env, rateLimitKey, RATE_LIMITS.LOGIN.MAX_ATTEMPTS, 900)
+  // Rate limiting: prevent brute force on both IP and Account Identifier
+  const ip = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? 'unknown'
+  const ipRateLimitKey = `login_ip:${ip}`
+  const accountRateLimitKey = `login:${identifier.toLowerCase()}`
+
+  const ipRateLimit = await checkRateLimit(c.env, ipRateLimitKey, RATE_LIMITS.LOGIN.MAX_ATTEMPTS * 3, 900) // Shared network allowance
+  const accountRateLimit = await checkRateLimit(c.env, accountRateLimitKey, RATE_LIMITS.LOGIN.MAX_ATTEMPTS, 900)
   
-  if (!rateLimit.allowed) {
-    return err(c, `অনেকবার চেষ্টা করা হয়েছে। ${Math.ceil((rateLimit.resetAt - Date.now()) / 60000)} মিনিট পরে আবার চেষ্টা করুন।`, 429)
+  if (!ipRateLimit.allowed || !accountRateLimit.allowed) {
+    const blockTime = !accountRateLimit.allowed
+      ? Math.ceil((accountRateLimit.resetAt - Date.now()) / 60000)
+      : Math.ceil((ipRateLimit.resetAt - Date.now()) / 60000)
+    return err(c, `অনেকবার চেষ্টা করা হয়েছে। ${blockTime} মিনিট পরে আবার চেষ্টা করুন।`, 429)
   }
 
   // Check for account lockout (use separate rate limit key for lockout)
@@ -246,11 +260,15 @@ authRoutes.post('/forgot-password', zValidator('json', forgotPasswordSchema), as
   const { email } = c.req.valid('json')
   const normalizedEmail = email.toLowerCase()
 
-  // Rate limiting: max 3 requests per hour per email
-  const rateLimitKey = `forgot:${normalizedEmail}`
-  const rateLimit = await checkRateLimit(c.env, rateLimitKey, 3, 3600)
+  // Rate limiting: prevent spam on both IP and Email
+  const ip = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? 'unknown'
+  const ipRateLimitKey = `forgot_ip:${ip}`
+  const emailRateLimitKey = `forgot:${normalizedEmail}`
+
+  const ipRateLimit = await checkRateLimit(c.env, ipRateLimitKey, 5, 3600) // Shared network allowance
+  const emailRateLimit = await checkRateLimit(c.env, emailRateLimitKey, 3, 3600)
   
-  if (!rateLimit.allowed) {
+  if (!ipRateLimit.allowed || !emailRateLimit.allowed) {
     return err(c, 'অনেকবার চেষ্টা করা হয়েছে। ১ ঘণ্টা পরে আবার চেষ্টা করুন।', 429)
   }
 
