@@ -52,6 +52,14 @@ export const RATE_LIMITS = {
     MAX_ATTEMPTS: 3,
     WINDOW_HOURS: 1,
   },
+  FORGOT_PASSWORD: {
+    MAX_ATTEMPTS: 3,
+    WINDOW_HOURS: 1,
+  },
+  PASSWORD_RESET: {
+    MAX_ATTEMPTS: 5,
+    WINDOW_MINUTES: 15,
+  },
   REFERRAL_CHECK: {
     MAX_PER_MINUTE: 10,
   },
