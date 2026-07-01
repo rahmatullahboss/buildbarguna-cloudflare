@@ -24,7 +24,7 @@ test.describe('Public Pages', () => {
     await page.goto('/login')
     await expect(page.getByPlaceholder('01XXXXXXXXX')).toBeVisible()
     await expect(page.getByPlaceholder('পাসওয়ার্ড দিন')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'লগইন করুন' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'লগইন করুন', exact: true })).toBeVisible()
   })
 
   test('login page has password show/hide button', async ({ page }) => {
@@ -53,7 +53,7 @@ test.describe('Public Pages', () => {
     await page.goto('/login')
     await page.getByPlaceholder('01XXXXXXXXX').fill('01700000099')
     await page.getByPlaceholder('পাসওয়ার্ড দিন').fill('wrongpassword123')
-    await page.getByRole('button', { name: 'লগইন করুন' }).click()
+    await page.getByRole('button', { name: 'লগইন করুন', exact: true }).click()
     await expect(page).toHaveURL('/login')
     await expect(page.locator('[class*="red"],[class*="bg-red"]').first()).toBeVisible({ timeout: 8_000 })
   })
