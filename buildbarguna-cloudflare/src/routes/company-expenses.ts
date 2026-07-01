@@ -110,17 +110,23 @@ companyExpenseRoutes.post('/admin/allocate', zValidator('json', allocateSchema),
     }))
   } else if (expense.allocation_method === 'by_revenue') {
     // Allocate proportional to project revenue (last 30 days)
-    const revenues = await Promise.all(
-      projects.results.map(async (p) => {
-        const rev = await c.env.DB.prepare(
-          `SELECT COALESCE(SUM(amount), 0) as total 
-           FROM project_transactions 
-           WHERE project_id = ? AND transaction_type = 'revenue' 
-           AND transaction_date >= date('now', '-30 days')`
-        ).bind(p.id).first<{ total: number }>()
-        return { ...p, revenue: rev?.total ?? 0 }
-      })
-    )
+    // ⚡ Bolt: Replace N+1 Promise.all mapped queries with single IN query and O(1) Map lookup
+    let revenues = projects.results.map(p => ({ ...p, revenue: 0 }))
+    const projectIds = projects.results.map(p => p.id)
+
+    if (projectIds.length > 0) {
+      const placeholders = projectIds.map(() => '?').join(',')
+      const revs = await c.env.DB.prepare(
+        `SELECT project_id, COALESCE(SUM(amount), 0) as total
+         FROM project_transactions
+         WHERE project_id IN (${placeholders}) AND transaction_type = 'revenue'
+         AND transaction_date >= date('now', '-30 days')
+         GROUP BY project_id`
+      ).bind(...projectIds).all<{ project_id: number; total: number }>()
+
+      const revMap = new Map(revs.results.map(r => [r.project_id, r.total]))
+      revenues = projects.results.map(p => ({ ...p, revenue: revMap.get(p.id) ?? 0 }))
+    }
 
     const totalRevenue = revenues.reduce((sum, r) => sum + r.revenue, 0)
     if (totalRevenue === 0) {
@@ -158,19 +164,21 @@ companyExpenseRoutes.post('/admin/allocate', zValidator('json', allocateSchema),
   const remainder = expense.amount - requestedTotal
 
   // Insert allocations
-  await Promise.all(
-    requestedAllocations.map(a =>
-      c.env.DB.prepare(
-        `INSERT INTO expense_allocations (expense_id, project_id, amount, project_value_pct)
-         VALUES (?, ?, ?, ?)`
-      ).bind(data.expense_id, a.project_id, a.amount, a.project_value_pct).run()
-    )
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const stmts = requestedAllocations.map(a =>
+    c.env.DB.prepare(
+      `INSERT INTO expense_allocations (expense_id, project_id, amount, project_value_pct)
+       VALUES (?, ?, ?, ?)`
+    ).bind(data.expense_id, a.project_id, a.amount, a.project_value_pct)
   )
 
-  // Update expense as allocated
-  await c.env.DB.prepare(
-    'UPDATE company_expenses SET is_allocated = 1 WHERE id = ?'
-  ).bind(data.expense_id).run()
+  stmts.push(
+    c.env.DB.prepare(
+      'UPDATE company_expenses SET is_allocated = 1 WHERE id = ?'
+    ).bind(data.expense_id)
+  )
+
+  await c.env.DB.batch(stmts)
 
   // Get project titles for response
   const projectTitles = new Map(projects.results.map(p => [p.id, p.title]))
@@ -205,7 +213,8 @@ companyExpenseRoutes.get('/admin/list', async (c) => {
     whereClause = 'WHERE is_allocated = 0'
   }
 
-  const [rows, countRow] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const results = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT ce.*, u.name as created_by_name
        FROM company_expenses ce
@@ -213,14 +222,17 @@ companyExpenseRoutes.get('/admin/list', async (c) => {
        ${whereClause}
        ORDER BY ce.expense_date DESC, ce.created_at DESC
        LIMIT ? OFFSET ?`
-    ).bind(limit, offset).all<CompanyExpense & { created_by_name: string }>(),
+    ).bind(limit, offset),
 
     c.env.DB.prepare(
       `SELECT COUNT(*) as total FROM company_expenses ${whereClause.replace('WHERE', 'WHERE')}`
-    ).bind().first<{ total: number }>()
+    )
   ])
 
-  return ok(c, paginate(rows.results, countRow?.total ?? 0, page, limit))
+  const rows = results[0].results as unknown as (CompanyExpense & { created_by_name: string })[]
+  const countRow = results[1].results?.[0] as unknown as { total: number } | undefined
+
+  return ok(c, paginate(rows, countRow?.total ?? 0, page, limit))
 })
 
 // ──────────────────────────────────────────────────────────────
@@ -452,20 +464,21 @@ companyExpenseRoutes.post('/admin/recalculate', async (c) => {
       }
 
       // Insert allocations
-      await Promise.all(
-        allocations.map(a =>
-          c.env.DB.prepare(
-            `INSERT INTO expense_allocations (expense_id, project_id, amount, project_value_pct)
-             VALUES (?, ?, ?, ?)`
-          ).bind(expense.id, a.project_id, a.amount, a.project_value_pct).run()
-        )
+      // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+      const stmts = allocations.map(a =>
+        c.env.DB.prepare(
+          `INSERT INTO expense_allocations (expense_id, project_id, amount, project_value_pct)
+           VALUES (?, ?, ?, ?)`
+        ).bind(expense.id, a.project_id, a.amount, a.project_value_pct)
       )
 
-      // Mark as allocated
-      await c.env.DB.prepare(
-        'UPDATE company_expenses SET is_allocated = 1 WHERE id = ?'
-      ).bind(expense.id).run()
+      stmts.push(
+        c.env.DB.prepare(
+          'UPDATE company_expenses SET is_allocated = 1 WHERE id = ?'
+        ).bind(expense.id)
+      )
 
+      await c.env.DB.batch(stmts)
       processedCount++
     } catch (e) {
       errors.push(`Expense ${expense.id}: ${e}`)
