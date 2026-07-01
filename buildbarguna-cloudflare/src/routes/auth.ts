@@ -221,21 +221,25 @@ authRoutes.post('/logout', authMiddleware, async (c) => {
 // GET /api/auth/me
 authRoutes.get('/me', authMiddleware, async (c) => {
   const userId = c.get('userId')
-  const user = await c.env.DB.prepare(
-    'SELECT id, name, phone, email, role, referral_code, referred_by, is_active, created_at FROM users WHERE id = ?'
-  ).bind(userId).first<Omit<User, 'password_hash'>>()
 
-  if (!user) return err(c, 'ব্যবহারকারী পাওয়া যায়নি', 404)
-
-  // Compute balance: project earnings + referral bonuses
-  const [balanceRow, referralBonusRow] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of sequential/Promise.all queries to prevent per-query HTTP network overhead in D1
+  const results = await c.env.DB.batch([
+    c.env.DB.prepare(
+      'SELECT id, name, phone, email, role, referral_code, referred_by, is_active, created_at FROM users WHERE id = ?'
+    ).bind(userId),
     c.env.DB.prepare(
       'SELECT COALESCE(SUM(amount), 0) as total FROM earnings WHERE user_id = ?'
-    ).bind(userId).first<{ total: number }>(),
+    ).bind(userId),
     c.env.DB.prepare(
       'SELECT COALESCE(SUM(amount_paisa), 0) as total FROM referral_bonuses WHERE referrer_user_id = ?'
-    ).bind(userId).first<{ total: number }>()
+    ).bind(userId)
   ])
+
+  const user = results[0].results?.[0] as Omit<User, 'password_hash'> | undefined
+  if (!user) return err(c, 'ব্যবহারকারী পাওয়া যায়নি', 404)
+
+  const balanceRow = results[1].results?.[0] as { total: number } | undefined
+  const referralBonusRow = results[2].results?.[0] as { total: number } | undefined
 
   const balance_paisa = (balanceRow?.total ?? 0) + (referralBonusRow?.total ?? 0)
   return ok(c, { ...user, balance_paisa })
