@@ -14,10 +14,11 @@ taskRoutes.get('/history', async (c) => {
   const userId = c.get('userId')
   const { page, limit, offset } = getPagination(c.req.query())
   
-  const [countResult, historyResult] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const results = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT COUNT(*) as total FROM task_completions WHERE user_id = ?`
-    ).bind(userId).first() as Promise<{ total: number }>,
+    ).bind(userId),
     c.env.DB.prepare(
       `SELECT tc.*, dt.title as task_title, dt.platform, dt.points as points_awarded
        FROM task_completions tc
@@ -25,10 +26,13 @@ taskRoutes.get('/history', async (c) => {
        WHERE tc.user_id = ?
        ORDER BY tc.completed_at DESC
        LIMIT ? OFFSET ?`
-    ).bind(userId, limit, offset).all()
+    ).bind(userId, limit, offset)
   ])
   
-  return ok(c, paginate(historyResult.results, countResult.total, page, limit))
+  const countRow = results[0].results?.[0] as unknown as { total: number } | undefined
+  const historyRows = results[1].results || []
+
+  return ok(c, paginate(historyRows, countRow?.total ?? 0, page, limit))
 })
 
 // GET /api/tasks - List available tasks for the logged-in member
