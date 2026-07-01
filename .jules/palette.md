@@ -1,0 +1,3 @@
+## 2024-04-17 - Guide Content Mobile Menu Accessibility
+**Learning:** Found that the `GuideContent.tsx` component's mobile menu had icon-only buttons for toggling and closing without any `aria-label` or `aria-expanded` attributes, making it completely invisible to screen readers, and it lacked keyboard focus states.
+**Action:** Added `aria-label` (with Bengali translations like "মেনু খুলুন", "মেনু বন্ধ করুন"), `aria-expanded` for state tracking, and Tailwind `focus-visible:ring-2 focus-visible:ring-blue-500 outline-none` classes to icon-only buttons to ensure they are fully accessible to screen reader and keyboard users.
