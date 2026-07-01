@@ -19,7 +19,7 @@ export async function login(page: Page, phone: string, password: string) {
   await page.goto('/login')
   await page.getByPlaceholder('01XXXXXXXXX').fill(phone)
   await page.getByPlaceholder('পাসওয়ার্ড দিন').fill(password)
-  await page.getByRole('button', { name: 'লগইন করুন' }).click()
+  await page.getByRole('button', { name: 'লগইন করুন', exact: true }).click()
   // Wait for redirect — member → /dashboard, admin → /admin
   await page.waitForURL(url => url.pathname === '/dashboard' || url.pathname === '/admin', { timeout: 10_000 })
 }

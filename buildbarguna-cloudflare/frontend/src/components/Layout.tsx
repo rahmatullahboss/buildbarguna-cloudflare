@@ -77,8 +77,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="hidden sm:block text-sm opacity-90 bg-white/10 px-3 py-1 rounded-full">{user?.name}</span>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="p-1.5 rounded-xl hover:bg-white/20 transition-colors"
+              className="p-1.5 rounded-xl hover:bg-white/20 transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-white"
               aria-label={menuOpen ? 'মেনু বন্ধ করুন' : 'মেনু খুলুন'}
+              title={menuOpen ? 'মেনু বন্ধ করুন' : 'মেনু খুলুন'}
               aria-expanded={menuOpen}
             >
               {menuOpen ? <X size={22} /> : <Menu size={22} />}
