@@ -246,8 +246,9 @@ authRoutes.post('/forgot-password', zValidator('json', forgotPasswordSchema), as
   const { email } = c.req.valid('json')
   const normalizedEmail = email.toLowerCase()
 
-  // Rate limiting: max 3 requests per hour per email
-  const rateLimitKey = `forgot:${normalizedEmail}`
+  // Rate limiting: max 3 requests per hour per IP to prevent email enumeration/scanning
+  const ip = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? 'unknown'
+  const rateLimitKey = `forgot:${ip}`
   const rateLimit = await checkRateLimit(c.env, rateLimitKey, 3, 3600)
   
   if (!rateLimit.allowed) {
@@ -301,6 +302,15 @@ authRoutes.post('/forgot-password', zValidator('json', forgotPasswordSchema), as
 // POST /api/auth/reset-password
 authRoutes.post('/reset-password', zValidator('json', resetPasswordSchema), async (c) => {
   const { token, password } = c.req.valid('json')
+
+  // Rate limiting: max 5 requests per hour per IP to prevent token brute-forcing/scanning
+  const ip = c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? 'unknown'
+  const rateLimitKey = `reset:${ip}`
+  const rateLimit = await checkRateLimit(c.env, rateLimitKey, 5, 3600)
+
+  if (!rateLimit.allowed) {
+    return err(c, 'অনেকবার চেষ্টা করা হয়েছে। ১ ঘণ্টা পরে আবার চেষ্টা করুন।', 429)
+  }
 
   // Find and validate token
   const resetToken = await c.env.DB.prepare(
