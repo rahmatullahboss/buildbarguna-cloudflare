@@ -9,6 +9,7 @@
 
 import html2canvas from 'html2canvas-pro'
 import { jsPDF } from 'jspdf'
+import { escapeHtml } from './html-escaper'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -185,16 +186,16 @@ function generateShareCertificateHTML(cert: ShareCertificateData): string {
     
     <div class="title">
       <h1>SHARE CERTIFICATE</h1>
-      <div class="cert-number">Certificate No: ${cert.certificate_id}</div>
+      <div class="cert-number">Certificate No: ${escapeHtml(cert.certificate_id)}</div>
     </div>
     
     <div class="divider"></div>
     
     <div class="body">
       <p>This is to certify that</p>
-      <div class="member-name">${cert.user_name}</div>
+      <div class="member-name">${escapeHtml(cert.user_name)}</div>
       <p>has purchased share(s) in</p>
-      <div class="project-name">${cert.project_name}</div>
+      <div class="project-name">${escapeHtml(cert.project_name)}</div>
     </div>
     
     <div class="share-details">
@@ -205,9 +206,9 @@ function generateShareCertificateHTML(cert: ShareCertificateData): string {
       <div class="value">BDT ${amountTaka.toLocaleString('en-US')}</div>
       
       <div class="label">Payment Method:</div>
-      <div class="value">${cert.payment_method || 'N/A'}</div>
+      <div class="value">${escapeHtml(cert.payment_method || 'N/A')}</div>
       
-      ${cert.form_number ? `<div class="label">Form Number:</div><div class="value">${cert.form_number}</div>` : ''}
+      ${cert.form_number ? `<div class="label">Form Number:</div><div class="value">${escapeHtml(cert.form_number)}</div>` : ''}
     </div>
     
     <div class="footer">
@@ -248,14 +249,14 @@ function generateMemberCertificateHTML(reg: MemberCertificateData): string {
     
     <div class="title">
       <h1>MEMBERSHIP CERTIFICATE</h1>
-      <div class="cert-number">Certificate No: ${reg.form_number}</div>
+      <div class="cert-number">Certificate No: ${escapeHtml(reg.form_number)}</div>
     </div>
     
     <div class="divider"></div>
     
     <div class="body">
       <p>This is to certify that</p>
-      <div class="member-name">${reg.name_english}</div>
+      <div class="member-name">${escapeHtml(reg.name_english)}</div>
 
       <p>has been accepted as a Member of</p>
       <div class="project-name">Build Barguna Initiative (BBI)</div>
@@ -263,28 +264,28 @@ function generateMemberCertificateHTML(reg: MemberCertificateData): string {
     
     <div class="details">
       <div class="label">Father's Name:</div>
-      <div class="value">${reg.father_name}</div>
+      <div class="value">${escapeHtml(reg.father_name)}</div>
       
       <div class="label">Mother's Name:</div>
-      <div class="value">${reg.mother_name}</div>
+      <div class="value">${escapeHtml(reg.mother_name)}</div>
       
       <div class="label">Date of Birth:</div>
-      <div class="value">${reg.date_of_birth}</div>
+      <div class="value">${escapeHtml(reg.date_of_birth)}</div>
       
       <div class="label">Blood Group:</div>
-      <div class="value">${reg.blood_group || 'N/A'}</div>
+      <div class="value">${escapeHtml(reg.blood_group || 'N/A')}</div>
       
       <div class="label">Present Address:</div>
-      <div class="value">${reg.present_address}</div>
+      <div class="value">${escapeHtml(reg.present_address)}</div>
       
       <div class="label">Permanent Address:</div>
-      <div class="value">${reg.permanent_address}</div>
+      <div class="value">${escapeHtml(reg.permanent_address)}</div>
       
       <div class="label">Mobile/WhatsApp:</div>
-      <div class="value">${reg.mobile_whatsapp}</div>
+      <div class="value">${escapeHtml(reg.mobile_whatsapp)}</div>
       
-      ${reg.email ? `<div class="label">Email:</div><div class="value">${reg.email}</div>` : ''}
-      ${reg.facebook_id ? `<div class="label">Facebook ID:</div><div class="value">${reg.facebook_id}</div>` : ''}
+      ${reg.email ? `<div class="label">Email:</div><div class="value">${escapeHtml(reg.email)}</div>` : ''}
+      ${reg.facebook_id ? `<div class="label">Facebook ID:</div><div class="value">${escapeHtml(reg.facebook_id)}</div>` : ''}
     </div>
     
     <div class="footer">
