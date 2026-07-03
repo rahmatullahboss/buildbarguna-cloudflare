@@ -5,7 +5,7 @@ import { formatTaka, formatDate } from '../lib/auth'
 import type { Withdrawal, WithdrawalStatus, IncomeBreakdownItem } from '../lib/api'
 import {
   Clock, CheckCircle, XCircle, AlertTriangle,
-  ArrowDownCircle, ChevronDown, ChevronUp, Info, Send, CircleDot, Layers
+  ArrowDownCircle, ChevronDown, ChevronUp, Info, Send, CircleDot, Layers, X
 } from 'lucide-react'
 import Disclaimer from '../components/Disclaimer'
 
@@ -83,9 +83,11 @@ function WithdrawalCard({ w }: { w: Withdrawal }) {
   const [expanded, setExpanded] = useState(false)
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
-      <div
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+      <button
+        type="button"
+        className="w-full text-left flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
         onClick={() => setExpanded(v => !v)}
+        aria-expanded={expanded}
       >
         <div className="flex-1">
           <p className="font-bold text-gray-900">{formatTaka(w.amount_paisa)}</p>
@@ -96,7 +98,7 @@ function WithdrawalCard({ w }: { w: Withdrawal }) {
           <StatusBadge status={w.status} />
           {expanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
         </div>
-      </div>
+      </button>
       {expanded && (
         <div className="border-t border-gray-100 bg-gray-50 p-4 space-y-2 text-sm">
           {w.withdrawal_method !== 'cash' && (
@@ -312,13 +314,17 @@ export default function Withdraw() {
       {msg && (
         <div className="flex items-start gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">
           <CheckCircle size={16} className="mt-0.5 shrink-0" /> {msg}
-          <button onClick={() => setMsg('')} className="ml-auto" aria-label="বার্তা বন্ধ করুন">✕</button>
+          <button onClick={() => setMsg('')} className="ml-auto p-1 hover:bg-green-100/50 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500" aria-label="বার্তা বন্ধ করুন">
+            <X size={16} />
+          </button>
         </div>
       )}
       {errMsg && (
         <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" /> {errMsg}
-          <button onClick={() => setErrMsg('')} className="ml-auto" aria-label="ত্রুটি বার্তা বন্ধ করুন">✕</button>
+          <button onClick={() => setErrMsg('')} className="ml-auto p-1 hover:bg-red-100/50 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500" aria-label="ত্রুটি বার্তা বন্ধ করুন">
+            <X size={16} />
+          </button>
         </div>
       )}
 
