@@ -9,6 +9,17 @@
 
 import { err } from '../response'
 
+// XSS Prevention: Escape HTML special characters
+function escapeHtml(unsafe: string | undefined): string {
+  if (unsafe === undefined || unsafe === null) return ''
+  return String(unsafe)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface MemberRegistration {
@@ -52,9 +63,9 @@ export interface Env {
 
 function generateMemberCertificateHTML(reg: MemberRegistration, logoUrl?: string): string {
   const verifiedDate = reg.verified_at 
-    ? new Date(reg.verified_at).toLocaleDateString('en-GB') 
+    ? escapeHtml(new Date(reg.verified_at).toLocaleDateString('en-GB'))
     : 'N/A'
-  const issueDate = new Date(reg.created_at).toLocaleDateString('en-GB')
+  const issueDate = escapeHtml(new Date(reg.created_at).toLocaleDateString('en-GB'))
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -303,43 +314,43 @@ function generateMemberCertificateHTML(reg: MemberRegistration, logoUrl?: string
     
     <div class="title">
       <h1>MEMBERSHIP CERTIFICATE</h1>
-      <div class="cert-number">Certificate No: ${reg.form_number}</div>
+      <div class="cert-number">Certificate No: ${escapeHtml(reg.form_number)}</div>
     </div>
     
     <div class="divider"></div>
     
     <div class="body">
       <p>This is to certify that</p>
-      <div class="member-name">${reg.name_english}</div>
-      ${reg.name_bangla ? `<div class="member-name-bangla">${reg.name_bangla}</div>` : ''}
+      <div class="member-name">${escapeHtml(reg.name_english)}</div>
+      ${reg.name_bangla ? `<div class="member-name-bangla">${escapeHtml(reg.name_bangla)}</div>` : ''}
       <p class="org-text">has been accepted as a Member of</p>
       <div class="org-name-2">Build Barguna Initiative (BBI)</div>
     </div>
     
     <div class="details">
       <div class="label">Father's Name:</div>
-      <div class="value">${reg.father_name}</div>
+      <div class="value">${escapeHtml(reg.father_name)}</div>
       
       <div class="label">Mother's Name:</div>
-      <div class="value">${reg.mother_name}</div>
+      <div class="value">${escapeHtml(reg.mother_name)}</div>
       
       <div class="label">Date of Birth:</div>
-      <div class="value">${reg.date_of_birth}</div>
+      <div class="value">${escapeHtml(reg.date_of_birth)}</div>
       
       <div class="label">Blood Group:</div>
-      <div class="value">${reg.blood_group || 'N/A'}</div>
+      <div class="value">${escapeHtml(reg.blood_group) || 'N/A'}</div>
       
       <div class="label">Present Address:</div>
-      <div class="value">${reg.present_address}</div>
+      <div class="value">${escapeHtml(reg.present_address)}</div>
       
       <div class="label">Permanent Address:</div>
-      <div class="value">${reg.permanent_address}</div>
+      <div class="value">${escapeHtml(reg.permanent_address)}</div>
       
       <div class="label">Mobile/WhatsApp:</div>
-      <div class="value">${reg.mobile_whatsapp}</div>
+      <div class="value">${escapeHtml(reg.mobile_whatsapp)}</div>
       
-      ${reg.email ? `<div class="label">Email:</div><div class="value">${reg.email}</div>` : ''}
-      ${reg.facebook_id ? `<div class="label">Facebook ID:</div><div class="value">${reg.facebook_id}</div>` : ''}
+      ${reg.email ? `<div class="label">Email:</div><div class="value">${escapeHtml(reg.email)}</div>` : ''}
+      ${reg.facebook_id ? `<div class="label">Facebook ID:</div><div class="value">${escapeHtml(reg.facebook_id)}</div>` : ''}
     </div>
     
     <div class="footer">
@@ -370,7 +381,7 @@ function generateMemberCertificateHTML(reg: MemberRegistration, logoUrl?: string
 }
 
 function generateShareCertificateHTML(cert: ShareCertificate, logoUrl?: string): string {
-  const purchaseDate = new Date(cert.purchase_date).toLocaleDateString('en-GB')
+  const purchaseDate = escapeHtml(new Date(cert.purchase_date).toLocaleDateString('en-GB'))
   const amountTaka = Math.floor(cert.total_amount_paisa / 100)
 
   return `<!DOCTYPE html>
@@ -592,29 +603,29 @@ function generateShareCertificateHTML(cert: ShareCertificate, logoUrl?: string):
     
     <div class="title">
       <h1>SHARE CERTIFICATE</h1>
-      <div class="cert-number">Certificate No: ${cert.certificate_id}</div>
+      <div class="cert-number">Certificate No: ${escapeHtml(cert.certificate_id)}</div>
     </div>
     
     <div class="divider"></div>
     
     <div class="body">
       <p>This is to certify that</p>
-      <div class="member-name">${cert.user_name}</div>
+      <div class="member-name">${escapeHtml(cert.user_name)}</div>
       <p>has purchased share(s) in</p>
-      <div class="project-name">${cert.project_name}</div>
+      <div class="project-name">${escapeHtml(cert.project_name)}</div>
     </div>
     
     <div class="share-details">
       <div class="label">Share Quantity:</div>
-      <div class="value">${cert.share_quantity} Share(s)</div>
+      <div class="value">${escapeHtml(String(cert.share_quantity))} Share(s)</div>
       
       <div class="label">Total Investment:</div>
-      <div class="value">BDT ${amountTaka.toLocaleString('en-US')} (${cert.total_amount_paisa} paisa)</div>
+      <div class="value">BDT ${escapeHtml(amountTaka.toLocaleString('en-US'))} (${escapeHtml(String(cert.total_amount_paisa))} paisa)</div>
       
       <div class="label">Payment Method:</div>
-      <div class="value">${cert.payment_method || 'N/A'}</div>
+      <div class="value">${escapeHtml(cert.payment_method) || 'N/A'}</div>
       
-      ${cert.form_number ? `<div class="label">Form Number:</div><div class="value">${cert.form_number}</div>` : ''}
+      ${cert.form_number ? `<div class="label">Form Number:</div><div class="value">${escapeHtml(cert.form_number)}</div>` : ''}
     </div>
     
     <div class="footer">
