@@ -118,46 +118,56 @@ async function getProjectCloseoutPreview(db: D1Database, projectId: number, mode
   const hasTotalDistributedAmount = await hasColumn(db, 'profit_distributions', 'total_distributed_amount')
   const distributedColumn = hasTotalDistributedAmount ? 'total_distributed_amount' : 'distributable_amount'
 
-  const [pendingPurchases, pendingExpenseAllocations, financials, companyAllocations, distributed, soldShares, existingRefund, complianceProfile, completedCloseoutRun, shareholderSnapshot] = await Promise.all([
-    db.prepare(
-      `SELECT COUNT(*) as cnt FROM share_purchases WHERE project_id = ? AND status = 'pending'`
-    ).bind(projectId).first<{ cnt: number }>(),
-    db.prepare(
-      `SELECT COUNT(*) as cnt
-       FROM company_expenses
-       WHERE is_allocated = 0 AND allocation_method != 'company_only'`
-    ).first<{ cnt: number }>(),
-    db.prepare(
-      `SELECT
-        COALESCE(SUM(CASE WHEN transaction_type = 'revenue' THEN amount ELSE 0 END), 0) as total_revenue,
-        COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as direct_expense
-       FROM project_transactions
-       WHERE project_id = ?`
-    ).bind(projectId).first<{ total_revenue: number; direct_expense: number }>(),
-    db.prepare(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM expense_allocations WHERE project_id = ?`
-    ).bind(projectId).first<{ total: number }>(),
-    db.prepare(
-      `SELECT COALESCE(SUM(${distributedColumn}), 0) as total
-       FROM profit_distributions
-       WHERE project_id = ? AND status = 'distributed'`
-    ).bind(projectId).first<{ total: number }>(),
-    db.prepare(
-      `SELECT COALESCE(SUM(quantity), 0) as total FROM user_shares WHERE project_id = ? AND quantity > 0`
-    ).bind(projectId).first<{ total: number }>(),
-    db.prepare(
-      `SELECT id FROM balance_audit_log
-       WHERE reference_type = 'capital_refund' AND reference_id = ?
-       LIMIT 1`
-    ).bind(projectId).first<{ id: number }>()
-    ,
-    db.prepare(
-      `SELECT * FROM project_compliance_profiles WHERE project_id = ?`
-    ).bind(projectId).first<ProjectComplianceProfile>()
-    ,
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const [batchResults, completedCloseoutRun, shareholderSnapshot] = await Promise.all([
+    db.batch([
+      db.prepare(
+        `SELECT COUNT(*) as cnt FROM share_purchases WHERE project_id = ? AND status = 'pending'`
+      ).bind(projectId),
+      db.prepare(
+        `SELECT COUNT(*) as cnt
+         FROM company_expenses
+         WHERE is_allocated = 0 AND allocation_method != 'company_only'`
+      ).bind(),
+      db.prepare(
+        `SELECT
+          COALESCE(SUM(CASE WHEN transaction_type = 'revenue' THEN amount ELSE 0 END), 0) as total_revenue,
+          COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as direct_expense
+         FROM project_transactions
+         WHERE project_id = ?`
+      ).bind(projectId),
+      db.prepare(
+        `SELECT COALESCE(SUM(amount), 0) as total FROM expense_allocations WHERE project_id = ?`
+      ).bind(projectId),
+      db.prepare(
+        `SELECT COALESCE(SUM(${distributedColumn}), 0) as total
+         FROM profit_distributions
+         WHERE project_id = ? AND status = 'distributed'`
+      ).bind(projectId),
+      db.prepare(
+        `SELECT COALESCE(SUM(quantity), 0) as total FROM user_shares WHERE project_id = ? AND quantity > 0`
+      ).bind(projectId),
+      db.prepare(
+        `SELECT id FROM balance_audit_log
+         WHERE reference_type = 'capital_refund' AND reference_id = ?
+         LIMIT 1`
+      ).bind(projectId),
+      db.prepare(
+        `SELECT * FROM project_compliance_profiles WHERE project_id = ?`
+      ).bind(projectId)
+    ]),
     getCompletedCloseoutRun(db, projectId),
     getShareholderSnapshot(db, projectId)
   ])
+
+  const pendingPurchases = batchResults[0].results?.[0] as unknown as { cnt: number } | undefined
+  const pendingExpenseAllocations = batchResults[1].results?.[0] as unknown as { cnt: number } | undefined
+  const financials = batchResults[2].results?.[0] as unknown as { total_revenue: number; direct_expense: number } | undefined
+  const companyAllocations = batchResults[3].results?.[0] as unknown as { total: number } | undefined
+  const distributed = batchResults[4].results?.[0] as unknown as { total: number } | undefined
+  const soldShares = batchResults[5].results?.[0] as unknown as { total: number } | undefined
+  const existingRefund = batchResults[6].results?.[0] as unknown as { id: number } | undefined
+  const complianceProfile = batchResults[7].results?.[0] as unknown as ProjectComplianceProfile | undefined
 
   const totalRevenue = financials?.total_revenue ?? 0
   const directExpense = financials?.direct_expense ?? 0
@@ -417,14 +427,19 @@ adminRoutes.get('/r2-url', (c) => {
 
 adminRoutes.get('/users', async (c) => {
   const { page, limit, offset } = getPagination(c.req.query())
-  const [rows, countRow] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const results = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT id, name, phone, role, referral_code, referred_by, is_active, created_at
        FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?`
-    ).bind(limit, offset).all(),
-    c.env.DB.prepare('SELECT COUNT(*) as total FROM users').first<{ total: number }>()
+    ).bind(limit, offset),
+    c.env.DB.prepare('SELECT COUNT(*) as total FROM users').bind()
   ])
-  return ok(c, paginate(rows.results, countRow?.total ?? 0, page, limit))
+
+  const rows = results[0].results as unknown as any[]
+  const countRow = results[1].results?.[0] as unknown as { total: number } | undefined
+
+  return ok(c, paginate(rows, countRow?.total ?? 0, page, limit))
 })
 
 adminRoutes.get('/users/:id', async (c) => {
@@ -435,16 +450,20 @@ adminRoutes.get('/users/:id', async (c) => {
   ).bind(id).first()
   if (!user) return err(c, 'ব্যবহারকারী পাওয়া যায়নি', 404)
 
-  const [shares, earnings] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const results = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT us.*, p.title FROM user_shares us JOIN projects p ON p.id = us.project_id WHERE us.user_id = ?`
-    ).bind(id).all(),
+    ).bind(id),
     c.env.DB.prepare(
       'SELECT COALESCE(SUM(amount),0) as total FROM earnings WHERE user_id = ?'
-    ).bind(id).first<{ total: number }>()
+    ).bind(id)
   ])
 
-  return ok(c, { ...user, shares: shares.results, total_earnings_paisa: earnings?.total ?? 0 })
+  const shares = results[0].results as unknown as any[]
+  const earnings = results[1].results?.[0] as unknown as { total: number } | undefined
+
+  return ok(c, { ...user, shares: shares, total_earnings_paisa: earnings?.total ?? 0 })
 })
 
 adminRoutes.patch('/users/:id/toggle', async (c) => {
@@ -495,15 +514,20 @@ const complianceProfileSchema = z.object({
 
 adminRoutes.get('/projects', async (c) => {
   const { page, limit, offset } = getPagination(c.req.query())
-  const [rows, countRow] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const results = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT p.*,
          COALESCE((SELECT SUM(us.quantity) FROM user_shares us WHERE us.project_id = p.id), 0) as sold_shares
        FROM projects p ORDER BY p.created_at DESC LIMIT ? OFFSET ?`
-    ).bind(limit, offset).all(),
-    c.env.DB.prepare('SELECT COUNT(*) as total FROM projects').first<{ total: number }>()
+    ).bind(limit, offset),
+    c.env.DB.prepare('SELECT COUNT(*) as total FROM projects').bind()
   ])
-  return ok(c, paginate(rows.results, countRow?.total ?? 0, page, limit))
+
+  const rows = results[0].results as unknown as any[]
+  const countRow = results[1].results?.[0] as unknown as { total: number } | undefined
+
+  return ok(c, paginate(rows, countRow?.total ?? 0, page, limit))
 })
 
 adminRoutes.post('/projects', zValidator('json', projectSchema), async (c) => {
@@ -814,42 +838,62 @@ adminRoutes.get('/projects/:id/monitor', async (c) => {
     hasTable(c.env.DB, 'project_settlement_entries')
   ])
 
-  const [members, shareholderSnapshot, distributedProfit, settlementRows, closeoutRun] = await Promise.all([
-    hasProjectMembersTable
-      ? c.env.DB.prepare(
-          `SELECT pm.*, u.name as user_name, u.phone as user_phone
-           FROM project_members pm
-           JOIN users u ON u.id = pm.user_id
-           WHERE pm.project_id = ? AND pm.status = 'active'
-           ORDER BY pm.assigned_at DESC`
-        ).bind(id).all<ProjectMember>()
-      : Promise.resolve({ results: [] as ProjectMember[] }),
-    getShareholderSnapshot(c.env.DB, id),
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const queriesToBatch = []
+
+  if (hasProjectMembersTable) {
+    queriesToBatch.push(
+      c.env.DB.prepare(
+        `SELECT pm.*, u.name as user_name, u.phone as user_phone
+         FROM project_members pm
+         JOIN users u ON u.id = pm.user_id
+         WHERE pm.project_id = ? AND pm.status = 'active'
+         ORDER BY pm.assigned_at DESC`
+      ).bind(id)
+    )
+  }
+
+  queriesToBatch.push(
     c.env.DB.prepare(
       `SELECT COALESCE(SUM(profit_amount), 0) as total
        FROM shareholder_profits
        WHERE project_id = ? AND status IN ('credited', 'withdrawn')`
-    ).bind(id).first<{ total: number }>(),
-    hasSettlementEntriesTable
-      ? c.env.DB.prepare(
-          `SELECT
-             COALESCE(SUM(CASE WHEN entry_type = 'principal_refund' THEN amount_paisa ELSE 0 END), 0) as principal_total,
-             COALESCE(SUM(CASE WHEN entry_type = 'final_profit_payout' THEN amount_paisa ELSE 0 END), 0) as final_profit_total,
-             COALESCE(SUM(CASE WHEN claim_status = 'claimable' THEN amount_paisa ELSE 0 END), 0) as claimable_total,
-             COALESCE(SUM(CASE WHEN claim_status = 'reserved' THEN amount_paisa ELSE 0 END), 0) as reserved_total,
-             COALESCE(SUM(CASE WHEN claim_status = 'withdrawn' THEN amount_paisa ELSE 0 END), 0) as withdrawn_total
-           FROM project_settlement_entries
-           WHERE project_id = ?`
-        ).bind(id).first<{
-          principal_total: number
-          final_profit_total: number
-          claimable_total: number
-          reserved_total: number
-          withdrawn_total: number
-        }>()
-      : Promise.resolve(null),
+    ).bind(id)
+  )
+
+  if (hasSettlementEntriesTable) {
+    queriesToBatch.push(
+      c.env.DB.prepare(
+        `SELECT
+           COALESCE(SUM(CASE WHEN entry_type = 'principal_refund' THEN amount_paisa ELSE 0 END), 0) as principal_total,
+           COALESCE(SUM(CASE WHEN entry_type = 'final_profit_payout' THEN amount_paisa ELSE 0 END), 0) as final_profit_total,
+           COALESCE(SUM(CASE WHEN claim_status = 'claimable' THEN amount_paisa ELSE 0 END), 0) as claimable_total,
+           COALESCE(SUM(CASE WHEN claim_status = 'reserved' THEN amount_paisa ELSE 0 END), 0) as reserved_total,
+           COALESCE(SUM(CASE WHEN claim_status = 'withdrawn' THEN amount_paisa ELSE 0 END), 0) as withdrawn_total
+         FROM project_settlement_entries
+         WHERE project_id = ?`
+      ).bind(id)
+    )
+  }
+
+  const [batchResults, shareholderSnapshot, closeoutRun] = await Promise.all([
+    queriesToBatch.length > 0 ? c.env.DB.batch(queriesToBatch) : Promise.resolve([]),
+    getShareholderSnapshot(c.env.DB, id),
     getCompletedCloseoutRun(c.env.DB, id)
   ])
+
+  let membersIndex = -1
+  let distributedProfitIndex = -1
+  let settlementRowsIndex = -1
+
+  let currentIndex = 0
+  if (hasProjectMembersTable) membersIndex = currentIndex++
+  distributedProfitIndex = currentIndex++
+  if (hasSettlementEntriesTable) settlementRowsIndex = currentIndex++
+
+  const members = membersIndex >= 0 && (batchResults as any)[membersIndex] ? { results: (batchResults as any)[membersIndex].results as ProjectMember[] } : { results: [] as ProjectMember[] }
+  const distributedProfit = distributedProfitIndex >= 0 && (batchResults as any)[distributedProfitIndex] ? (batchResults as any)[distributedProfitIndex].results?.[0] as unknown as { total: number } : undefined
+  const settlementRows = settlementRowsIndex >= 0 && (batchResults as any)[settlementRowsIndex] ? (batchResults as any)[settlementRowsIndex].results?.[0] as unknown as { principal_total: number; final_profit_total: number; claimable_total: number; reserved_total: number; withdrawn_total: number; } : null
 
   const shareholderRows = await c.env.DB.prepare(
     `SELECT
@@ -1623,7 +1667,8 @@ adminRoutes.get('/point-withdrawals', async (c) => {
     params.push(status)
   }
   
-  const [rows, countRow] = await Promise.all([
+  // ⚡ Bolt: Use db.batch() instead of Promise.all to prevent per-query HTTP network overhead in D1
+  const results = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT pw.*, u.name as user_name, u.phone as user_phone
        FROM point_withdrawals pw
@@ -1631,13 +1676,16 @@ adminRoutes.get('/point-withdrawals', async (c) => {
        ${whereClause}
        ORDER BY pw.requested_at DESC
        LIMIT ? OFFSET ?`
-    ).bind(...params, limit, offset).all(),
+    ).bind(...params, limit, offset),
     c.env.DB.prepare(
       `SELECT COUNT(*) as total FROM point_withdrawals ${whereClause}`
-    ).bind(...params).first<{ total: number }>()
+    ).bind(...params)
   ])
   
-  return ok(c, paginate(rows.results, countRow?.total ?? 0, page, limit))
+  const rows = results[0].results as unknown as any[]
+  const countRow = results[1].results?.[0] as unknown as { total: number } | undefined
+
+  return ok(c, paginate(rows, countRow?.total ?? 0, page, limit))
 })
 
 // PATCH /api/admin/point-withdrawals/:id/approve
