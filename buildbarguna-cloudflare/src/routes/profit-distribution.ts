@@ -90,6 +90,8 @@ async function getProjectFinancials(db: D1Database, projectId: number) {
 }
 
 async function hasColumn(db: D1Database, table: string, column: string) {
+  if (!/^[a-zA-Z0-9_]+$/.test(table)) return false
+
   const cacheKey = `${table}.${column}`
   const cached = schemaSupportCache.get(cacheKey)
   if (cached != null) return cached
