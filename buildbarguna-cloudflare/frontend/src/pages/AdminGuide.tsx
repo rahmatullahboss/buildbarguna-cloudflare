@@ -613,7 +613,10 @@ function AdminGuideComponent() {
             
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="lg:hidden p-3 rounded-xl hover:bg-blue-50 transition-colors"
+              className="lg:hidden p-3 rounded-xl hover:bg-blue-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              aria-label={showMobileMenu ? 'মেনু বন্ধ করুন' : 'মেনু খুলুন'}
+              title={showMobileMenu ? 'মেনু বন্ধ করুন' : 'মেনু খুলুন'}
+              aria-expanded={showMobileMenu}
             >
               <Book className="w-7 h-7 text-gray-700" />
             </button>
@@ -678,7 +681,12 @@ function AdminGuideComponent() {
               <div className="absolute left-0 top-0 h-full w-80 bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
                   <h2 className="text-xl font-bold text-gray-900">সূচিপত্র</h2>
-                  <button onClick={() => setShowMobileMenu(false)} className="p-3 hover:bg-blue-100 rounded-xl transition-colors">
+                  <button
+                    onClick={() => setShowMobileMenu(false)}
+                    className="p-3 hover:bg-blue-100 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                    aria-label="মেনু বন্ধ করুন"
+                    title="মেনু বন্ধ করুন"
+                  >
                     <X className="w-6 h-6 text-gray-700" />
                   </button>
                 </div>
