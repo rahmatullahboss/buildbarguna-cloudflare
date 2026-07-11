@@ -3,9 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminWithdrawalsApi } from '../../lib/api'
 import { formatTaka, formatDate } from '../../lib/auth'
 import type { WithdrawalWithUser, WithdrawalStatus } from '../../lib/api'
-import {
-  CheckCircle, XCircle, Clock, AlertTriangle, DollarSign, Filter
-} from 'lucide-react'
+import { X, CheckCircle, XCircle, Clock, AlertTriangle, DollarSign, Filter } from 'lucide-react'
 
 function StatusBadge({ status }: { status: WithdrawalStatus }) {
   const map: Record<WithdrawalStatus, { label: string; cls: string }> = {
@@ -90,13 +88,13 @@ export default function AdminWithdrawals() {
       {msg && (
         <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">
           <CheckCircle size={16} /> {msg}
-          <button onClick={() => setMsg('')} className="ml-auto" aria-label="বার্তা বন্ধ করুন">✕</button>
+          <button onClick={() => setMsg('')} className="ml-auto p-1 hover:bg-green-100/50 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 text-green-600" aria-label="বার্তা বন্ধ করুন" title="বার্তা বন্ধ করুন"><X size={16} /></button>
         </div>
       )}
       {errMsg && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
           <AlertTriangle size={16} /> {errMsg}
-          <button onClick={() => setErrMsg('')} className="ml-auto" aria-label="ত্রুটি বার্তা বন্ধ করুন">✕</button>
+          <button onClick={() => setErrMsg('')} className="ml-auto p-1 hover:bg-red-100/50 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 text-red-600" aria-label="ত্রুটি বার্তা বন্ধ করুন" title="ত্রুটি বার্তা বন্ধ করুন"><X size={16} /></button>
         </div>
       )}
 
@@ -166,7 +164,7 @@ export default function AdminWithdrawals() {
                 disabled={!rejectNote.trim() || rejectMutation.isPending}
                 className="flex-1 bg-red-600 text-white py-2 rounded-lg font-medium hover:bg-red-700 transition-colors"
               >
-                {rejectMutation.isPending ? 'প্রত্যাখ্যান হচ্ছে...' : '✕ প্রত্যাখ্যান করুন'}
+                {rejectMutation.isPending ? 'প্রত্যাখ্যান হচ্ছে...' : <><X size={16} className="inline mr-1" /> প্রত্যাখ্যান করুন</>}
               </button>
               <button onClick={() => { setRejectId(null); setRejectNote('') }} className="btn-secondary flex-1">
                 বাতিল

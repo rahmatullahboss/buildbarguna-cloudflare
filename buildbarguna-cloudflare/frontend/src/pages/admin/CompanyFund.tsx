@@ -3,10 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { profitApi, type CompanyFundTransaction } from '../../lib/api'
 import { formatTaka, formatDate } from '../../lib/auth'
 import { getUser } from '../../lib/auth'
-import {
-  Building2, TrendingUp, TrendingDown, Wallet, Plus, ChevronLeft, ChevronRight,
-  CheckCircle, AlertTriangle, XCircle, Clock, Shield
-} from 'lucide-react'
+import { X, Building2, TrendingUp, TrendingDown, Wallet, Plus, ChevronLeft, ChevronRight,
+  CheckCircle, AlertTriangle, XCircle, Clock, Shield } from 'lucide-react'
 
 const TYPE_LABELS: Record<string, string> = {
   profit_share: 'প্রফিট শেয়ার',
@@ -128,13 +126,13 @@ export default function CompanyFund() {
       {msg && (
         <div className="flex items-start gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 text-sm">
           <CheckCircle size={16} className="mt-0.5 shrink-0" /> {msg}
-          <button onClick={() => setMsg('')} className="ml-auto text-green-400">✕</button>
+          <button onClick={() => setMsg('')} className="ml-auto p-1 hover:bg-green-100/50 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 text-green-600" aria-label="বার্তা বন্ধ করুন" title="বার্তা বন্ধ করুন"><X size={16} /></button>
         </div>
       )}
       {errMsg && (
         <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" /> {errMsg}
-          <button onClick={() => setErrMsg('')} className="ml-auto text-red-400">✕</button>
+          <button onClick={() => setErrMsg('')} className="ml-auto p-1 hover:bg-red-100/50 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 text-red-600" aria-label="ত্রুটি বার্তা বন্ধ করুন" title="ত্রুটি বার্তা বন্ধ করুন"><X size={16} /></button>
         </div>
       )}
 
